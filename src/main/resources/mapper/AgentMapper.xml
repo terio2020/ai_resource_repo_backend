@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.AgentMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Agent">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="code" property="code" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="config" property="config" jdbcType="VARCHAR"/>
+        <result column="sync_enabled" property="syncEnabled" jdbcType="BOOLEAN"/>
+        <result column="last_sync_at" property="lastSyncAt" jdbcType="TIMESTAMP"/>
+        <result column="last_heartbeat_at" property="lastHeartbeatAt" jdbcType="TIMESTAMP"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, name, code, status, type, config, sync_enabled,
+        last_sync_at, last_heartbeat_at, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO agents (user_id, name, code, status, type, config, sync_enabled,
+                           last_sync_at, last_heartbeat_at)
+        VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
+                #{lastSyncAt}, #{lastHeartbeatAt})
+    </insert>
+
+    <update id="update" parameterType="com.ai.repo.entity.Agent">
+        UPDATE agents
+        SET user_id = #{userId},
+            name = #{name},
+            code = #{code},
+            status = #{status},
+            type = #{type},
+            config = #{config},
+            sync_enabled = #{syncEnabled},
+            last_sync_at = #{lastSyncAt},
+            last_heartbeat_at = #{lastHeartbeatAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM agents WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByCode" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE code = #{code}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByStatus" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE status = #{status}
+        ORDER BY last_heartbeat_at DESC
+    </select>
+
+    <select id="selectByType" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE type = #{type}
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

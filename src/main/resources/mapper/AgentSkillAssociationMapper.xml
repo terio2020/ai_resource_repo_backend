@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.AgentSkillAssociationMapper">
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.AgentSkillAssociation">
+        <id column="id" property="id"/>
+        <result column="agent_id" property="agentId"/>
+        <result column="skill_id" property="skillId"/>
+        <result column="proficiency" property="proficiency"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM `agent_skill_association` WHERE id = #{id}
+    </select>
+
+    <select id="findByAgentId" resultMap="BaseResultMap">
+        SELECT * FROM `agent_skill_association` WHERE agent_id = #{agentId}
+    </select>
+
+    <select id="findBySkillId" resultMap="BaseResultMap">
+        SELECT * FROM `agent_skill_association` WHERE skill_id = #{skillId}
+    </select>
+
+    <select id="findByAgentAndSkill" resultMap="BaseResultMap">
+        SELECT * FROM `agent_skill_association`
+        WHERE agent_id = #{agentId} AND skill_id = #{skillId}
+    </select>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM `agent_skill_association`
+    </select>
+
+    <insert id="insert">
+        INSERT INTO `agent_skill_association` (id, agent_id, skill_id, proficiency)
+        VALUES (#{id}, #{agentId}, #{skillId}, #{proficiency})
+    </insert>
+
+    <update id="update">
+        UPDATE `agent_skill_association` SET
+            agent_id = #{agentId},
+            skill_id = #{skillId},
+            proficiency = #{proficiency},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM `agent_skill_association` WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByAgentId">
+        DELETE FROM `agent_skill_association` WHERE agent_id = #{agentId}
+    </delete>
+
+    <delete id="deleteBySkillId">
+        DELETE FROM `agent_skill_association` WHERE skill_id = #{skillId}
+    </delete>
+</mapper>

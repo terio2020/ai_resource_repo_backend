@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.UserChatMessageMapper">
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.UserChatMessage">
+        <id column="id" property="id"/>
+        <result column="sender_id" property="senderId"/>
+        <result column="receiver_id" property="receiverId"/>
+        <result column="content" property="content"/>
+        <result column="message_type" property="messageType"/>
+        <result column="read" property="isRead"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM `user_chat_messages` WHERE id = #{id}
+    </select>
+
+    <select id="findBySenderId" resultMap="BaseResultMap">
+        SELECT * FROM `user_chat_messages` WHERE sender_id = #{senderId} ORDER BY created_at DESC
+    </select>
+
+    <select id="findByReceiverId" resultMap="BaseResultMap">
+        SELECT * FROM `user_chat_messages` WHERE receiver_id = #{receiverId} ORDER BY created_at DESC
+    </select>
+
+    <select id="findConversation" resultMap="BaseResultMap">
+        SELECT * FROM `user_chat_messages`
+        WHERE (sender_id = #{userId1} AND receiver_id = #{userId2})
+           OR (sender_id = #{userId2} AND receiver_id = #{userId1})
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM `user_chat_messages` ORDER BY created_at DESC
+    </select>
+
+    <insert id="insert">
+        INSERT INTO `user_chat_messages` (
+            id, sender_id, receiver_id, content, message_type, read
+        ) VALUES (
+            #{id}, #{senderId}, #{receiverId}, #{content}, #{messageType}, #{isRead}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE `user_chat_messages` SET
+            sender_id = #{senderId},
+            receiver_id = #{receiverId},
+            content = #{content},
+            message_type = #{messageType},
+            read = #{isRead},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM `user_chat_messages` WHERE id = #{id}
+    </delete>
+</mapper>

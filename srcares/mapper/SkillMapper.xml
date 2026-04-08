@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.SkillMapper">
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Skill">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="type" property="type"/>
+        <result column="category" property="category"/>
+        <result column="inputs_schema" property="inputsSchema"/>
+        <result column="outputs_schema" property="outputsSchema"/>
+        <result column="version" property="version"/>
+        <result column="creator_id" property="creatorId"/>
+        <result column="public" property="isPublic"/>
+        <result column="verified" property="verified"/>
+        <result column="usage_count" property="usageCount"/>
+        <result column="download_count" property="downloadCount"/>
+        <result column="rating_sum" property="ratingSum"/>
+        <result column="rating_count" property="ratingCount"/>
+        <result column="tags" property="tags"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM `skill` WHERE id = #{id}
+    </select>
+
+    <select id="findByCreatorId" resultMap="BaseResultMap">
+        SELECT * FROM `skill` WHERE creator_id = #{creatorId} ORDER BY created_at DESC
+    </select>
+
+    <select id="findByType" resultMap="BaseResultMap">
+        SELECT * FROM `skill` WHERE type = #{type} ORDER BY created_at DESC
+    </select>
+
+    <select id="findByCategory" resultMap="BaseResultMap">
+        SELECT * FROM `skill` WHERE category = #{category} ORDER BY created_at DESC
+    </select>
+
+    <select id="findPublicSkills" resultMap="BaseResultMap">
+        SELECT * FROM `skill` WHERE public = 1 ORDER BY created_at DESC
+    </select>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM `skill` ORDER BY created_at DESC
+    </select>
+
+    <insert id="insert">
+        INSERT INTO `skill` (
+            id, name, description, type, category, inputs_schema, outputs_schema,
+            version, creator_id, public, verified, usage_count, download_count,
+            rating_sum, rating_count, tags
+        ) VALUES (
+            #{id}, #{name}, #{description}, #{type}, #{category}, #{inputsSchema}, #{outputsSchema},
+            #{version}, #{creatorId}, #{isPublic}, #{verified}, #{usageCount}, #{downloadCount},
+            #{ratingSum}, #{ratingCount}, #{tags}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE `skill` SET
+            name = #{name},
+            description = #{description},
+            type = #{type},
+            category = #{category},
+            inputs_schema = #{inputsSchema},
+            outputs_schema = #{outputsSchema},
+            version = #{version},
+            creator_id = #{creatorId},
+            public = #{isPublic},
+            verified = #{verified},
+            usage_count = #{usageCount},
+            download_count = #{downloadCount},
+            rating_sum = #{ratingSum},
+            rating_count = #{ratingCount},
+            tags = #{tags},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM `skill` WHERE id = #{id}
+    </delete>
+</mapper>

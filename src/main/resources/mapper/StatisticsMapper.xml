@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.StatisticsMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Statistics">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="metric_type" property="metricType" jdbcType="VARCHAR"/>
+        <result column="metric_name" property="metricName" jdbcType="VARCHAR"/>
+        <result column="metric_value" property="metricValue" jdbcType="DECIMAL"/>
+        <result column="unit" property="unit" jdbcType="VARCHAR"/>
+        <result column="date" property="date" jdbcType="DATE"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, metric_type, metric_name, metric_value, unit, date, created_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.Statistics" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO statistics (user_id, metric_type, metric_name, metric_value, unit, date)
+        VALUES (#{userId}, #{metricType}, #{metricName}, #{metricValue}, #{unit}, #{date})
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM statistics WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM statistics
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM statistics
+        ORDER BY date DESC, created_at DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM statistics
+        WHERE user_id = #{userId}
+        ORDER BY date DESC, created_at DESC
+    </select>
+
+    <select id="selectByUserIdAndDateRange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM statistics
+        WHERE user_id = #{userId}
+          AND date >= #{startDate}
+          AND date &lt;= #{endDate}
+        ORDER BY date DESC, created_at DESC
+    </select>
+
+    <select id="selectByMetricType" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM statistics
+        WHERE metric_type = #{metricType}
+        ORDER BY date DESC, created_at DESC
+    </select>
+
+    <select id="selectByUserIdAndMetricType" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM statistics
+        WHERE user_id = #{userId}
+          AND metric_type = #{metricType}
+        ORDER BY date DESC, created_at DESC
+    </select>
+
+</mapper>

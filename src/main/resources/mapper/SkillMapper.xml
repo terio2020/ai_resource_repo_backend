@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.SkillMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Skill">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="version" property="version" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="VARCHAR"/>
+        <result column="file_path" property="filePath" jdbcType="VARCHAR"/>
+        <result column="file_size" property="fileSize" jdbcType="BIGINT"/>
+        <result column="mime_type" property="mimeType" jdbcType="VARCHAR"/>
+        <result column="tags" property="tags" jdbcType="VARCHAR"/>
+        <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
+        <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
+        <result column="like_count" property="likeCount" jdbcType="INTEGER"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, agent_id, name, version, description, file_path, file_size,
+        mime_type, tags, category, is_public, download_count, like_count,
+        created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.Skill" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO skills (user_id, agent_id, name, version, description, file_path, file_size,
+                           mime_type, tags, category, is_public, download_count, like_count)
+        VALUES (#{userId}, #{agentId}, #{name}, #{version}, #{description}, #{filePath}, #{fileSize},
+                #{mimeType}, #{tags}, #{category}, #{isPublic}, #{downloadCount}, #{likeCount})
+    </insert>
+
+    <update id="update" parameterType="com.ai.repo.entity.Skill">
+        UPDATE skills
+        SET user_id = #{userId},
+            agent_id = #{agentId},
+            name = #{name},
+            version = #{version},
+            description = #{description},
+            file_path = #{filePath},
+            file_size = #{fileSize},
+            mime_type = #{mimeType},
+            tags = #{tags},
+            category = #{category},
+            is_public = #{isPublic},
+            download_count = #{downloadCount},
+            like_count = #{likeCount}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM skills WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE agent_id = #{agentId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByCategory" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE category = #{category}
+        ORDER BY like_count DESC
+    </select>
+
+    <select id="selectByPublic" parameterType="java.lang.Boolean" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE is_public = #{isPublic}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="searchByKeyword" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE MATCH(name, description, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

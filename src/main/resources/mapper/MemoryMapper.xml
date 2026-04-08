@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.MemoryMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Memory">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="tags" property="tags" jdbcType="VARCHAR"/>
+        <result column="metadata" property="metadata" jdbcType="LONGVARCHAR"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, agent_id, title, content, category, tags, metadata, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.Memory" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO memories (user_id, agent_id, title, content, category, tags, metadata)
+        VALUES (#{userId}, #{agentId}, #{title}, #{content}, #{category}, #{tags}, #{metadata})
+    </insert>
+
+    <update id="update" parameterType="com.ai.repo.entity.Memory">
+        UPDATE memories
+        SET user_id = #{userId},
+            agent_id = #{agentId},
+            title = #{title},
+            content = #{content},
+            category = #{category},
+            tags = #{tags},
+            metadata = #{metadata}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM memories WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE agent_id = #{agentId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByCategory" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE category = #{category}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="searchByKeyword" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE MATCH(title, content, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

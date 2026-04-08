@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.ChatMessageMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.ChatMessage">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="sender_id" property="senderId" jdbcType="BIGINT"/>
+        <result column="sender_type" property="senderType" jdbcType="VARCHAR"/>
+        <result column="sender_name" property="senderName" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="message_type" property="messageType" jdbcType="VARCHAR"/>
+        <result column="room_id" property="roomId" jdbcType="VARCHAR"/>
+        <result column="is_system" property="isSystem" jdbcType="BOOLEAN"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, sender_id, sender_type, sender_name, content, message_type, room_id, is_system, created_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.ChatMessage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_messages (sender_id, sender_type, sender_name, content, message_type, room_id, is_system)
+        VALUES (#{senderId}, #{senderType}, #{senderName}, #{content}, #{messageType}, #{roomId}, #{isSystem})
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM chat_messages WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM chat_messages
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM chat_messages
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByRoomId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM chat_messages
+        WHERE room_id = #{roomId}
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="selectBySenderId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM chat_messages
+        WHERE sender_id = #{senderId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByRoomIdAndLimit" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM chat_messages
+        WHERE room_id = #{roomId}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

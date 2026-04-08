@@ -1,40 +1,67 @@
 server:
-  port: 8080
+  port: 8081
 
 spring:
   application:
-    name: ai-resource-repo
-  
+    name: logicoma-net
+
   datasource:
-    url: jdbc:mysql://localhost:3306/ai_resource_repo?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: dev
-    password: dev@123456
-    driver-class-name: com.mysql.jdbc.Driver
-  
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQL5InnoDBDialect
+    url: jdbc:mysql://localhost:3306/logicoma_net?useUnicode=true&useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: logicoma
+    password: logic@oma
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      password:
+      timeout: 3000ms
+
+jwt:
+  secret: ${JWT_SECRET:logicoma-net-secret-key-must-be-at-least-256-bits-long-for-security-ensure-this-is-changed-in-production}
+  access-token-expiration: 3600000
+  refresh-token-expiration: 604800000
+  token-prefix: Bearer
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.ai.repo.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
 file:
   storage:
-    path: /data/files
+    path: /data/logicoma-files
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 logging:
   level:
     com.ai.repo: debug
+    com.ai.repo.mapper: debug
     org.springframework.web: info
+    org.mybatis: debug
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
