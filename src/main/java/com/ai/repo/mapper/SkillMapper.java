@@ -2,6 +2,7 @@ package com.ai.repo.mapper;
 
 import com.ai.repo.entity.Skill;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,4 +18,5 @@ public interface SkillMapper {
     List<Skill> selectByCategory(String category);
     List<Skill> selectByPublic(Boolean isPublic);
     List<Skill> searchByKeyword(String keyword);
+    int batchDelete(@Param("ids") List<Long> ids);
 }

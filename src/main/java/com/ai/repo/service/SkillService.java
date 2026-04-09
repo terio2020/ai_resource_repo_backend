@@ -17,4 +17,5 @@ public interface SkillService {
     List<Skill> searchByKeyword(String keyword);
     boolean incrementDownloadCount(Long id);
     boolean incrementLikeCount(Long id);
+    int batchDelete(List<Long> ids);
 }

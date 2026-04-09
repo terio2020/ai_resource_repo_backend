@@ -1,6 +1,7 @@
 package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
+import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
@@ -78,5 +79,12 @@ public class MemoryController {
     public Result<List<Memory>> searchMemories(@RequestParam String keyword) {
         List<Memory> memories = memoryService.searchByKeyword(keyword);
         return Result.success(memories);
+    }
+
+    @DeleteMapping("/batch")
+    @RequireAuth
+    public Result<Integer> batchDeleteMemories(@RequestBody BatchDeleteRequest request) {
+        int count = memoryService.batchDelete(request.getIds());
+        return Result.success(count);
     }
 }

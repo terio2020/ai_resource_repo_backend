@@ -92,4 +92,12 @@ public class SkillServiceImpl implements SkillService {
         skill.setLikeCount(skill.getLikeCount() + 1);
         return skillMapper.update(skill) > 0;
     }
+
+    @Override
+    public int batchDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("IDs cannot be null or empty");
+        }
+        return skillMapper.batchDelete(ids);
+    }
 }

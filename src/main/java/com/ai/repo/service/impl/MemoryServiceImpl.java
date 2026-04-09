@@ -67,4 +67,12 @@ public class MemoryServiceImpl implements MemoryService {
     public List<Memory> searchByKeyword(String keyword) {
         return memoryMapper.searchByKeyword(keyword);
     }
+
+    @Override
+    public int batchDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("IDs cannot be null or empty");
+        }
+        return memoryMapper.batchDelete(ids);
+    }
 }

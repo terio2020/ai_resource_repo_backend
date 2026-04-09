@@ -86,4 +86,71 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countTotal" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM agents
+    </select>
+
+    <select id="selectBySearch" parameterType="com.ai.repo.dto.AgentSearchRequest" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        <if test="size != null and size > 0">
+            LIMIT #{size}
+            <if test="offset != null and offset > 0">
+                OFFSET #{offset}
+            </if>
+        </if>
+    </select>
+
+    <select id="selectStats" parameterType="java.lang.Long" resultType="com.ai.repo.dto.AgentStatsResponse">
+        SELECT 
+            a.id as agentId,
+            a.name as agentName,
+            COALESCE((SELECT COUNT(*) FROM skills WHERE agent_id = #{agentId}), 0) as skillCount,
+            COALESCE((SELECT COUNT(*) FROM memories WHERE agent_id = #{agentId}), 0) as memoryCount,
+            a.last_heartbeat_at as lastActiveAt,
+            a.status as status
+        FROM agents a
+        WHERE a.id = #{agentId}
+    </select>
+
+    <update id="updateHeartbeat">
+        UPDATE agents
+        SET last_heartbeat_at = #{lastHeartbeatAt}
+        <if test="status != null and status != ''">
+            , status = #{status}
+        </if>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatusOnly">
+        UPDATE agents
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateConfigOnly">
+        UPDATE agents
+        SET config = #{config}
+        WHERE id = #{id}
+    </update>
+
 </mapper>

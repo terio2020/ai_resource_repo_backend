@@ -2,6 +2,7 @@ package com.ai.repo.mapper;
 
 import com.ai.repo.entity.Memory;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -16,4 +17,5 @@ public interface MemoryMapper {
     List<Memory> selectByAgentId(Long agentId);
     List<Memory> selectByCategory(String category);
     List<Memory> searchByKeyword(String keyword);
+    int batchDelete(@Param("ids") List<Long> ids);
 }

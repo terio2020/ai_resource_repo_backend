@@ -1,7 +1,15 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.common.PageResult;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.AgentCreateRequest;
+import com.ai.repo.dto.AgentSearchRequest;
+import com.ai.repo.dto.AgentStatsResponse;
+import com.ai.repo.dto.AgentSyncResponse;
+import com.ai.repo.dto.BatchDeleteRequest;
+import com.ai.repo.dto.ConfigUpdateRequest;
+import com.ai.repo.dto.HeartbeatRequest;
+import com.ai.repo.dto.StatusUpdateRequest;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
@@ -10,6 +18,8 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -86,5 +96,60 @@ public class AgentController {
     public Result<List<Agent>> getAgentsByType(@PathVariable String type) {
         List<Agent> agents = agentService.findByType(type);
         return Result.success(agents);
+    }
+
+    @GetMapping("/page")
+    public Result<PageResult<Agent>> getAgentsByPage(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        PageResult<Agent> pageResult = agentService.findPage(page, size);
+        return Result.success(pageResult);
+    }
+
+    @PostMapping("/search")
+    public Result<List<Agent>> searchAgents(@RequestBody AgentSearchRequest request) {
+        List<Agent> agents = agentService.findBySearch(request);
+        return Result.success(agents);
+    }
+
+    @GetMapping("/{id}/stats")
+    public Result<AgentStatsResponse> getAgentStats(@PathVariable Long id) {
+        AgentStatsResponse stats = agentService.getStats(id);
+        return Result.success(stats);
+    }
+
+    @PostMapping("/{id}/heartbeat")
+    @RequireAuth
+    @RequireOwnership(resourceType = "agent", idParam = "id")
+    public Result<Void> heartbeat(@PathVariable Long id, @RequestBody HeartbeatRequest request) {
+        String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        agentService.updateHeartbeat(id, request.getStatus(), now);
+        return Result.success();
+    }
+
+    @PutMapping("/{id}/status")
+    @RequireAuth
+    @RequireOwnership(resourceType = "agent", idParam = "id")
+    public Result<Void> updateStatus(@PathVariable Long id, @RequestBody StatusUpdateRequest request) {
+        agentService.updateStatusOnly(id, request.getStatus());
+        return Result.success();
+    }
+
+    @PutMapping("/{id}/config")
+    @RequireAuth
+    @RequireOwnership(resourceType = "agent", idParam = "id")
+    public Result<Void> updateConfig(@PathVariable Long id, @RequestBody ConfigUpdateRequest request) {
+        agentService.updateConfigOnly(id, request.getConfig());
+        return Result.success();
+    }
+
+    @GetMapping("/{id}/sync")
+    @RequireAuth
+    @RequireOwnership(resourceType = "agent", idParam = "id")
+    public Result<AgentSyncResponse> syncData(
+            @PathVariable Long id,
+            @RequestParam(required = false) String since) {
+        AgentSyncResponse response = agentService.syncData(id, since);
+        return Result.success(response);
     }
 }

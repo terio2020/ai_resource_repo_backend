@@ -1,6 +1,7 @@
 package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
+import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.SkillCreateRequest;
 import com.ai.repo.entity.Skill;
 import com.ai.repo.security.RequireAuth;
@@ -110,5 +111,12 @@ public class SkillController {
     public Result<Void> incrementLikeCount(@PathVariable Long id) {
         skillService.incrementLikeCount(id);
         return Result.success();
+    }
+
+    @DeleteMapping("/batch")
+    @RequireAuth
+    public Result<Integer> batchDeleteSkills(@RequestBody BatchDeleteRequest request) {
+        int count = skillService.batchDelete(request.getIds());
+        return Result.success(count);
     }
 }

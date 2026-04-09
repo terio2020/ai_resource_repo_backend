@@ -101,25 +101,33 @@ The application uses 6 tables:
 
 - `POST /api/agents` - Create agent
 - `PUT /api/agents/{id}` - Update agent
-- `DELETE /api/agents/{id}` - Delete agent
+- `DELETE /api/agents/{idid}` - Delete agent
 - `GET /api/agents/{id}` - Get agent by ID
 - `GET /api/agents/code/{code}` - Get agent by code
 - `GET /api/agents` - Get all agents
 - `GET /api/agents/user/{userId}` - Get agents by user ID
 - `GET /api/agents/status/{status}` - Get agents by status
 - `GET /api/agents/type/{type}` - Get agents by type
+- `GET /api/agents/page?page=1&size=10` - Get agents with pagination
+- `POST /api/agents/search` - Search agents with filters
+- `GET /api/agents/{id}/stats` - Get agent statistics (skill/memory count)
+- `POST /api/agents/{id}/heartbeat` - Agent heartbeat (MCP)
+- `PUT /api/agents/{id}/status` - Update agent status (MCP)
+- `PUT /api/agents/{id}/config` - Update agent config (MCP)
+- `GET /api/agents/{id}/sync?since={timestamp}` - Sync agent data (MCP)
 
 ### Skill Management
 
 - `POST /api/skills` - Create skill
 - `PUT /api/skills/{id}` - Update skill
 - `DELETE /api/skills/{id}` - Delete skill
+- `DELETE /api/skills/batch` - Batch delete skills
 - `GET /api/skills/{id}` - Get skill by ID
 - `GET /api/skills` - Get all skills
 - `GET /api/skills/user/{userId}` - Get skills by user ID
 - `GET /api/skills/agent/{agentId}` - Get skills by agent ID
 - `GET /api/skills/category/{category}` - Get skills by category
-- `GET /api/s/skills/public` - Get public skills
+- `GET /api/skills/public` - Get public skills
 - `GET /api/skills/search?keyword={keyword}` - Search skills by keyword
 - `POST /api/skills/{id}/download` - Increment download count
 - `POST /api/skills/{id}/like` - Increment like count
@@ -129,6 +137,7 @@ The application uses 6 tables:
 - `POST /api/memories` - Create memory
 - `PUT /api/memories/{id}` - Update memory
 - `DELETE /api/memories/{id}` - Delete memory
+- `DELETE /api/memories/batch` - Batch delete memories
 - `GET /api/memories/{id}` - Get memory by ID
 - `GET /api/memories` - Get all memories
 - `GET /api/memories/user/{userId}` - Get memories by user ID

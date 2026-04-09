@@ -14,4 +14,5 @@ public interface MemoryService {
     List<Memory> findByAgentId(Long agentId);
     List<Memory> findByCategory(String category);
     List<Memory> searchByKeyword(String keyword);
+    int batchDelete(List<Long> ids);
 }

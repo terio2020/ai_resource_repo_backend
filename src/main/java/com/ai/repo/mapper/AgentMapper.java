@@ -1,7 +1,10 @@
 package com.ai.repo.mapper;
 
+import com.ai.repo.dto.AgentSearchRequest;
+import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.entity.Agent;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -16,4 +19,13 @@ public interface AgentMapper {
     List<Agent> selectByUserId(Long userId);
     List<Agent> selectByStatus(String status);
     List<Agent> selectByType(String type);
+    
+    List<Agent> selectPage(@Param("page") Integer page, @Param("size") Integer size, @Param("offset") Integer offset);
+    List<Agent> selectBySearch(AgentSearchRequest request);
+    AgentStatsResponse selectStats(@Param("agentId") Long agentId);
+    int updateHeartbeat(@Param("id") Long id, @Param("status") String status, @Param("lastHeartbeatAt") String lastHeartbeatAt);
+    int updateStatusOnly(@Param("id") Long id, @Param("status") String status);
+    int updateConfigOnly(@Param("id") Long id, @Param("config") String config);
+    
+    Long countTotal();
 }

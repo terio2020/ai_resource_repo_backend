@@ -1,5 +1,9 @@
 package com.ai.repo.service;
 
+import com.ai.repo.common.PageResult;
+import com.ai.repo.dto.AgentSearchRequest;
+import com.ai.repo.dto.AgentStatsResponse;
+import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
 
 import java.util.List;
@@ -14,4 +18,11 @@ public interface AgentService {
     List<Agent> findByUserId(Long userId);
     List<Agent> findByStatus(String status);
     List<Agent> findByType(String type);
+    PageResult<Agent> findPage(Integer page, Integer size);
+    List<Agent> findBySearch(AgentSearchRequest request);
+    AgentStatsResponse getStats(Long agentId);
+    boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt);
+    boolean updateStatusOnly(Long id, String status);
+    boolean updateConfigOnly(Long id, String config);
+    AgentSyncResponse syncData(Long agentId, String since);
 }
