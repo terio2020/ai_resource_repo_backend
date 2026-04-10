@@ -44,9 +44,12 @@ mybatis:
     cache-enabled: true
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
-file:
-  storage:
-    path: /data/logicoma-files
+  file:
+    storage:
+      path: /data/logicoma-files
+      base-path: /data/logicoma-files
+      allowed-extensions: .md
+      max-size-mb: 50
 
 management:
   endpoints:

@@ -58,4 +58,22 @@ public class GlobalExceptionHandler {
         log.error("System exception: ", e);
         return Result.error("System error, please contact administrator");
     }
+
+    @ExceptionHandler(InvalidFileTypeException.class)
+    public Result<?> handleInvalidFileTypeException(InvalidFileTypeException e) {
+        log.warn("Invalid file type: {}", e.getMessage());
+        return Result.error(400, e.getMessage());
+    }
+
+    @ExceptionHandler(FileTooLargeException.class)
+    public Result<?> handleFileTooLargeException(FileTooLargeException e) {
+        log.warn("File too large: {}", e.getMessage());
+        return Result.error(413, e.getMessage());
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public Result<?> handleFileStorageException(FileStorageException e) {
+        log.error("File storage exception: {}", e.getMessage(), e);
+        return Result.error(500, "File storage failed: " + e.getMessage());
+    }
 }

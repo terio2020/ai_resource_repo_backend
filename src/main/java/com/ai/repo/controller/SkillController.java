@@ -2,14 +2,21 @@ package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.BatchDeleteRequest;
+import com.ai.repo.dto.FileUploadResponse;
 import com.ai.repo.dto.SkillCreateRequest;
+import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Skill;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
+import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.SkillService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -19,6 +26,9 @@ public class SkillController {
 
     @Resource
     private SkillService skillService;
+
+    @Resource
+    private FileStorageService fileStorageService;
 
     @PostMapping
     @RequireAuth
@@ -118,5 +128,54 @@ public class SkillController {
     public Result<Integer> batchDeleteSkills(@RequestBody BatchDeleteRequest request) {
         int count = skillService.batchDelete(request.getIds());
         return Result.success(count);
+    }
+
+    @PostMapping("/{agentId}/upload")
+    @RequireAuth
+    @RequireOwnership(resourceType = "agent", idParam = "agentId")
+    public Result<FileUploadResponse> uploadSkillFile(
+            @PathVariable Long agentId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "description", required = false) String description,
+            HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        FileUploadResponse response = fileStorageService.saveFile(file, userId, agentId, "skill", description);
+        return Result.success(response);
+    }
+
+    @GetMapping("/file/{fileId}")
+    @RequireAuth
+    public ResponseEntity<org.springframework.core.io.Resource> downloadSkillFile(@PathVariable Long fileId, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        org.springframework.core.io.Resource resource = fileStorageService.loadFileAsResource(fileId, userId);
+        FileUploadLog uploadLog = fileStorageService.getFileUploadLog(fileId);
+
+        String contentType = null;
+        try {
+            contentType = "application/octet-stream";
+        } catch (Exception ex) {
+            contentType = "application/octet-stream";
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + uploadLog.getOriginalFileName() + "\"")
+                .body(resource);
+    }
+
+    @GetMapping("/{agentId}/files")
+    @RequireAuth
+    @RequireOwnership(resourceType = "agent", idParam = "agentId")
+    public Result<List<FileUploadLog>> getSkillFiles(@PathVariable Long agentId) {
+        List<FileUploadLog> files = fileStorageService.getFileList(agentId, "skill", null);
+        return Result.success(files);
+    }
+
+    @DeleteMapping("/file/{fileId}")
+    @RequireAuth
+    public Result<Void> deleteSkillFile(@PathVariable Long fileId, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        fileStorageService.deleteFile(fileId, userId);
+        return Result.success();
     }
 }

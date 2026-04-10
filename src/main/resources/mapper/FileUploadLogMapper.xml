@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.FileUploadLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.FileUploadLog">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="original_file_name" property="originalFileName" jdbcType="VARCHAR"/>
+        <result column="stored_file_name" property="storedFileName" jdbcType="VARCHAR"/>
+        <result column="file_path" property="filePath" jdbcType="VARCHAR"/>
+        <result column="file_type" property="fileType" jdbcType="VARCHAR"/>
+        <result column="file_size" property="fileSize" jdbcType="BIGINT"/>
+        <result column="upload_time" property="uploadTime" jdbcType="TIMESTAMP"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, agent_id, original_file_name, stored_file_name, file_path,
+        file_type, file_size, upload_time, created_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.FileUploadLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO file_upload_logs (user_id, agent_id, original_file_name, stored_file_name,
+                                        file_path, file_type, file_size, upload_time)
+        VALUES (#{userId}, #{agentId}, #{originalFileName}, #{storedFileName},
+                #{filePath}, #{fileType}, #{fileSize}, #{uploadTime})
+    </insert>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM file_upload_logs
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByAgentIdAndFileType" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM file_upload_logs
+        WHERE agent_id = #{agentId}
+          AND file_type = #{fileType}
+        ORDER BY upload_time DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM file_upload_logs
+        WHERE user_id = #{userId}
+        ORDER BY upload_time DESC
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM file_upload_logs
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+    <select id="countByAgentId" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM file_upload_logs
+        WHERE agent_id = #{agentId}
+          AND file_type = #{fileType}
+    </select>
+
+</mapper>
