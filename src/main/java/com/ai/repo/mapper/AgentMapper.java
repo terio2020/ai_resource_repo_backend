@@ -26,6 +26,14 @@ public interface AgentMapper {
     int updateHeartbeat(@Param("id") Long id, @Param("status") String status, @Param("lastHeartbeatAt") String lastHeartbeatAt);
     int updateStatusOnly(@Param("id") Long id, @Param("status") String status);
     int updateConfigOnly(@Param("id") Long id, @Param("config") String config);
-    
+
+    Agent selectByApiKey(String apiKey);
+    int updateClaimStatus(@Param("id") Long id, @Param("isClaimed") boolean isClaimed);
+    int updateKarma(@Param("id") Long id, @Param("delta") int delta);
+
     Long countTotal();
+    int incrementFollowerCount(@Param("id") Long id, @Param("delta") int delta);
+    int incrementFollowingCount(@Param("id") Long id, @Param("delta") int delta);
+    int incrementPostsCount(@Param("id") Long id, @Param("delta") int delta);
+    int incrementCommentsCount(@Param("id") Long id, @Param("delta") int delta);
 }

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.PostMapper">
+ 
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Post">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="circle_id" property="circleId" jdbcType="BIGINT"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="content_type" property="contentType" jdbcType="VARCHAR"/>
+        <result column="url" property="url" jdbcType="VARCHAR"/>
+        <result column="metadata" property="metadata" jdbcType="LONGVARCHAR"/>
+        <result column="upvotes" property="upvotes" jdbcType="INTEGER"/>
+        <result column="downvotes" property="downvotes" jdbcType="INTEGER"/>
+        <result column="comment_count" property="commentCount" jdbcType="INTEGER"/>
+        <result column="view_count" property="viewCount" jdbcType="INTEGER"/>
+        <result column="verification_status" property="verificationStatus" jdbcType="VARCHAR"/>
+        <result column="verification_code" property="verificationCode" jdbcType="VARCHAR"/>
+        <result column="is_pinned" property="isPinned" jdbcType="BOOLEAN"/>
+        <result column="is_locked" property="isLocked" jdbcType="BOOLEAN"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+ 
+    <sql id="Base_Column_List">
+        id, agent_id, circle_id, title, content, content_type, url, metadata,
+        upvotes, downvotes, comment_count, view_count,
+        verification_status, verification_code, is_pinned, is_locked,
+        created_at, updated_at
+    </sql>
+ 
+    <insert id="insert" parameterType="com.ai.repo.entity.Post" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO posts (agent_id, circle_id, title, content, content_type, url, metadata,
+                          upvotes, downvotes, comment_count, view_count,
+                          verification_status, verification_code, is_pinned, is_locked)
+        VALUES (#{agentId}, #{circleId}, #{title}, #{content}, #{contentType}, #{url}, #{metadata},
+                #{upvotes}, #{downvotes}, #{commentCount}, #{viewCount},
+                #{verificationStatus}, #{verificationCode}, #{isPinned}, #{isLocked})
+    </insert>
+ 
+    <update id="update" parameterType="com.ai.repo.entity.Post">
+        UPDATE posts
+        SET agent_id = #{agentId},
+            circle_id = #{circleId},
+            title = #{title},
+            content = #{content},
+            content_type = #{contentType},
+            url = #{url},
+            metadata = #{metadata},
+            upvotes = #{upvotes},
+            downvotes = #{downvotes},
+            comment_count = #{commentCount},
+            view_count = #{viewCount},
+            verification_status = #{verificationStatus},
+            verification_code = #{verificationCode},
+            is_pinned = #{isPinned},
+            is_locked = #{isLocked}
+        WHERE id = #{id}
+    </update>
+ 
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM posts WHERE id = #{id}
+    </delete>
+ 
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM posts
+        WHERE id = #{id}
+    </select>
+ 
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM posts
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM posts
+        WHERE agent_id = #{agentId}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectByCircleId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM posts
+        WHERE circle_id = #{circleId}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM posts
+        <where>
+            <if test="circleId != null">
+                AND circle_id = #{circleId}
+            </if>
+            <if test="agentId != null">
+                AND (circle_id IN (SELECT circle_id FROM circle_subscriptions WHERE agent_id = #{agentId})
+                     OR agent_id = #{agentId})
+            )
+            </if>
+        </where>
+        <choose>
+            <when test="sort == 'hot'">
+                ORDER BY (upvotes - downvotes) / POW((UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(created_at)) / 3600 + 2, 1.8) DESC
+            </when>
+            <when test="sort == 'new'">
+                ORDER BY created_at DESC
+            </when>
+            <when test="sort == 'top'">
+                ORDER BY (upvotes - downvotes) DESC
+            </when>
+            <otherwise>
+                ORDER BY created_at DESC
+            </otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+ 
+    <select id="selectBySearch" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM posts
+        WHERE MATCH(title, content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+        ORDER BY MATCH(title, content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) DESC
+    </select>
+ 
+    <update id="updateUpvotes">
+        UPDATE posts
+        SET upvotes = upvotes + #{delta}
+        WHERE id = #{id}
+    </update>
+ 
+    <update id="updateDownvotes">
+        UPDATE posts
+        SET downvotes = downvotes + #{delta}
+        WHERE id = #{id}
+    </update>
+ 
+    <update id="updateCommentCount">
+        UPDATE posts
+        SET comment_count = comment_count + #{delta}
+        WHERE id = #{id}
+    </update>
+ 
+    <update id="updateViewCount">
+        UPDATE posts
+        SET view_count = view_count + #{delta}
+        WHERE id = #{id}
+    </update>
+ 
+    <select id="countTotal" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM posts
+    </select>
+ 
+    <select id="countByAgentId" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM posts WHERE agent_id = #{agentId}
+    </select>
+ 
+    <select id="countByCircleId" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM posts WHERE circle_id = #{circleId}
+    </select>
+ 
+</mapper>

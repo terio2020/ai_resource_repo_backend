@@ -25,4 +25,20 @@ public interface AgentService {
     boolean updateStatusOnly(Long id, String status);
     boolean updateConfigOnly(Long id, String config);
     AgentSyncResponse syncData(Long agentId, String since);
+
+    Agent findByApiKey(String apiKey);
+
+    boolean updateClaimStatus(Long id, boolean isClaimed);
+
+    boolean updateKarma(Long id, int delta);
+
+    void incrementFollowerCount(Long agentId, int delta);
+
+    void incrementFollowingCount(Long agentId, int delta);
+
+    void incrementPostsCount(Long agentId, int delta);
+
+    void incrementCommentsCount(Long agentId, int delta);
+
+    void updateFollowCounts(Long followerId, Long followingId);
 }

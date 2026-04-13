@@ -7,22 +7,24 @@
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="skill_id" property="skillId" jdbcType="BIGINT"/>
         <result column="memory_id" property="memoryId" jdbcType="BIGINT"/>
+        <result column="post_id" property="postId" jdbcType="BIGINT"/>
         <result column="parent_id" property="parentId" jdbcType="BIGINT"/>
         <result column="content" property="content" jdbcType="LONGVARCHAR"/>
         <result column="like_count" property="likeCount" jdbcType="INTEGER"/>
         <result column="reply_count" property="replyCount" jdbcType="INTEGER"/>
+        <result column="downvote_count" property="downvoteCount" jdbcType="INTEGER"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
     </resultMap>
-
+ 
     <sql id="Base_Column_List">
-        id, user_id, skill_id, memory_id, parent_id, content,
-        like_count, reply_count, created_at, updated_at
+        id, user_id, skill_id, memory_id, post_id, parent_id, content,
+        like_count, reply_count, downvote_count, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Comment" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO comments (user_id, skill_id, memory_id, parent_id, content, like_count, reply_count)
-        VALUES (#{userId}, #{skillId}, #{memoryId}, #{parentId}, #{content}, #{likeCount}, #{replyCount})
+        INSERT INTO comments (user_id, skill_id, memory_id, post_id, parent_id, content, like_count, reply_count, downvote_count)
+        VALUES (#{userId}, #{skillId}, #{memoryId}, #{postId}, #{parentId}, #{content}, #{likeCount}, #{replyCount}, #{downvoteCount})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Comment">
@@ -30,10 +32,12 @@
         SET user_id = #{userId},
             skill_id = #{skillId},
             memory_id = #{memoryId},
+            post_id = #{postId},
             parent_id = #{parentId},
             content = #{content},
             like_count = #{likeCount},
-            reply_count = #{replyCount}
+            reply_count = #{replyCount},
+            downvote_count = #{downvoteCount}
         WHERE id = #{id}
     </update>
 
@@ -91,7 +95,10 @@
         <if test="memoryId != null">
             AND memory_id = #{memoryId}
         </if>
+        <if test="postId != null">
+            AND post_id = #{postId}
+        </if>
         ORDER BY created_at DESC
     </select>
-
+ 
 </mapper>

@@ -1,7 +1,9 @@
 package com.ai.repo.entity;
 
+import lombok.Data;
 import java.time.LocalDateTime;
 
+@Data
 public class Agent {
     private Long id;
     private Long userId;
@@ -16,99 +18,18 @@ public class Agent {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public String getConfig() {
-        return config;
-    }
-
-    public void setConfig(String config) {
-        this.config = config;
-    }
-
-    public Boolean getSyncEnabled() {
-        return syncEnabled;
-    }
-
-    public void setSyncEnabled(Boolean syncEnabled) {
-        this.syncEnabled = syncEnabled;
-    }
-
-    public LocalDateTime getLastSyncAt() {
-        return lastSyncAt;
-    }
-
-    public void setLastSyncAt(LocalDateTime lastSyncAt) {
-        this.lastSyncAt = lastSyncAt;
-    }
-
-    public LocalDateTime getLastHeartbeatAt() {
-        return lastHeartbeatAt;
-    }
-
-    public void setLastHeartbeatAt(LocalDateTime lastHeartbeatAt) {
-        this.lastHeartbeatAt = lastHeartbeatAt;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
+    private String displayName;
+    private String description;
+    private String avatarPrompt;
+    private String apiKey;
+    private Boolean isClaimed;
+    private String claimUrl;
+    private String verificationCode;
+    private String xiaZhengStatus;
+    private String xiaZhengUrl;
+    private Integer karma;
+    private Integer followerCount;
+    private Integer followingCount;
+    private Integer postsCount;
+    private Integer commentsCount;
 }

@@ -15,18 +15,41 @@
         <result column="last_heartbeat_at" property="lastHeartbeatAt" jdbcType="TIMESTAMP"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+        <result column="display_name" property="displayName" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="LONGVARCHAR"/>
+        <result column="avatar_prompt" property="avatarPrompt" jdbcType="VARCHAR"/>
+        <result column="api_key" property="apiKey" jdbcType="VARCHAR"/>
+        <result column="is_claimed" property="isClaimed" jdbcType="BOOLEAN"/>
+        <result column="claim_url" property="claimUrl" jdbcType="VARCHAR"/>
+        <result column="verification_code" property="verificationCode" jdbcType="VARCHAR"/>
+        <result column="xia_zheng_status" property="xiaZhengStatus" jdbcType="VARCHAR"/>
+        <result column="xia_zheng_url" property="xiaZhengUrl" jdbcType="VARCHAR"/>
+        <result column="karma" property="karma" jdbcType="INTEGER"/>
+        <result column="follower_count" property="followerCount" jdbcType="INTEGER"/>
+        <result column="following_count" property="followingCount" jdbcType="INTEGER"/>
+        <result column="posts_count" property="postsCount" jdbcType="INTEGER"/>
+        <result column="comments_count" property="commentsCount" jdbcType="INTEGER"/>
     </resultMap>
-
+ 
     <sql id="Base_Column_List">
         id, user_id, name, code, status, type, config, sync_enabled,
-        last_sync_at, last_heartbeat_at, created_at, updated_at
+        last_sync_at, last_heartbeat_at, created_at, updated_at,
+        display_name, description, avatar_prompt, api_key, is_claimed,
+        claim_url, verification_code, xia_zheng_status, xia_zheng_url,
+        karma, follower_count, following_count, posts_count, comments_count
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO agents (user_id, name, code, status, type, config, sync_enabled,
-                           last_sync_at, last_heartbeat_at)
+                            last_sync_at, last_heartbeat_at, display_name, description,
+                            avatar_prompt, api_key, is_claimed, claim_url, verification_code,
+                            xia_zheng_status, xia_zheng_url, karma, follower_count,
+                            following_count, posts_count, comments_count)
         VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
-                #{lastSyncAt}, #{lastHeartbeatAt})
+                #{lastSyncAt}, #{lastHeartbeatAt}, #{displayName}, #{description},
+                #{avatarPrompt}, #{apiKey}, #{isClaimed}, #{claimUrl}, #{verificationCode},
+                #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma}, #{followerCount},
+                #{followingCount}, #{postsCount}, #{commentsCount})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Agent">
@@ -39,7 +62,21 @@
             config = #{config},
             sync_enabled = #{syncEnabled},
             last_sync_at = #{lastSyncAt},
-            last_heartbeat_at = #{lastHeartbeatAt}
+            last_heartbeat_at = #{lastHeartbeatAt},
+            display_name = #{displayName},
+            description = #{description},
+            avatar_prompt = #{avatarPrompt},
+            api_key = #{apiKey},
+            is_claimed = #{isClaimed},
+            claim_url = #{claimUrl},
+            verification_code = #{verificationCode},
+            xia_zheng_status = #{xiaZhengStatus},
+            xia_zheng_url = #{xiaZhengUrl},
+            karma = #{karma},
+            follower_count = #{followerCount},
+            following_count = #{followingCount},
+            posts_count = #{postsCount},
+            comments_count = #{commentsCount}
         WHERE id = #{id}
     </update>
 
@@ -150,6 +187,48 @@
     <update id="updateConfigOnly">
         UPDATE agents
         SET config = #{config}
+        WHERE id = #{id}
+    </update>
+    
+    <select id="selectByApiKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE api_key = #{apiKey}
+    </select>
+    
+    <update id="updateClaimStatus">
+        UPDATE agents
+        SET is_claimed = #{isClaimed}
+        WHERE id = #{id}
+    </update>
+    
+    <update id="updateKarma">
+        UPDATE agents
+        SET karma = karma + #{delta}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementFollowerCount">
+        UPDATE agents
+        SET follower_count = follower_count + #{delta}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementFollowingCount">
+        UPDATE agents
+        SET following_count = following_count + #{delta}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementPostsCount">
+        UPDATE agents
+        SET posts_count = posts_count + #{delta}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementCommentsCount">
+        UPDATE agents
+        SET comments_count = comments_count + #{delta}
         WHERE id = #{id}
     </update>
 

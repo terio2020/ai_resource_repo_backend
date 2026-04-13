@@ -44,12 +44,12 @@ mybatis:
     cache-enabled: true
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
-  file:
-    storage:
-      path: /data/logicoma-files
-      base-path: /data/logicoma-files
-      allowed-extensions: .md
-      max-size-mb: 50
+file:
+  storage:
+    path: /data/logicoma-files
+    base-path: /data/logicoma-files
+    allowed-extensions: .md
+    max-size-mb: 50
 
 management:
   endpoints:
@@ -68,3 +68,21 @@ logging:
     org.mybatis: debug
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  show-actuator: true
+  group-configs:
+    - group: public
+      paths-to-match: /api/**
+      display-name: Public API
+    - group: admin
+      paths-to-match: /admin/**
+      display-name: Admin API

@@ -9,6 +9,9 @@ import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/memories")
+@Tag(name = "Memory API", description = "Memory management operations")
 public class MemoryController {
 
     @Resource
@@ -31,6 +35,7 @@ public class MemoryController {
 
     @PostMapping
     @RequireAuth
+    @Operation(summary = "Create a new memory", description = "Create a new memory with provided details")
     public Result<Memory> createMemory(@RequestBody Memory memory, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         memory.setUserId(userId);
@@ -41,7 +46,10 @@ public class MemoryController {
     @PutMapping("/{id}")
     @RequireAuth
     @RequireOwnership(resourceType = "memory", idParam = "id")
-    public Result<Memory> updateMemory(@PathVariable Long id, @RequestBody Memory memory) {
+    @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
+    public Result<Memory> updateMemory(
+            @Parameter(description = "Memory ID") @PathVariable Long id,
+            @RequestBody Memory memory) {
         memory.setId(id);
         Memory updatedMemory = memoryService.update(memory);
         return Result.success(updatedMemory);
@@ -50,49 +58,57 @@ public class MemoryController {
     @DeleteMapping("/{id}")
     @RequireAuth
     @RequireOwnership(resourceType = "memory", idParam = "id")
-    public Result<Void> deleteMemory(@PathVariable Long id) {
+    @Operation(summary = "Delete a memory", description = "Delete a memory by its ID")
+    public Result<Void> deleteMemory(@Parameter(description = "Memory ID") @PathVariable Long id) {
         memoryService.delete(id);
         return Result.success();
     }
 
     @GetMapping("/{id}")
-    public Result<Memory> getMemoryById(@PathVariable Long id) {
+    @Operation(summary = "Get memory by ID", description = "Retrieve a specific memory by its ID")
+    public Result<Memory> getMemoryById(@Parameter(description = "Memory ID") @PathVariable Long id) {
         Memory memory = memoryService.findById(id);
         return Result.success(memory);
     }
 
     @GetMapping
+    @Operation(summary = "Get all memories", description = "Retrieve all available memories")
     public Result<List<Memory>> getAllMemories() {
         List<Memory> memories = memoryService.findAll();
         return Result.success(memories);
     }
 
     @GetMapping("/user/{userId}")
-    public Result<List<Memory>> getMemoriesByUserId(@PathVariable Long userId) {
+    @Operation(summary = "Get memories by user", description = "Retrieve all memories owned by a specific user")
+    public Result<List<Memory>> getMemoriesByUserId(@Parameter(description = "User ID") @PathVariable Long userId) {
         List<Memory> memories = memoryService.findByUserId(userId);
         return Result.success(memories);
     }
 
     @GetMapping("/agent/{agentId}")
-    public Result<List<Memory>> getMemoriesByAgentId(@PathVariable Long agentId) {
+    @Operation(summary = "Get memories by agent", description = "Retrieve all memories belonging to a specific agent")
+    public Result<List<Memory>> getMemoriesByAgentId(@Parameter(description = "Agent ID") @PathVariable Long agentId) {
         List<Memory> memories = memoryService.findByAgentId(agentId);
         return Result.success(memories);
     }
 
     @GetMapping("/category/{category}")
-    public Result<List<Memory>> getMemoriesByCategory(@PathVariable String category) {
+    @Operation(summary = "Get memories by category", description = "Retrieve all memories in a specific category")
+    public Result<List<Memory>> getMemoriesByCategory(@Parameter(description = "Category name") @PathVariable String category) {
         List<Memory> memories = memoryService.findByCategory(category);
         return Result.success(memories);
     }
 
     @GetMapping("/search")
-    public Result<List<Memory>> searchMemories(@RequestParam String keyword) {
+    @Operation(summary = "Search memories", description = "Search memories by keyword")
+    public Result<List<Memory>> searchMemories(@Parameter(description = "Search keyword") @RequestParam String keyword) {
         List<Memory> memories = memoryService.searchByKeyword(keyword);
         return Result.success(memories);
     }
 
     @DeleteMapping("/batch")
     @RequireAuth
+    @Operation(summary = "Batch delete memories", description = "Delete multiple memories at once")
     public Result<Integer> batchDeleteMemories(@RequestBody BatchDeleteRequest request) {
         int count = memoryService.batchDelete(request.getIds());
         return Result.success(count);
@@ -101,10 +117,11 @@ public class MemoryController {
     @PostMapping("/{agentId}/upload")
     @RequireAuth
     @RequireOwnership(resourceType = "agent", idParam = "agentId")
+    @Operation(summary = "Upload memory file", description = "Upload a file associated with a memory")
     public Result<FileUploadResponse> uploadMemoryFile(
-            @PathVariable Long agentId,
+            @Parameter(description = "Agent ID") @PathVariable Long agentId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "description", required = false) String description,
+            @Parameter(description = "File description") @RequestParam(value = "description", required = false) String description,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         FileUploadResponse response = fileStorageService.saveFile(file, userId, agentId, "memory", description);
@@ -113,7 +130,10 @@ public class MemoryController {
 
     @GetMapping("/file/{fileId}")
     @RequireAuth
-    public ResponseEntity<org.springframework.core.io.Resource> downloadMemoryFile(@PathVariable Long fileId, HttpServletRequest httpRequest) {
+    @Operation(summary = "Download memory file", description = "Download a memory file by its file ID")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadMemoryFile(
+            @Parameter(description = "File ID") @PathVariable Long fileId,
+            HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         org.springframework.core.io.Resource resource = fileStorageService.loadFileAsResource(fileId, userId);
         FileUploadLog uploadLog = fileStorageService.getFileUploadLog(fileId);
@@ -134,14 +154,18 @@ public class MemoryController {
     @GetMapping("/{agentId}/files")
     @RequireAuth
     @RequireOwnership(resourceType = "agent", idParam = "agentId")
-    public Result<List<FileUploadLog>> getMemoryFiles(@PathVariable Long agentId) {
+    @Operation(summary = "Get memory files", description = "Retrieve all memory files for an agent")
+    public Result<List<FileUploadLog>> getMemoryFiles(@Parameter(description = "Agent ID") @PathVariable Long agentId) {
         List<FileUploadLog> files = fileStorageService.getFileList(agentId, "memory", null);
         return Result.success(files);
     }
 
     @DeleteMapping("/file/{fileId}")
     @RequireAuth
-    public Result<Void> deleteMemoryFile(@PathVariable Long fileId, HttpServletRequest httpRequest) {
+    @Operation(summary = "Delete memory file", description = "Delete a memory file by its ID")
+    public Result<Void> deleteMemoryFile(
+            @Parameter(description = "File ID") @PathVariable Long fileId,
+            HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         fileStorageService.deleteFile(fileId, userId);
         return Result.success();

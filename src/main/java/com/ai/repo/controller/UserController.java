@@ -6,12 +6,16 @@ import com.ai.repo.entity.User;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
+@Tag(name = "User API", description = "User authentication and management operations")
 public class UserController {
 
     @Resource
@@ -21,6 +25,7 @@ public class UserController {
     PasswordEncoderUtil passwordEncoderUtil;
 
     @PostMapping
+    @Operation(summary = "Create a new user", description = "Register a new user with provided credentials")
     public Result<Void> createUser(@RequestBody UserCreateRequest request) {
         User user = new User();
         user.setUsername(request.getUsername());
@@ -35,7 +40,10 @@ public class UserController {
 
     @PostMapping("/update")
     @RequireAuth
-    public Result<User> updateUser(@RequestParam Long id, @RequestBody User user) {
+    @Operation(summary = "Update user", description = "Update user information")
+    public Result<User> updateUser(
+            @Parameter(description = "User ID") @RequestParam Long id,
+            @RequestBody User user) {
         user.setId(id);
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             user.setPassword(passwordEncoderUtil.encode(user.getPassword()));
@@ -46,29 +54,32 @@ public class UserController {
 
     @PostMapping("/deleteById")
     @RequireAuth
-    public Result<Void> deleteUser(@RequestParam Long id) {
+    @Operation(summary = "Delete user", description = "Delete a user account")
+    public Result<Void> deleteUser(@Parameter(description = "User ID") @RequestParam Long id) {
         userService.delete(id);
         return Result.success();
     }
 
     @PostMapping("/login")
+    @Operation(summary = "User login", description = "Authenticate user and generate JWT tokens")
     public Result<LoginResponse> login(@RequestBody LoginRequest request) {
         User user = userService.findByUsername(request.getUsername());
         if (user == null) {
             return Result.error(401, "Invalid username or password");
         }
-        
+
         if (!userService.verifyPassword(request.getUsername(), request.getPassword())) {
             return Result.error(401, "Invalid username or password");
         }
-        
+
         userService.updateLoginTime(user.getId());
         LoginResponse response = userService.generateTokens(user.getId());
-        
+
         return Result.success(response);
     }
 
     @PostMapping("/refresh-token")
+    @Operation(summary = "Refresh access token", description = "Refresh JWT access token using refresh token")
     public Result<TokenRefreshResponse> refreshToken(@RequestBody TokenRefreshRequest request) {
         TokenRefreshResponse response = userService.refreshToken(request.getRefreshToken());
         return Result.success(response);
@@ -76,6 +87,7 @@ public class UserController {
 
     @PostMapping("/logout")
     @RequireAuth
+    @Operation(summary = "User logout", description = "Logout user and invalidate tokens")
     public Result<Void> logout(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId != null) {

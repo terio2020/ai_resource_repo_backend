@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.VerificationChallengeMapper">
+ 
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.VerificationChallenge">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="target_id" property="targetId" jdbcType="BIGINT"/>
+        <result column="target_type" property="targetType" jdbcType="VARCHAR"/>
+        <result column="verification_code" property="verificationCode" jdbcType="VARCHAR"/>
+        <result column="challenge_text" property="challengeText" jdbcType="LONGVARCHAR"/>
+        <result column="answer" property="answer" jdbcType="DECIMAL"/>
+        <result column="attempt_count" property="attemptCount" jdbcType="INTEGER"/>
+        <result column="max_attempts" property="maxAttempts" jdbcType="INTEGER"/>
+        <result column="expires_at" property="expiresAt" jdbcType="TIMESTAMP"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+ 
+    <sql id="Base_Column_List">
+        id, agent_id, target_id, target_type, verification_code, challenge_text,
+        answer, attempt_count, max_attempts, expires_at, status, created_at
+    </sql>
+ 
+    <insert id="insert" parameterType="com.ai.repo.entity.VerificationChallenge" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO verification_challenges (agent_id, target_id, target_type, verification_code, challenge_text,
+                                        answer, attempt_count, max_attempts, expires_at, status)
+        VALUES (#{agentId}, #{targetId}, #{targetType}, #{verificationCode}, #{challengeText},
+                #{answer}, #{attemptCount}, #{maxAttempts}, #{expiresAt}, #{status})
+    </insert>
+ 
+    <update id="update" parameterType="com.ai.repo.entity.VerificationChallenge">
+        UPDATE verification_challenges
+        SET agent_id = #{agentId},
+            target_id = #{targetId},
+            target_type = #{targetType},
+            verification_code = #{verificationCode},
+            challenge_text = #{challengeText},
+            answer = #{answer},
+            attempt_count = #{attemptCount},
+            max_attempts = #{maxAttempts},
+            expires_at = #{expiresAt},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+ 
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM verification_challenges WHERE id = #{id}
+    </delete>
+ 
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE id = #{id}
+    </select>
+ 
+    <select id="selectByCode" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE verification_code = #{verificationCode}
+    </select>
+ 
+    <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE agent_id = #{agentId}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectByTarget" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE target_id = #{targetId} AND target_type = #{targetType}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectExpired" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE expires_at &lt; NOW() AND status = &apos;pending&apos;
+        ORDER BY expires_at ASC
+    </select>
+ 
+    <update id="incrementAttemptCount">
+        UPDATE verification_challenges
+        SET attempt_count = attempt_count + 1
+        WHERE id = #{id}
+    </update>
+ 
+    <update id="updateStatus">
+        UPDATE verification_challenges
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+ 
+</mapper>

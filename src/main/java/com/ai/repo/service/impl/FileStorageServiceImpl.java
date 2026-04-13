@@ -15,14 +15,11 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -84,6 +81,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         String originalFilename = file.getOriginalFilename();
         String extension = FilenameUtils.getExtension(originalFilename);
 
+        assert extension != null;
         if (!allowedExtensions.contains(extension.toLowerCase())) {
             throw new InvalidFileTypeException("Only .md files are allowed. Got: " + extension);
         }

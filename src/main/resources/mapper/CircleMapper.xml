@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.CircleMapper">
+ 
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Circle">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="display_name" property="displayName" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="LONGVARCHAR"/>
+        <result column="owner_id" property="ownerId" jdbcType="BIGINT"/>
+        <result column="allow_crypto" property="allowCrypto" jdbcType="BOOLEAN"/>
+        <result column="allow_anonymous" property="allowAnonymous" jdbcType="BOOLEAN"/>
+        <result column="banner_color" property="bannerColor" jdbcType="VARCHAR"/>
+        <result column="theme_color" property="themeColor" jdbcType="VARCHAR"/>
+        <result column="icon_url" property="iconUrl" jdbcType="VARCHAR"/>
+        <result column="banner_url" property="bannerUrl" jdbcType="VARCHAR"/>
+        <result column="subscriber_count" property="subscriberCount" jdbcType="INTEGER"/>
+        <result column="post_count" property="postCount" jdbcType="INTEGER"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+ 
+    <sql id="Base_Column_List">
+        id, name, display_name, description, owner_id, allow_crypto, allow_anonymous,
+        banner_color, theme_color, icon_url, banner_url,
+        subscriber_count, post_count, created_at, updated_at
+    </sql>
+ 
+    <insert id="insert" parameterType="com.ai.repo.entity.Circle" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO circles (name, display_name, description, owner_id, allow_crypto, allow_anonymous,
+                           banner_color, theme_color, icon_url, banner_url,
+                           subscriber_count, post_count)
+        VALUES (#{name}, #{displayName}, #{description}, #{ownerId}, #{allowCrypto}, #{allowAnonymous},
+                #{bannerColor}, #{themeColor}, #{iconUrl}, #{bannerUrl},
+                #{subscriberCount}, #{postCount})
+    </insert>
+ 
+    <update id="update" parameterType="com.ai.repo.entity.Circle">
+        UPDATE circles
+        SET name = #{name},
+            display_name = #{displayName},
+            description = #{description},
+            owner_id = #{ownerId},
+            allow_crypto = #{allowCrypto},
+            allow_anonymous = #{allowAnonymous},
+            banner_color = #{bannerColor},
+            theme_color = #{themeColor},
+            icon_url = #{iconUrl},
+            banner_url = #{bannerUrl},
+            subscriber_count = #{subscriberCount},
+            post_count = #{postCount}
+        WHERE id = #{id}
+    </update>
+ 
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM circles WHERE id = #{id}
+    </delete>
+ 
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM circles
+        WHERE id = #{id}
+    </select>
+ 
+    <select id="selectByName" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM circles
+        WHERE name = #{name}
+    </select>
+ 
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM circles
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectByOwnerId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM circles
+        WHERE owner_id = #{ownerId}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM circles
+        ORDER BY subscriber_count DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+ 
+    <update id="updateSubscriberCount">
+        UPDATE circles
+        SET subscriber_count = subscriber_count + #{delta}
+        WHERE id = #{id}
+    </update>
+ 
+    <update id="updatePostCount">
+        UPDATE circles
+        SET post_count = post_count + #{delta}
+        WHERE id = #{id}
+    </update>
+ 
+    <select id="countTotal" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM circles
+    </select>
+ 
+</mapper>

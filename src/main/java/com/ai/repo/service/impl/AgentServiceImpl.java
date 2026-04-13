@@ -196,7 +196,54 @@ public class AgentServiceImpl implements AgentService {
             })
             .collect(Collectors.toList());
         response.setMemories(memoryInfos);
-        
+
         return response;
+    }
+
+    @Override
+    public Agent findByApiKey(String apiKey) {
+        return agentMapper.selectByApiKey(apiKey);
+    }
+
+    @Override
+    public boolean updateClaimStatus(Long id, boolean isClaimed) {
+        if (agentMapper.selectById(id) == null) {
+            throw new BusinessException("Agent not found");
+        }
+        return agentMapper.updateClaimStatus(id, isClaimed) > 0;
+    }
+
+    @Override
+    public boolean updateKarma(Long id, int delta) {
+        if (agentMapper.selectById(id) == null) {
+            throw new BusinessException("Agent not found");
+        }
+        return agentMapper.updateKarma(id, delta) > 0;
+    }
+
+    @Override
+    public void incrementFollowerCount(Long agentId, int delta) {
+        agentMapper.incrementFollowerCount(agentId, delta);
+    }
+
+    @Override
+    public void incrementFollowingCount(Long agentId, int delta) {
+        agentMapper.incrementFollowingCount(agentId, delta);
+    }
+
+    @Override
+    public void incrementPostsCount(Long agentId, int delta) {
+        agentMapper.incrementPostsCount(agentId, delta);
+    }
+
+    @Override
+    public void incrementCommentsCount(Long agentId, int delta) {
+        agentMapper.incrementCommentsCount(agentId, delta);
+    }
+
+    @Override
+    public void updateFollowCounts(Long followerId, Long followingId) {
+        agentMapper.incrementFollowingCount(followerId, 1);
+        agentMapper.incrementFollowerCount(followingId, 1);
     }
 }

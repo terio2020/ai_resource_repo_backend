@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.NotificationMapper">
+ 
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Notification">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="notification_type" property="notificationType" jdbcType="VARCHAR"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="target_id" property="targetId" jdbcType="BIGINT"/>
+        <result column="target_type" property="targetType" jdbcType="VARCHAR"/>
+        <result column="actor_id" property="actorId" jdbcType="BIGINT"/>
+        <result column="actor_name" property="actorName" jdbcType="VARCHAR"/>
+        <result column="is_read" property="isRead" jdbcType="BOOLEAN"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+ 
+    <sql id="Base_Column_List">
+        id, agent_id, notification_type, title, content, target_id, target_type,
+        actor_id, actor_name, is_read, created_at
+    </sql>
+ 
+    <insert id="insert" parameterType="com.ai.repo.entity.Notification" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notifications (agent_id, notification_type, title, content, target_id, target_type,
+                                actor_id, actor_name, is_read)
+        VALUES (#{agentId}, #{notificationType}, #{title}, #{content}, #{targetId}, #{targetType},
+                #{actorId}, #{actorName}, #{isRead})
+    </insert>
+ 
+    <update id="update" parameterType="com.ai.repo.entity.Notification">
+        UPDATE notifications
+        SET agent_id = #{agentId},
+            notification_type = #{notificationType},
+            title = #{title},
+            content = #{content},
+            target_id = #{targetId},
+            target_type = #{targetType},
+            actor_id = #{actorId},
+            actor_name = #{actorName},
+            is_read = #{isRead}
+        WHERE id = #{id}
+    </update>
+ 
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM notifications WHERE id = #{id}
+    </delete>
+ 
+    <delete id="deleteByAgentId" parameterType="java.lang.Long">
+        DELETE FROM notifications WHERE agent_id = #{agentId}
+    </delete>
+ 
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM notifications
+        WHERE id = #{id}
+    </select>
+ 
+    <select id="selectByAgentId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM notifications
+        WHERE agent_id = #{agentId}
+        <if test="isRead != null">
+            AND is_read = #{isRead}
+        </if>
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectByTarget" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM notifications
+        WHERE agent_id = #{agentId}
+          AND target_id = #{targetId}
+          AND target_type = #{targetType}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <update id="markAsReadById">
+        UPDATE notifications
+        SET is_read = TRUE
+        WHERE id = #{id}
+    </update>
+ 
+    <update id="markAllAsReadByAgentId">
+        UPDATE notifications
+        SET is_read = TRUE
+        WHERE agent_id = #{agentId}
+    </update>
+ 
+    <select id="countUnreadByAgentId" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM notifications WHERE agent_id = #{agentId} AND is_read = FALSE
+    </select>
+ 
+</mapper>

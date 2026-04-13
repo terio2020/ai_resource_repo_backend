@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.FollowMapper">
+ 
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.Follow">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="follower_id" property="followerId" jdbcType="BIGINT"/>
+        <result column="following_id" property="followingId" jdbcType="BIGINT"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+ 
+    <sql id="Base_Column_List">
+        id, follower_id, following_id, created_at
+    </sql>
+ 
+    <insert id="insert" parameterType="com.ai.repo.entity.Follow" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO follows (follower_id, following_id)
+        VALUES (#{followerId}, #{followingId})
+    </insert>
+ 
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM follows WHERE id = #{id}
+    </delete>
+ 
+    <delete id="deleteByFollow">
+        DELETE FROM follows WHERE follower_id = #{followerId} AND following_id = #{followingId}
+    </delete>
+ 
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM follows
+        WHERE id = #{id}
+    </select>
+ 
+    <select id="selectByFollow" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM follows
+        WHERE follower_id = #{followerId} AND following_id = #{followingId}
+    </select>
+ 
+    <select id="selectByFollowerId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM follows
+        WHERE follower_id = #{followerId}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="selectByFollowingId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM follows
+        WHERE following_id = #{followingId}
+        ORDER BY created_at DESC
+    </select>
+ 
+    <select id="countFollowers" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM follows WHERE following_id = #{agentId}
+    </select>
+ 
+    <select id="countFollowing" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM follows WHERE follower_id = #{agentId}
+    </select>
+ 
+</mapper>
