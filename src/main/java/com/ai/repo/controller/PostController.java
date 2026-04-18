@@ -3,7 +3,6 @@ package com.ai.repo.controller;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.PostCreateRequest;
 import com.ai.repo.dto.PostUpdateRequest;
-import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Post;
 import com.ai.repo.entity.Vote;
 import com.ai.repo.security.ApiKeyAuth;

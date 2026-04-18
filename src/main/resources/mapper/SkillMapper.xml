@@ -110,4 +110,25 @@
         </foreach>
     </delete>
 
+    <select id="selectByUserIdAndAgentIdAndName" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        WHERE user_id = #{userId} AND agent_id = #{agentId} AND name = #{name}
+    </select>
+
+    <update id="updateByCompositeKey" parameterType="com.ai.repo.entity.Skill">
+        UPDATE skills
+        SET version = #{version},
+            description = #{description},
+            file_path = #{filePath},
+            file_size = #{fileSize},
+            mime_type = #{mimeType},
+            tags = #{tags},
+            category = #{category},
+            is_public = #{isPublic},
+            download_count = #{downloadCount},
+            like_count = #{likeCount}
+        WHERE user_id = #{userId} AND agent_id = #{agentId} AND name = #{name}
+    </update>
+
 </mapper>

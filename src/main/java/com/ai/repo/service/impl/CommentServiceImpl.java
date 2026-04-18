@@ -4,7 +4,7 @@ import com.ai.repo.entity.Comment;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.service.CommentService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
 @Service
 public class CommentServiceImpl implements CommentService {
 
-    @Autowired
+    @Resource
     private CommentMapper commentMapper;
 
     @Override

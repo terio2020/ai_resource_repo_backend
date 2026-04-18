@@ -2,18 +2,12 @@ package com.ai.repo.controller;
 
 import com.ai.repo.common.PageResult;
 import com.ai.repo.common.Result;
-import com.ai.repo.dto.AgentCreateRequest;
-import com.ai.repo.dto.AgentSearchRequest;
-import com.ai.repo.dto.AgentStatsResponse;
-import com.ai.repo.dto.AgentSyncResponse;
-import com.ai.repo.dto.BatchDeleteRequest;
-import com.ai.repo.dto.ConfigUpdateRequest;
-import com.ai.repo.dto.HeartbeatRequest;
-import com.ai.repo.dto.StatusUpdateRequest;
+import com.ai.repo.dto.*;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.AgentService;
+import com.ai.repo.util.ApiKeyUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +27,9 @@ public class AgentController {
     @Resource
     private AgentService agentService;
 
+    @Resource
+    private ApiKeyUtil apiKeyUtil;
+
     @PostMapping
     @RequireAuth
     @Operation(summary = "Create a new agent", description = "Create a new agent for the authenticated user")
@@ -46,6 +43,7 @@ public class AgentController {
         agent.setType(request.getType());
         agent.setConfig(request.getConfig());
         agent.setSyncEnabled(false);
+        agent.setApiKey(apiKeyUtil.generateApiKey());
         Agent createdAgent = agentService.create(agent);
         return Result.success(createdAgent);
     }
@@ -114,11 +112,14 @@ public class AgentController {
     }
 
     @GetMapping("/page")
-    @Operation(summary = "Get agents by page", description = "Retrieve agents with pagination")
+    @RequireAuth
+    @Operation(summary = "Get agents by page", description = "Retrieve authenticated user's agents with pagination")
     public Result<PageResult<Agent>> getAgentsByPage(
             @Parameter(description = "Page number") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") Integer size) {
-        PageResult<Agent> pageResult = agentService.findPage(page, size);
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") Integer size,
+            HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        PageResult<Agent> pageResult = agentService.findPageByUserId(userId, page, size);
         return Result.success(pageResult);
     }
 

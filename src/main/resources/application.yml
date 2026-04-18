@@ -18,6 +18,10 @@ spring:
       max-lifetime: 1800000
 
   servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
@@ -47,7 +51,7 @@ mybatis:
 file:
   storage:
     path: /data/logicoma-files
-    base-path: /data/logicoma-files
+    base-path: F:/data/logicoma-files
     allowed-extensions: .md
     max-size-mb: 50
 

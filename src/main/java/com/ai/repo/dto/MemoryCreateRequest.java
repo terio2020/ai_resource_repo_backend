@@ -8,23 +8,25 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class SkillCreateRequest {
+public class MemoryCreateRequest {
     @NotNull(message = "User ID is required")
     private Long userId;
 
     private Long agentId;
 
-    @NotBlank(message = "Skill name is required")
-    @Size(max = 100, message = "Skill name must be less than 100 characters")
-    private String name;
+    @NotBlank(message = "Memory title is required")
+    @Size(max = 255, message = "Title must be less than 255 characters")
+    private String title;
 
-    @Size(max = 20, message = "Version must be less than 20 characters")
+    @NotBlank(message = "Content is required")
+    private String content;
+
+    @Size(max = 50, message = "Version must be less than 50 characters")
     private String version;
 
     @Size(max = 1000, message = "Description must be less than 1000 characters")
     private String description;
 
-    @NotBlank(message = "File path is required")
     @Size(max = 500, message = "File path must be less than 500 characters")
     private String filePath;
 
@@ -35,8 +37,10 @@ public class SkillCreateRequest {
 
     private List<String> tags;
 
-    @Size(max = 50, message = "Category must be less than 50 characters")
+    @Size(max = 100, message = "Category must be less than 100 characters")
     private String category;
 
     private Boolean isPublic;
+
+    private String metadata;
 }

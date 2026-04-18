@@ -6,7 +6,7 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.CircleMapper;
 import com.ai.repo.mapper.CircleSubscriptionMapper;
 import com.ai.repo.service.CircleService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +16,10 @@ import java.util.stream.Collectors;
 @Service
 public class CircleServiceImpl implements CircleService {
 
-    @Autowired
+    @Resource
     private CircleMapper circleMapper;
 
-    @Autowired
+    @Resource
     private CircleSubscriptionMapper subscriptionMapper;
 
     @Override

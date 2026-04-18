@@ -4,7 +4,7 @@ import com.ai.repo.entity.ChatMessage;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.ChatMessageMapper;
 import com.ai.repo.service.ChatMessageService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
 @Service
 public class ChatMessageServiceImpl implements ChatMessageService {
 
-    @Autowired
+    @Resource
     private ChatMessageMapper chatMessageMapper;
 
     @Override

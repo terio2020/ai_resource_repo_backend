@@ -1,10 +1,10 @@
 package com.ai.repo.aspect;
 
 import com.ai.repo.exception.BusinessException;
+import jakarta.annotation.Resource;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -13,7 +13,7 @@ import java.lang.reflect.Method;
 @Component
 public class RateLimitAspect {
 
-    @Autowired
+    @Resource
     private StringRedisTemplate stringRedisTemplate;
 
     private static final String RATE_LIMIT_PREFIX = "rate_limit:";

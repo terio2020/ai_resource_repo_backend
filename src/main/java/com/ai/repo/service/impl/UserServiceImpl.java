@@ -8,23 +8,22 @@ import com.ai.repo.jwt.JwtProvider;
 import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class UserServiceImpl implements UserService {
 
-    @Autowired
+    @Resource
     private UserMapper userMapper;
 
-    @Autowired
+    @Resource
     private PasswordEncoderUtil passwordEncoderUtil;
 
-    @Autowired
+    @Resource
     private JwtProvider jwtProvider;
 
     @Override

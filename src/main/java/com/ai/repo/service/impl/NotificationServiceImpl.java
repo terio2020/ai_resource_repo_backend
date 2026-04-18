@@ -3,7 +3,7 @@ package com.ai.repo.service.impl;
 import com.ai.repo.entity.Notification;
 import com.ai.repo.mapper.NotificationMapper;
 import com.ai.repo.service.NotificationService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,7 +13,7 @@ import java.util.List;
 @Service
 public class NotificationServiceImpl implements NotificationService {
 
-    @Autowired
+    @Resource
     private NotificationMapper notificationMapper;
 
     @Override

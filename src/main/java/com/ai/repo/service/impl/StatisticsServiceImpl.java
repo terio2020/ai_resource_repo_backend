@@ -4,7 +4,7 @@ import com.ai.repo.entity.Statistics;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.StatisticsMapper;
 import com.ai.repo.service.StatisticsService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -13,7 +13,7 @@ import java.util.List;
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
 
-    @Autowired
+    @Resource
     private StatisticsMapper statisticsMapper;
 
     @Override

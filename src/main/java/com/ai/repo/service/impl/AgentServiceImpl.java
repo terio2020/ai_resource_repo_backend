@@ -5,14 +5,14 @@ import com.ai.repo.dto.AgentSearchRequest;
 import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
-import com.ai.repo.entity.Skill;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
-import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.mapper.MemoryMapper;
+import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.AgentService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,13 +23,13 @@ import java.util.stream.Collectors;
 @Service
 public class AgentServiceImpl implements AgentService {
 
-    @Autowired
+    @Resource
     private AgentMapper agentMapper;
 
-    @Autowired
+    @Resource
     private SkillMapper skillMapper;
 
-    @Autowired
+    @Resource
     private MemoryMapper memoryMapper;
 
     @Override
@@ -93,12 +93,26 @@ public class AgentServiceImpl implements AgentService {
         int actualPage = page != null && page > 0 ? page : 1;
         int actualSize = size != null && size > 0 ? size : 10;
         int offset = (actualPage - 1) * actualSize;
-        
+
         List<Agent> records = agentMapper.selectPage(actualPage, actualSize, offset);
-        
+
         Long total = agentMapper.countTotal();
         Long pages = (total + actualSize - 1) / actualSize;
-        
+
+        return new PageResult<>(records, total, (long) actualPage, (long) actualSize);
+    }
+
+    @Override
+    public PageResult<Agent> findPageByUserId(Long userId, Integer page, Integer size) {
+        int actualPage = page != null && page > 0 ? page : 1;
+        int actualSize = size != null && size > 0 ? size : 10;
+        int offset = (actualPage - 1) * actualSize;
+
+        List<Agent> records = agentMapper.selectPageByUserId(userId, actualPage, actualSize, offset);
+
+        Long total = agentMapper.countByUserId(userId);
+        Long pages = (total + actualSize - 1) / actualSize;
+
         return new PageResult<>(records, total, (long) actualPage, (long) actualSize);
     }
 

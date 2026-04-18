@@ -1,15 +1,14 @@
 package com.ai.repo.security;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.servlet.HandlerInterceptor;
-
 import com.ai.repo.entity.Agent;
 import com.ai.repo.service.AgentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
 public class ApiKeyInterceptor implements HandlerInterceptor {
@@ -27,7 +26,15 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         }
 
         HandlerMethod handlerMethod = (HandlerMethod) handler;
-        if (handlerMethod.getMethodAnnotation(ApiKeyAuth.class) == null) {
+        boolean hasRequireAuth = handlerMethod.getMethodAnnotation(RequireAuth.class) != null;
+        boolean hasApiKeyAuth = handlerMethod.getMethodAnnotation(ApiKeyAuth.class) != null;
+
+        if (!hasRequireAuth && !hasApiKeyAuth) {
+            return true;
+        }
+
+        Object userId = request.getAttribute("userId");
+        if (userId != null) {
             return true;
         }
 
@@ -42,7 +49,7 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         } else {
             response.setStatus(401);
             response.setContentType("application/json");
-            response.getWriter().write("{\"code\":401,\"message\":\"Missing API Key\",\"data\":null}");
+            response.getWriter().write("{\"code\":401,\"message\":\"Missing authentication\"}");
             return false;
         }
 
@@ -50,11 +57,12 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         if (agent == null) {
             response.setStatus(401);
             response.setContentType("application/json");
-            response.getWriter().write("{\"code\":401,\"message\":\"Invalid API Key\",\"data\":null}");
+            response.getWriter().write("{\"code\":401,\"message\":\"Invalid API Key\"}");
             return false;
         }
 
         request.setAttribute("agentId", agent.getId());
+        request.setAttribute("userId", agent.getUserId());
         return true;
     }
 }

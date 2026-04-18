@@ -13,6 +13,10 @@ public interface MemoryService {
     List<Memory> findByUserId(Long userId);
     List<Memory> findByAgentId(Long agentId);
     List<Memory> findByCategory(String category);
+    List<Memory> findByPublic(Boolean isPublic);
     List<Memory> searchByKeyword(String keyword);
     int batchDelete(List<Long> ids);
+    Memory upsert(Memory memory);
+    boolean incrementDownloadCount(Long id);
+    boolean incrementLikeCount(Long id);
 }

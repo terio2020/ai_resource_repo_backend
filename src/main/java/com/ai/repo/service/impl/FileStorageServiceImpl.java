@@ -51,7 +51,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             Files.createDirectories(targetPath.getParent());
             file.transferTo(targetPath.toFile());
 
-            FileUploadLog uploadLog = new FileUploadLog();
+            /*FileUploadLog uploadLog = new FileUploadLog();
             uploadLog.setUserId(userId);
             uploadLog.setAgentId(agentId);
             uploadLog.setOriginalFileName(file.getOriginalFilename());
@@ -61,10 +61,10 @@ public class FileStorageServiceImpl implements FileStorageService {
             uploadLog.setFileSize(file.getSize());
             uploadLog.setUploadTime(LocalDateTime.now());
 
-            fileUploadLogMapper.insert(uploadLog);
+            fileUploadLogMapper.insert(uploadLog);*/
 
             FileUploadResponse response = new FileUploadResponse();
-            response.setFileId(uploadLog.getId());
+//            response.setFileId(uploadLog.getId());
             response.setFilePath(relativePath);
             response.setFileName(file.getOriginalFilename());
             response.setFileSize(file.getSize());
@@ -100,9 +100,8 @@ public class FileStorageServiceImpl implements FileStorageService {
     public String generateUniqueFileName(String originalFileName, Long agentId, String fileType) {
         String baseName = FilenameUtils.getBaseName(originalFileName);
         String extension = FilenameUtils.getExtension(originalFileName);
-        String timestamp = String.valueOf(System.currentTimeMillis());
 
-        return fileType + "_" + timestamp + "_" + baseName + "." + extension;
+        return baseName + "." + extension;
     }
 
     @Override

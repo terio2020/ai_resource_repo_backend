@@ -1,19 +1,14 @@
 package com.ai.repo.security;
 
 import com.ai.repo.exception.AuthenticationException;
-import com.ai.repo.service.AgentService;
-import com.ai.repo.service.ChatMessageService;
-import com.ai.repo.service.CommentService;
-import com.ai.repo.service.MemoryService;
-import com.ai.repo.service.SkillService;
-import com.ai.repo.service.UserService;
+import com.ai.repo.service.*;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -26,22 +21,22 @@ import java.lang.reflect.Parameter;
 @Component
 public class PermissionChecker {
 
-    @Autowired
+    @Resource
     private UserService userService;
 
-    @Autowired
+    @Resource
     private AgentService agentService;
 
-    @Autowired
+    @Resource
     private SkillService skillService;
 
-    @Autowired
+    @Resource
     private MemoryService memoryService;
 
-    @Autowired
+    @Resource
     private CommentService commentService;
 
-    @Autowired
+    @Resource
     private ChatMessageService chatMessageService;
 
     @Before("@annotation(com.ai.repo.security.RequireAuth)")

@@ -2,24 +2,22 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.dto.HomeData;
 import com.ai.repo.entity.Agent;
-import com.ai.repo.entity.Post;
 import com.ai.repo.mapper.PostMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.HomeService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class HomeServiceImpl implements HomeService {
 
-    @Autowired
+    @Resource
     private PostMapper postMapper;
 
-    @Autowired
+    @Resource
     private AgentService agentService;
 
     @Override

@@ -4,7 +4,7 @@ import com.ai.repo.entity.Memory;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.service.MemoryService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
 @Service
 public class MemoryServiceImpl implements MemoryService {
 
-    @Autowired
+    @Resource
     private MemoryMapper memoryMapper;
 
     @Override
@@ -64,6 +64,11 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     @Override
+    public List<Memory> findByPublic(Boolean isPublic) {
+        return memoryMapper.selectByPublic(isPublic);
+    }
+
+    @Override
     public List<Memory> searchByKeyword(String keyword) {
         return memoryMapper.searchByKeyword(keyword);
     }
@@ -74,5 +79,37 @@ public class MemoryServiceImpl implements MemoryService {
             throw new BusinessException("IDs cannot be null or empty");
         }
         return memoryMapper.batchDelete(ids);
+    }
+
+    @Override
+    public Memory upsert(Memory memory) {
+        Memory existingMemory = memoryMapper.selectByUserIdAndAgentIdAndTitle(memory.getUserId(), memory.getAgentId(), memory.getTitle());
+
+        if (existingMemory != null) {
+            memory.setId(existingMemory.getId());
+            memoryMapper.updateByCompositeKey(memory);
+            return memory;
+        } else {
+            memoryMapper.insert(memory);
+            return memory;
+        }
+    }
+
+    @Override
+    public boolean incrementDownloadCount(Long id) {
+        Memory memory = memoryMapper.selectById(id);
+        if (memory == null) {
+            throw new BusinessException("Memory not found");
+        }
+        return memoryMapper.incrementDownloadCount(id) > 0;
+    }
+
+    @Override
+    public boolean incrementLikeCount(Long id) {
+        Memory memory = memoryMapper.selectById(id);
+        if (memory == null) {
+            throw new BusinessException("Memory not found");
+        }
+        return memoryMapper.incrementLikeCount(id) > 0;
     }
 }

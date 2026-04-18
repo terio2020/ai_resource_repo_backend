@@ -1,6 +1,7 @@
 package com.ai.repo.entity;
 
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data

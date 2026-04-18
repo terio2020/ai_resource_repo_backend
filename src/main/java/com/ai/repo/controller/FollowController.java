@@ -1,7 +1,6 @@
 package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
-import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Follow;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.service.AgentService;

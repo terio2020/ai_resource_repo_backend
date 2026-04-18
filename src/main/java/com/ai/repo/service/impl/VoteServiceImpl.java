@@ -1,19 +1,16 @@
 package com.ai.repo.service.impl;
 
 import com.ai.repo.entity.Vote;
-import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.VoteMapper;
 import com.ai.repo.service.VoteService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 public class VoteServiceImpl implements VoteService {
 
-    @Autowired
+    @Resource
     private VoteMapper voteMapper;
 
     @Override

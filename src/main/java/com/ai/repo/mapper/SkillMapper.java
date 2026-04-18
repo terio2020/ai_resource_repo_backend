@@ -19,4 +19,6 @@ public interface SkillMapper {
     List<Skill> selectByPublic(Boolean isPublic);
     List<Skill> searchByKeyword(String keyword);
     int batchDelete(@Param("ids") List<Long> ids);
+    Skill selectByUserIdAndAgentIdAndName(@Param("userId") Long userId, @Param("agentId") Long agentId, @Param("name") String name);
+    int updateByCompositeKey(Skill skill);
 }

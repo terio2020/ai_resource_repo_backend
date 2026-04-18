@@ -1,12 +1,11 @@
 package com.ai.repo.service.impl;
 
-import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Follow;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.FollowMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FollowService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +15,10 @@ import java.util.List;
 @Service
 public class FollowServiceImpl implements FollowService {
 
-    @Autowired
+    @Resource
     private FollowMapper followMapper;
 
-    @Autowired
+    @Resource
     private AgentService agentService;
 
     @Override

@@ -19,6 +19,7 @@ public interface AgentService {
     List<Agent> findByStatus(String status);
     List<Agent> findByType(String type);
     PageResult<Agent> findPage(Integer page, Integer size);
+    PageResult<Agent> findPageByUserId(Long userId, Integer page, Integer size);
     List<Agent> findBySearch(AgentSearchRequest request);
     AgentStatsResponse getStats(Long agentId);
     boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt);

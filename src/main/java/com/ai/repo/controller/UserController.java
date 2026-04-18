@@ -4,6 +4,7 @@ import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
 import com.ai.repo.entity.User;
 import com.ai.repo.security.RequireAuth;
+import com.ai.repo.service.TempTokenService;
 import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +24,12 @@ public class UserController {
 
     @Resource
     PasswordEncoderUtil passwordEncoderUtil;
+
+    @Resource
+    TempTokenService tempTokenService;
+
+    @Resource
+    com.ai.repo.jwt.JwtProvider jwtProvider;
 
     @PostMapping
     @Operation(summary = "Create a new user", description = "Register a new user with provided credentials")
@@ -94,5 +101,52 @@ public class UserController {
             userService.clearTokens(userId);
         }
         return Result.success();
+    }
+
+    @PostMapping("/auth-login")
+    @Operation(summary = "Agent login with session", description = "Login and store accessToken for Agent authentication flow")
+    public Result<Void> authLogin(@RequestBody LoginRequest request, @RequestParam("sessionId") String sessionId) {
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null) {
+            return Result.error(401, "Invalid username or password");
+        }
+
+        if (!userService.verifyPassword(request.getUsername(), request.getPassword())) {
+            return Result.error(401, "Invalid username or password");
+        }
+
+        userService.updateLoginTime(user.getId());
+        LoginResponse response = userService.generateTokens(user.getId());
+
+        tempTokenService.storeToken(sessionId, response.getAccessToken());
+
+        return Result.success();
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Get current user info", description = "Return current user's non-sensitive information based on token")
+    public Result<User> getCurrentUser(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Result.error(401, "Missing or invalid Authorization header");
+        }
+
+        String token = authHeader.substring(7);
+        Long userId = jwtProvider.validateAccessToken(token);
+
+        if (userId == null) {
+            return Result.error(401, "Invalid or expired token");
+        }
+
+        User user = userService.findById(userId);
+        if (user == null) {
+            return Result.error(404, "User not found");
+        }
+
+        user.setPassword(null);
+        user.setAccessToken(null);
+        user.setRefreshToken(null);
+
+        return Result.success(user);
     }
 }

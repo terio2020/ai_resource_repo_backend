@@ -1,11 +1,9 @@
 package com.ai.repo.service.repository;
 
-import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Post;
 import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.PostMapper;
-
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,10 +11,10 @@ import java.util.List;
 @Repository
 public class PostRepository {
 
-    @Autowired
+    @Resource
     private PostMapper postMapper;
 
-    @Autowired
+    @Resource
     private AgentMapper agentMapper;
 
     public Post findById(Long id) {

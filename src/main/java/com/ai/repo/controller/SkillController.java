@@ -48,12 +48,16 @@ public class SkillController {
         skill.setFilePath(request.getFilePath());
         skill.setFileSize(request.getFileSize());
         skill.setMimeType(request.getMimeType());
-        skill.setTags(request.getTags());
+
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            skill.setTags(String.join(",", request.getTags()));
+        }
+
         skill.setCategory(request.getCategory());
         skill.setIsPublic(request.getIsPublic());
         skill.setDownloadCount(0);
         skill.setLikeCount(0);
-        Skill createdSkill = skillService.create(skill);
+        Skill createdSkill = skillService.upsert(skill);
         return Result.success(createdSkill);
     }
 

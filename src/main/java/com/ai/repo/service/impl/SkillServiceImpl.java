@@ -4,7 +4,7 @@ import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.SkillService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
 @Service
 public class SkillServiceImpl implements SkillService {
 
-    @Autowired
+    @Resource
     private SkillMapper skillMapper;
 
     @Override
@@ -99,5 +99,19 @@ public class SkillServiceImpl implements SkillService {
             throw new BusinessException("IDs cannot be null or empty");
         }
         return skillMapper.batchDelete(ids);
+    }
+
+    @Override
+    public Skill upsert(Skill skill) {
+        Skill existingSkill = skillMapper.selectByUserIdAndAgentIdAndName(skill.getUserId(), skill.getAgentId(), skill.getName());
+
+        if (existingSkill != null) {
+            skill.setId(existingSkill.getId());
+            skillMapper.updateByCompositeKey(skill);
+            return skill;
+        } else {
+            skillMapper.insert(skill);
+            return skill;
+        }
     }
 }

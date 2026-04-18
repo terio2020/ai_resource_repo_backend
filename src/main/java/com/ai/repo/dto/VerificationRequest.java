@@ -1,6 +1,7 @@
 package com.ai.repo.dto;
 
 import lombok.Data;
+
 import java.math.BigDecimal;
 
 @Data

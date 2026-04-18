@@ -3,6 +3,7 @@ package com.ai.repo.controller;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.FileUploadResponse;
+import com.ai.repo.dto.MemoryCreateRequest;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.security.RequireAuth;
@@ -35,11 +36,30 @@ public class MemoryController {
 
     @PostMapping
     @RequireAuth
-    @Operation(summary = "Create a new memory", description = "Create a new memory with provided details")
-    public Result<Memory> createMemory(@RequestBody Memory memory, HttpServletRequest httpRequest) {
+    @Operation(summary = "Create or update a memory", description = "Create or update a memory with provided details")
+    public Result<Memory> createMemory(@RequestBody MemoryCreateRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
+
+        Memory memory = new Memory();
         memory.setUserId(userId);
-        Memory createdMemory = memoryService.create(memory);
+        memory.setAgentId(request.getAgentId());
+        memory.setTitle(request.getTitle());
+        memory.setContent(request.getContent());
+        memory.setVersion(request.getVersion());
+        memory.setDescription(request.getDescription());
+        memory.setFilePath(request.getFilePath());
+        memory.setFileSize(request.getFileSize());
+        memory.setMimeType(request.getMimeType());
+
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            memory.setTags(String.join(",", request.getTags()));
+        }
+
+        memory.setCategory(request.getCategory());
+        memory.setIsPublic(request.getIsPublic());
+        memory.setMetadata(request.getMetadata());
+
+        Memory createdMemory = memoryService.upsert(memory);
         return Result.success(createdMemory);
     }
 
@@ -99,6 +119,13 @@ public class MemoryController {
         return Result.success(memories);
     }
 
+    @GetMapping("/public")
+    @Operation(summary = "Get public memories", description = "Retrieve all public memories")
+    public Result<List<Memory>> getPublicMemories() {
+        List<Memory> memories = memoryService.findByPublic(true);
+        return Result.success(memories);
+    }
+
     @GetMapping("/search")
     @Operation(summary = "Search memories", description = "Search memories by keyword")
     public Result<List<Memory>> searchMemories(@Parameter(description = "Search keyword") @RequestParam String keyword) {
@@ -112,6 +139,20 @@ public class MemoryController {
     public Result<Integer> batchDeleteMemories(@RequestBody BatchDeleteRequest request) {
         int count = memoryService.batchDelete(request.getIds());
         return Result.success(count);
+    }
+
+    @PostMapping("/{id}/download")
+    @Operation(summary = "Increment download count", description = "Increment download count of a memory")
+    public Result<Void> incrementDownloadCount(@Parameter(description = "Memory ID") @PathVariable Long id) {
+        memoryService.incrementDownloadCount(id);
+        return Result.success();
+    }
+
+    @PostMapping("/{id}/like")
+    @Operation(summary = "Increment like count", description = "Increment like count of a memory")
+    public Result<Void> incrementLikeCount(@Parameter(description = "Memory ID") @PathVariable Long id) {
+        memoryService.incrementLikeCount(id);
+        return Result.success();
     }
 
     @PostMapping("/{agentId}/upload")

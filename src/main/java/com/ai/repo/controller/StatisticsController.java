@@ -3,7 +3,7 @@ package com.ai.repo.controller;
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.Statistics;
 import com.ai.repo.service.StatisticsService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,7 +14,7 @@ import java.util.List;
 @RequestMapping("/api/statistics")
 public class StatisticsController {
 
-    @Autowired
+    @Resource
     private StatisticsService statisticsService;
 
     @PostMapping

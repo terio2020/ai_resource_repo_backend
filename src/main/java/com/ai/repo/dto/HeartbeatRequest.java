@@ -1,6 +1,7 @@
 package com.ai.repo.dto;
 
 import lombok.Data;
+
 import java.util.Map;
 
 @Data

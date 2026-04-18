@@ -8,20 +8,31 @@
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="title" property="title" jdbcType="VARCHAR"/>
         <result column="content" property="content" jdbcType="LONGVARCHAR"/>
-        <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="version" property="version" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="LONGVARCHAR"/>
+        <result column="file_path" property="filePath" jdbcType="VARCHAR"/>
+        <result column="file_size" property="fileSize" jdbcType="BIGINT"/>
+        <result column="mime_type" property="mimeType" jdbcType="VARCHAR"/>
         <result column="tags" property="tags" jdbcType="VARCHAR"/>
+        <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
+        <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
+        <result column="like_count" property="likeCount" jdbcType="INTEGER"/>
         <result column="metadata" property="metadata" jdbcType="LONGVARCHAR"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, agent_id, title, content, category, tags, metadata, created_at, updated_at
+        id, user_id, agent_id, title, content, version, description, file_path, file_size,
+        mime_type, tags, category, is_public, download_count, like_count, metadata, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Memory" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO memories (user_id, agent_id, title, content, category, tags, metadata)
-        VALUES (#{userId}, #{agentId}, #{title}, #{content}, #{category}, #{tags}, #{metadata})
+        INSERT INTO memories (user_id, agent_id, title, content, version, description, file_path, file_size,
+                           mime_type, tags, category, is_public, download_count, like_count, metadata)
+        VALUES (#{userId}, #{agentId}, #{title}, #{content}, #{version}, #{description}, #{filePath}, #{fileSize},
+                #{mimeType}, #{tags}, #{category}, #{isPublic}, #{downloadCount}, #{likeCount}, #{metadata})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Memory">
@@ -30,8 +41,16 @@
             agent_id = #{agentId},
             title = #{title},
             content = #{content},
-            category = #{category},
+            version = #{version},
+            description = #{description},
+            file_path = #{filePath},
+            file_size = #{fileSize},
+            mime_type = #{mimeType},
             tags = #{tags},
+            category = #{category},
+            is_public = #{isPublic},
+            download_count = #{downloadCount},
+            like_count = #{likeCount},
             metadata = #{metadata}
         WHERE id = #{id}
     </update>
@@ -73,6 +92,13 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectByPublic" parameterType="java.lang.Boolean" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE is_public = #{isPublic}
+        ORDER BY created_at DESC
+    </select>
+
     <select id="searchByKeyword" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
@@ -86,5 +112,40 @@
             #{id}
         </foreach>
     </delete>
+
+    <select id="selectByUserIdAndAgentIdAndTitle" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId} AND agent_id = #{agentId} AND title = #{title}
+    </select>
+
+    <update id="updateByCompositeKey" parameterType="com.ai.repo.entity.Memory">
+        UPDATE memories
+        SET content = #{content},
+            version = #{version},
+            description = #{description},
+            file_path = #{filePath},
+            file_size = #{fileSize},
+            mime_type = #{mimeType},
+            tags = #{tags},
+            category = #{category},
+            is_public = #{isPublic},
+            download_count = #{downloadCount},
+            like_count = #{likeCount},
+            metadata = #{metadata}
+        WHERE user_id = #{userId} AND agent_id = #{agentId} AND title = #{title}
+    </update>
+
+    <update id="incrementDownloadCount">
+        UPDATE memories
+        SET download_count = download_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementLikeCount">
+        UPDATE memories
+        SET like_count = like_count + 1
+        WHERE id = #{id}
+    </update>
 
 </mapper>

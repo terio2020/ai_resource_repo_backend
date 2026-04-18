@@ -21,6 +21,8 @@ public interface AgentMapper {
     List<Agent> selectByType(String type);
     
     List<Agent> selectPage(@Param("page") Integer page, @Param("size") Integer size, @Param("offset") Integer offset);
+    List<Agent> selectPageByUserId(@Param("userId") Long userId, @Param("page") Integer page, @Param("size") Integer size, @Param("offset") Integer offset);
+    Long countByUserId(@Param("userId") Long userId);
     List<Agent> selectBySearch(AgentSearchRequest request);
     AgentStatsResponse selectStats(@Param("agentId") Long agentId);
     int updateHeartbeat(@Param("id") Long id, @Param("status") String status, @Param("lastHeartbeatAt") String lastHeartbeatAt);

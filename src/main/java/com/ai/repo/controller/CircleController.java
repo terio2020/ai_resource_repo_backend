@@ -3,7 +3,6 @@ package com.ai.repo.controller;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.CircleCreateRequest;
 import com.ai.repo.dto.CircleUpdateRequest;
-import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Circle;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.service.AgentService;

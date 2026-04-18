@@ -7,7 +7,7 @@ import com.ai.repo.mapper.PostMapper;
 import com.ai.repo.mapper.VoteMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.PostService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +16,13 @@ import java.util.List;
 @Service
 public class PostServiceImpl implements PostService {
 
-    @Autowired
+    @Resource
     private PostMapper postMapper;
 
-    @Autowired
+    @Resource
     private VoteMapper voteMapper;
 
-    @Autowired
+    @Resource
     private AgentService agentService;
 
     @Override

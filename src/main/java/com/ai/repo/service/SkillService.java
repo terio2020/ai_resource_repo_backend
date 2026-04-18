@@ -18,4 +18,5 @@ public interface SkillService {
     boolean incrementDownloadCount(Long id);
     boolean incrementLikeCount(Long id);
     int batchDelete(List<Long> ids);
+    Skill upsert(Skill skill);
 }

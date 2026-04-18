@@ -4,7 +4,7 @@ import com.ai.repo.entity.VerificationChallenge;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.VerificationChallengeMapper;
 import com.ai.repo.service.VerificationService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +17,7 @@ import java.util.UUID;
 @Service
 public class VerificationServiceImpl implements VerificationService {
 
-    @Autowired
+    @Resource
     private VerificationChallengeMapper challengeMapper;
 
     private static final SecureRandom RANDOM = new SecureRandom();
