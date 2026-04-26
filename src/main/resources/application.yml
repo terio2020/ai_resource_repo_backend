@@ -55,6 +55,14 @@ file:
     allowed-extensions: .md
     max-size-mb: 50
 
+moderation:
+  enabled: true
+  provider: openai
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    min-score: 0.7
+    timeout: 10000
+
 management:
   endpoints:
     web:

@@ -6,7 +6,9 @@ import com.ai.repo.exception.FileStorageException;
 import com.ai.repo.exception.FileTooLargeException;
 import com.ai.repo.exception.InvalidFileTypeException;
 import com.ai.repo.mapper.FileUploadLogMapper;
+import com.ai.repo.service.ContentModerationService;
 import com.ai.repo.service.FileStorageService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,17 +18,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
 
     @Autowired
     private FileUploadLogMapper fileUploadLogMapper;
+
+    @Autowired
+    private ContentModerationService contentModerationService;
 
     @Value("${file.storage.base-path:/data/logicoma-files}")
     private String basePath;
@@ -41,6 +48,14 @@ public class FileStorageServiceImpl implements FileStorageService {
     public FileUploadResponse saveFile(MultipartFile file, Long userId, Long agentId, String fileType, String description) {
         validateFileType(file);
         validateFileSize(file);
+
+        String content;
+        try {
+            content = new String(file.getBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new FileStorageException("Failed to read file content: " + file.getOriginalFilename(), e);
+        }
+        contentModerationService.moderateContent(content, file.getOriginalFilename());
 
         try {
             String uniqueFileName = generateUniqueFileName(file.getOriginalFilename(), agentId, fileType);
