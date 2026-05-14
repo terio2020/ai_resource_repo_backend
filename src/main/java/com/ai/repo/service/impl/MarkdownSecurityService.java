@@ -2,7 +2,6 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.exception.ContentModerationException;
 import com.ai.repo.exception.ContentModerationException.ModerationErrorType;
-import com.ai.repo.service.ContentModerationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +10,7 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @Service
-public class MarkdownSecurityService implements ContentModerationService {
+public class MarkdownSecurityService {
 
     private static final Pattern IMAGE_PATTERN =
         Pattern.compile("!\\[.*?\\]\\(.*?\\)", Pattern.DOTALL);
@@ -31,7 +30,6 @@ public class MarkdownSecurityService implements ContentModerationService {
     private static final Pattern SSRF_PRIVATE_DNS_PATTERN =
         Pattern.compile("(http|https)://[^/]+\\.(local|internal|intranet|localhost)", Pattern.CASE_INSENSITIVE);
 
-    @Override
     public void moderateContent(String content, String fileName) {
         log.debug("开始内容安全检测，文件名: {}", fileName);
 

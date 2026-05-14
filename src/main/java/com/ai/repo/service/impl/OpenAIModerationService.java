@@ -2,7 +2,6 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.exception.ContentModerationException;
 import com.ai.repo.exception.ContentModerationException.ModerationErrorType;
-import com.ai.repo.service.ContentModerationService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
-public class OpenAIModerationService implements ContentModerationService {
+public class OpenAIModerationService {
 
     private static final String MODERATION_URL = "https://api.openai.com/v1/moderations";
 
@@ -40,7 +39,6 @@ public class OpenAIModerationService implements ContentModerationService {
         this.objectMapper = new ObjectMapper();
     }
 
-    @Override
     public void moderateContent(String content, String fileName) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("OpenAI API Key 未配置，跳过AI内容审核");
