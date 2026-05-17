@@ -247,7 +247,7 @@
     <select id="findByLastHeartbeatBefore" parameterType="java.time.LocalDateTime" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM agents
-        WHERE last_heartbeat_at < #{threshold}
+        WHERE last_heartbeat_at &lt; #{threshold}
         AND status != 'OFFLINE'
     </select>
 
