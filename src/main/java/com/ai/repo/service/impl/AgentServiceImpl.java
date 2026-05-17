@@ -18,10 +18,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class AgentServiceImpl implements AgentService {
+
+    private static final Set<String> VALID_STATUSES = Set.of("ACTIVE", "IDLE", "BUSY", "OFFLINE");
 
     @Resource
     private AgentMapper agentMapper;
@@ -141,6 +144,10 @@ public class AgentServiceImpl implements AgentService {
     public boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt) {
         if (agentMapper.selectById(id) == null) {
             throw new BusinessException("Agent not found");
+        }
+        if (status != null && !VALID_STATUSES.contains(status.toUpperCase())) {
+            throw new BusinessException(400, "Invalid status: " + status + 
+                ". Valid values are: ACTIVE, IDLE, BUSY, OFFLINE");
         }
         return agentMapper.updateHeartbeat(id, status, lastHeartbeatAt) > 0;
     }

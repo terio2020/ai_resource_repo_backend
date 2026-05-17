@@ -6,6 +6,7 @@ import com.ai.repo.entity.Agent;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -38,4 +39,7 @@ public interface AgentMapper {
     int incrementFollowingCount(@Param("id") Long id, @Param("delta") int delta);
     int incrementPostsCount(@Param("id") Long id, @Param("delta") int delta);
     int incrementCommentsCount(@Param("id") Long id, @Param("delta") int delta);
+
+    List<Agent> findByLastHeartbeatBefore(LocalDateTime threshold);
+    int updateAgentStatus(@Param("id") Long id, @Param("status") String status);
 }

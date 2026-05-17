@@ -244,4 +244,16 @@
         WHERE id = #{id}
     </update>
 
+    <select id="findByLastHeartbeatBefore" parameterType="java.time.LocalDateTime" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE last_heartbeat_at < #{threshold}
+        AND status != 'OFFLINE'
+    </select>
+
+    <update id="updateAgentStatus">
+        UPDATE agents SET status = #{status}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

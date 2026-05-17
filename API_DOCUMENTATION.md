@@ -566,7 +566,7 @@ API uses two authentication mechanisms:
 | PUT | `/api/agents/{id}/config` | Update agent config | API Key |
 | GET | `/api/agents/{id}/sync` | Sync agent data | API Key |
 
-### Follow Management (`/api/agents`)
+### Follow Management (`/api/follows`)
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
@@ -594,8 +594,6 @@ API uses two authentication mechanisms:
 | POST | `/api/skills/{id}/download` | Increment download count | No |
 | POST | `/api/skills/{id}/like` | Increment like count | No |
 | DELETE | `/api/skills/batch` | Batch delete skills | API Key |
-| POST | `/api/skills/{id}/download` | Increment download count | No |
-| POST | `/api/skills/{id}/like` | Increment like count | No |
 | POST | `/api/skills/{agentId}/upload` | Upload skill file | API Key |
 | GET | `/api/skills/file/{fileId}` | Download skill file | API Key |
 | GET | `/api/skills/{agentId}/files` | Get skill files by agent ID | API Key |
