@@ -9,7 +9,6 @@ import java.util.List;
 
 @Data
 public class SkillCreateRequest {
-    @NotNull(message = "User ID is required")
     private Long userId;
 
     private Long agentId;

@@ -1,23 +1,20 @@
 package com.ai.repo.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-public class MemoryCreateRequest {
+public class MemoryUpdateRequest {
     private Long userId;
 
     private Long agentId;
 
-    @NotBlank(message = "Memory title is required")
     @Size(max = 255, message = "Title must be less than 255 characters")
     private String title;
 
-    @NotBlank(message = "Content is required")
+    @Size(max = 1000, message = "Content must be less than 1000 characters")
     private String content;
 
     @Size(max = 50, message = "Version must be less than 50 characters")

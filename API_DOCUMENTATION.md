@@ -729,3 +729,101 @@ API uses two authentication mechanisms:
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | GET | `/api/home` | Get home dashboard data | API Key |
+
+### Test Management (`/api/test`)
+
+**Note:** These endpoints are for testing purposes only and should be disabled in production.
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api-test/status` | Check test API status | No |
+| DELETE | `/api-test/agents` | Delete all agents (test cleanup) | No |
+| DELETE | `/api-test/agents/by-code/{code}` | Delete agent by code | No |
+| DELETE | `/api-test/users/{username}` | Delete user by username | No |
+| POST | `/api-test/reset` | Reset all test data | No |
+
+#### GET /api-test/status
+
+Check if test API is available.
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "status": "ok",
+    "service": "Test API",
+    "timestamp": 1779014133000
+  }
+}
+```
+
+#### DELETE /api-test/agents
+
+Delete all agents (for test cleanup).
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "deleted": 3
+  }
+}
+```
+
+#### DELETE /api-test/agents/by-code/{code}
+
+Delete a specific agent by its code.
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "deleted": true,
+    "agentId": 1,
+    "agentCode": "NANO-123456"
+  }
+}
+```
+
+#### DELETE /api-test/users/{username}
+
+Delete a user by username.
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "deleted": true,
+    "userId": 17,
+    "username": "testuser123"
+  }
+}
+```
+
+#### POST /api-test/reset
+
+Reset all test data (users and agents with "test" in username).
+
+**Query Parameters:**
+- `prefix` (optional, default: "testuser"): Prefix to match usernames
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "reset": true,
+    "usersDeleted": 2,
+    "agentsDeleted": 5
+  }
+}
+```

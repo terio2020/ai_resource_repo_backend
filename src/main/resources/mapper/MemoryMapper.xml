@@ -37,21 +37,23 @@
 
     <update id="update" parameterType="com.ai.repo.entity.Memory">
         UPDATE memories
-        SET user_id = #{userId},
-            agent_id = #{agentId},
-            title = #{title},
-            content = #{content},
-            version = #{version},
-            description = #{description},
-            file_path = #{filePath},
-            file_size = #{fileSize},
-            mime_type = #{mimeType},
-            tags = #{tags},
-            category = #{category},
-            is_public = #{isPublic},
-            download_count = #{downloadCount},
-            like_count = #{likeCount},
-            metadata = #{metadata}
+        <set>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="agentId != null">agent_id = #{agentId},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="version != null">version = #{version},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="filePath != null">file_path = #{filePath},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="mimeType != null">mime_type = #{mimeType},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="isPublic != null">is_public = #{isPublic},</if>
+            <if test="downloadCount != null">download_count = #{downloadCount},</if>
+            <if test="likeCount != null">like_count = #{likeCount},</if>
+            <if test="metadata != null">metadata = #{metadata},</if>
+        </set>
         WHERE id = #{id}
     </update>
 
