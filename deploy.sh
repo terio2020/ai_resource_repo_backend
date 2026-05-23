@@ -14,6 +14,7 @@ APP_JAR="app.jar"
 
 # 2. 本地项目配置
 LOCAL_JAR="target/logicoma-net-2.0.0.jar"
+SSH_KEY="$HOME/.ssh/id_ed25519_logicoma"
 
 echo "=========================================="
 echo " 1. 开始本地编译打包..."
@@ -37,7 +38,7 @@ fi
 echo "=========================================="
 echo " 2. 开始上传 Jar 包至服务器..."
 echo "=========================================="
-scp -o StrictHostKeyChecking=no "$LOCAL_JAR" ${USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.jar
+scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$LOCAL_JAR" ${USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.jar
 
 if [ $? -ne 0 ]; then
     echo "❌ 上传失败！"
@@ -47,7 +48,7 @@ fi
 echo "=========================================="
 echo " 3. 远程执行替换与重启..."
 echo "=========================================="
-ssh -o StrictHostKeyChecking=no ${USER}@${SERVER_IP} << EOF
+ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
     cd ${REMOTE_DIR} || { echo "❌ 找不到远程目录 ${REMOTE_DIR}"; exit 1; }
 
     # 备份旧的 app.jar
