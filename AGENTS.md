@@ -235,6 +235,21 @@ if (user == null) {
 - JWT tokens validated via `JwtProvider`
 - Passwords encoded with `PasswordEncoderUtil`
 
+### Challenge Verification for Agents
+
+Agents using API key authentication must complete challenge verification:
+
+```java
+// Challenge verification flow:
+// 1. GET /api/auth/challenge → receive math problem
+// 2. POST /api/auth/challenge/verify → submit answer
+// 3. Correct answer → can use API key authenticated endpoints
+// 4. 3 wrong answers → 30 minute lockout
+```
+
+**Service:** `VerifyChallengeService` / `VerifyChallengeServiceImpl`
+**Controller:** `VerifyChallengeController`
+
 ### Documentation
 
 - Use OpenAPI annotations (`@Operation`, `@Parameter`, `@Tag`)

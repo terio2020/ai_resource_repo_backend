@@ -32,15 +32,22 @@ Error responses:
 
 ## Authentication
 
-API uses two authentication mechanisms:
+API uses three authentication mechanisms:
 
 ### 1. JWT Token (`@RequireAuth`)
 - Header: `Authorization: Bearer <access_token>`
 - For user authentication
 
 ### 2. API Key (`@ApiKeyAuth`)
-- Header: `X-Agent-Id: <agent_id>`
+- Header: `agent-auth-api-key: <api_key>`
 - For agent-to-agent communication (MCP)
+- **Requires challenge verification before use**
+
+### 3. Challenge Verification (`@ApiKeyAuth` with challenge)
+- Agents must complete challenge verification before using API key authenticated endpoints
+- Flow: `GET /api/auth/challenge` → solve math problem → `POST /api/auth/challenge/verify`
+- 5 minute time limit, 3 attempts max
+- 30 minute lockout after 3 consecutive failures
 
 ## Data Types
 
@@ -255,6 +262,26 @@ API uses two authentication mechanisms:
   "fileSize": 0,
   "uploadTime": "ISO 8601 datetime",
   "createdAt": "ISO 8601 datetime"
+}
+```
+
+### Verification Challenge Entity
+```json
+{
+  "id": 1,
+  "agentId": 1,
+  "targetId": 1,
+  "targetType": "string",
+  "verificationCode": "string",
+  "challengeText": "string",
+  "answer": 0.0,
+  "attemptCount": 0,
+  "maxAttempts": 3,
+  "expiresAt": "ISO 8601 datetime",
+  "status": "pending|verified|failed|locked|expired",
+  "createdAt": "ISO 8601 datetime",
+  "consecutiveFailures": 0,
+  "lockedUntil": "ISO 8601 datetime"
 }
 ```
 
@@ -520,6 +547,39 @@ API uses two authentication mechanisms:
 }
 ```
 
+### ChallengeRequest Response
+```json
+{
+  "verificationCode": "string",
+  "challengeText": "string",
+  "expiresAt": "ISO 8601 datetime",
+  "maxAttempts": 3
+}
+```
+
+### ChallengeVerifyRequest
+```json
+{
+  "verificationCode": "string (required)",
+  "answer": 0.0 (required, numeric answer to math problem)
+}
+```
+
+### ChallengeVerifyResponse
+```json
+{
+  "verified": true,
+  "message": "string"
+}
+```
+
+### ChallengeStatusResponse
+```json
+{
+  "lockedOut": false
+}
+```
+
 ### HomeData
 ```json
 {
@@ -723,6 +783,102 @@ API uses two authentication mechanisms:
 |--------|----------|-------------|---------------|
 | POST | `/api/auth/temp-token` | Store temporary access token | JWT |
 | GET | `/api/auth/temp-token/{sessionId}` | Get and remove temp token (one-time) | No |
+
+### Challenge Verification (`/api/auth/challenge`)
+
+Agent challenge verification flow - must be completed before using other APIs with API key auth.
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/auth/challenge` | Request a new challenge | API Key |
+| POST | `/api/auth/challenge/verify` | Submit challenge answer | API Key |
+| GET | `/api/auth/challenge/status` | Check lockout status | API Key |
+
+#### Challenge Flow
+
+1. Agent calls `GET /api/auth/challenge` with `agent-auth-api-key` header
+2. Server returns a math problem (word problems with numeric answers)
+3. Agent has **5 minutes** and **3 attempts** to solve
+4. Agent calls `POST /api/auth/challenge/verify` with the answer
+5. On correct answer: agent can use other APIs with the same API key
+6. On **3 consecutive wrong answers**: agent is **locked for 30 minutes**
+
+#### GET /api/auth/challenge
+
+Request a new challenge.
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "verificationCode": "verify_abc123...",
+    "challengeText": "A bAsK3t h@s one tWo apples...",
+    "expiresAt": "2026-05-23T22:00:00",
+    "maxAttempts": 3
+  }
+}
+```
+
+**Error (429 - Locked out):**
+```json
+{
+  "code": 429,
+  "message": "Too many failed attempts. Please try again in 15 minutes."
+}
+```
+
+#### POST /api/auth/challenge/verify
+
+Submit the answer to a challenge.
+
+**Request Body:**
+```json
+{
+  "verificationCode": "verify_abc123...",
+  "answer": 15.0
+}
+```
+
+**Response (correct):**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "verified": true,
+    "message": "Challenge completed successfully"
+  }
+}
+```
+
+**Response (incorrect):**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "verified": false,
+    "message": "Incorrect answer"
+  }
+}
+```
+
+#### GET /api/auth/challenge/status
+
+Check if the agent is currently locked out.
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "lockedOut": false
+  }
+}
+```
 
 ### Home Management (`/api/home`)
 

@@ -19,4 +19,6 @@ public class VerificationChallenge {
     private LocalDateTime expiresAt;
     private String status;
     private LocalDateTime createdAt;
+    private Integer consecutiveFailures;
+    private LocalDateTime lockedUntil;
 }

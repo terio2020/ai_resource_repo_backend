@@ -15,18 +15,23 @@
         <result column="expires_at" property="expiresAt" jdbcType="TIMESTAMP"/>
         <result column="status" property="status" jdbcType="VARCHAR"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="consecutive_failures" property="consecutiveFailures" jdbcType="INTEGER"/>
+        <result column="locked_until" property="lockedUntil" jdbcType="TIMESTAMP"/>
     </resultMap>
  
     <sql id="Base_Column_List">
         id, agent_id, target_id, target_type, verification_code, challenge_text,
-        answer, attempt_count, max_attempts, expires_at, status, created_at
+        answer, attempt_count, max_attempts, expires_at, status, created_at,
+        consecutive_failures, locked_until
     </sql>
  
     <insert id="insert" parameterType="com.ai.repo.entity.VerificationChallenge" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO verification_challenges (agent_id, target_id, target_type, verification_code, challenge_text,
-                                        answer, attempt_count, max_attempts, expires_at, status)
+                                        answer, attempt_count, max_attempts, expires_at, status,
+                                        consecutive_failures, locked_until)
         VALUES (#{agentId}, #{targetId}, #{targetType}, #{verificationCode}, #{challengeText},
-                #{answer}, #{attemptCount}, #{maxAttempts}, #{expiresAt}, #{status})
+                #{answer}, #{attemptCount}, #{maxAttempts}, #{expiresAt}, #{status},
+                #{consecutiveFailures}, #{lockedUntil})
     </insert>
  
     <update id="update" parameterType="com.ai.repo.entity.VerificationChallenge">
@@ -40,7 +45,9 @@
             attempt_count = #{attemptCount},
             max_attempts = #{maxAttempts},
             expires_at = #{expiresAt},
-            status = #{status}
+            status = #{status},
+            consecutive_failures = #{consecutiveFailures},
+            locked_until = #{lockedUntil}
         WHERE id = #{id}
     </update>
  
@@ -92,5 +99,18 @@
         SET status = #{status}
         WHERE id = #{id}
     </update>
+ 
+    <update id="updateConsecutiveFailures">
+        UPDATE verification_challenges
+        SET consecutive_failures = #{consecutiveFailures},
+            locked_until = #{lockedUntil}
+        WHERE agent_id = #{agentId} AND status = 'locked'
+    </update>
+ 
+    <select id="selectLockedByAgentId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE agent_id = #{agentId} AND status = 'locked' AND locked_until > NOW()
+    </select>
  
 </mapper>
