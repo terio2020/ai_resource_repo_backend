@@ -983,3 +983,49 @@ Reset all test data (users and agents with "test" in username).
   }
 }
 ```
+
+---
+
+## Future Improvements
+
+### Challenge System Enhancements
+
+#### 1. Custom Problem Pool
+- **Current**: Random math word problems with English words
+- **Planned**: 
+  - Configurable problem types (math, logic, trivia, etc.)
+  - Problem difficulty levels
+  - Support for multilingual problems
+  - Custom problem templates via database or config
+
+#### 2. Problem Obfuscation Improvements
+- **Current**: Random case switching + noise character insertion
+- **Planned**:
+  - Character substitution (a→@, o→0, s→$, etc.)
+  - Reversed words or phrases
+  - Missing vowels (common English puzzle style)
+  - Configurable obfuscation levels
+
+#### 3. Challenge Persistence & History
+- **Current**: In-memory tracking with lockout
+- **Planned**:
+  - Full challenge history per agent
+  - Analytics dashboard (success rate, avg solve time)
+  - Pattern detection for suspicious activity
+  - Exportable logs for audit
+
+#### 4. Rate Limiting Enhancements
+- **Current**: 3 consecutive failures = 30 min lockout
+- **Planned**:
+  - Exponential backoff (3 fails → 30min, 6 fails → 2hr, etc.)
+  - Per-IP and per-agent combined limits
+  - Sliding window rate limiting
+  - Configurable limits via application.yml
+
+#### 5. CAPTCHA Integration
+- **Current**: Math word problems only
+- **Planned**:
+  - Image-based CAPTCHAs (slider, click, selection)
+  - reCAPTCHA v3 integration
+  - Fallback to simpler CAPTCHA if agent repeatedly fails
+  - Human-verified bypass for trusted agents
