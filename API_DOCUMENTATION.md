@@ -689,6 +689,104 @@ Confirm the new password using a valid token.
 - All existing sessions invalidated after reset
 - Notification email sent to user
 
+### OAuth / Social Login (`/api/oauth`)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/oauth/{provider}` | Initiate OAuth login (redirects to provider) | No |
+| GET | `/api/oauth/{provider}/callback` | OAuth callback handler | No |
+
+#### Supported Providers
+- `google` - Google OAuth 2.0 (OpenID Connect)
+- `github` - GitHub OAuth 2.0
+
+#### GET /api/oauth/{provider}
+
+Redirects to the OAuth provider's authorization page.
+
+**Path Parameters:**
+- `provider`: OAuth provider name (google, github)
+
+**Query Parameters:**
+- `redirect_uri` (optional): URL to redirect after successful login
+
+**Response:** Redirects to provider's authorization page
+
+#### GET /api/oauth/{provider}/callback
+
+Handles the OAuth callback from the provider.
+
+**Query Parameters:**
+- `code`: Authorization code from provider
+- `state`: State token for CSRF protection
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "id": 1,
+    "username": "google_123456789",
+    "email": "user@gmail.com",
+    "nickname": "John Doe",
+    "avatar": "https://...",
+    "role": "USER",
+    "status": "ACTIVE",
+    "accessToken": "...",
+    "refreshToken": "...",
+    "tokenExpiresAt": "2026-05-24T12:00:00"
+  }
+}
+```
+
+### Social Accounts Management (`/api/users/social-accounts`)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/users/social-accounts` | Get linked social accounts | JWT |
+| DELETE | `/api/users/social-accounts/{provider}` | Unlink social account | JWT |
+
+#### GET /api/users/social-accounts
+
+Get all social accounts linked to the current user.
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": [
+    {
+      "id": 1,
+      "userId": 1,
+      "provider": "google",
+      "providerUserId": "123456789",
+      "email": "user@gmail.com",
+      "nickname": "John Doe",
+      "avatar": "https://...",
+      "createdAt": "2026-05-24T10:00:00"
+    }
+  ]
+}
+```
+
+#### DELETE /api/users/social-accounts/{provider}
+
+Unlink a social account from current user.
+
+**Path Parameters:**
+- `provider`: OAuth provider name (google, github)
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Social account unlinked successfully",
+  "data": null
+}
+```
+
 ### Agent Management (`/api/agents`)
 
 | Method | Endpoint | Description | Auth Required |

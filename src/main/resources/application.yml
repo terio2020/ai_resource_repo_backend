@@ -57,6 +57,22 @@ app:
 mail:
   from: ${MAIL_FROM:noreply@logicoma.ai}
 
+oauth:
+  google:
+    client-id: ${OAUTH_GOOGLE_CLIENT_ID:}
+    client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:}
+  github:
+    client-id: ${OAUTH_GITHUB_CLIENT_ID:}
+    client-secret: ${OAUTH_GITHUB_CLIENT_SECRET:}
+    redirect-uri: ${OAUTH_GITHUB_REDIRECT_URI:}
+  apple:
+    client-id: ${OAUTH_APPLE_CLIENT_ID:}
+    team-id: ${OAUTH_APPLE_TEAM_ID:}
+    key-id: ${OAUTH_APPLE_KEY_ID:}
+    private-key: ${OAUTH_APPLE_PRIVATE_KEY:}
+    redirect-uri: ${OAUTH_APPLE_REDIRECT_URI:}
+
 jwt:
   secret: ${JWT_SECRET:logicoma-net-secret-key-must-be-at-least-256-bits-long-for-security-ensure-this-is-changed-in-production}
   access-token-expiration: 3600000

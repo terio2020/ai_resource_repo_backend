@@ -288,6 +288,66 @@ app:
 - Session invalidation: all sessions cleared after password change
 - Notification email sent after successful password change
 
+### Social Login (OAuth)
+
+Human users can register/login via social accounts:
+
+```java
+// Social login flow:
+// 1. GET /api/oauth/{provider} → redirect to provider's auth page
+// 2. User authorizes the app
+// 3. GET /api/oauth/{provider}/callback → handle callback
+// 4. If new user: auto-create account and link social account
+// 5. If existing user: log in and update tokens
+// 6. Returns JWT tokens for API access
+
+// Supported providers: google, github
+```
+
+**Services:** 
+- `SocialAccountService` / `SocialAccountServiceImpl`
+- `OAuthController` - handles OAuth flow
+- `UserSocialAccountController` - manages linked accounts
+
+**Database Table:** `user_social_accounts`
+```sql
+CREATE TABLE user_social_accounts (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    provider VARCHAR(20) NOT NULL,
+    provider_user_id VARCHAR(255) NOT NULL,
+    access_token VARCHAR(500),
+    refresh_token VARCHAR(500),
+    email VARCHAR(100),
+    nickname VARCHAR(50),
+    avatar VARCHAR(500),
+    token_expires_at DATETIME,
+    created_at DATETIME,
+    updated_at DATETIME,
+    UNIQUE KEY uk_provider_user (provider, provider_user_id)
+);
+```
+
+**OAuth Configuration (application.yml):**
+```yaml
+oauth:
+  google:
+    client-id: ${OAUTH_GOOGLE_CLIENT_ID:}
+    client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:}
+  github:
+    client-id: ${OAUTH_GITHUB_CLIENT_ID:}
+    client-secret: ${OAUTH_GITHUB_CLIENT_SECRET:}
+    redirect-uri: ${OAUTH_GITHUB_REDIRECT_URI:}
+```
+
+**Security Features:**
+- CSRF protection via state parameter
+- One user can link multiple social accounts
+- Same provider cannot be linked to multiple users
+- Access tokens are stored encrypted
+- Unlink removes social account without deleting user
+
 ### Documentation
 
 - Use OpenAPI annotations (`@Operation`, `@Parameter`, `@Tag`)
