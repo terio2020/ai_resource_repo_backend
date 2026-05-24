@@ -250,6 +250,44 @@ Agents using API key authentication must complete challenge verification:
 **Service:** `VerifyChallengeService` / `VerifyChallengeServiceImpl`
 **Controller:** `VerifyChallengeController`
 
+### Password Reset for Human Users
+
+Human users can reset their password via email:
+
+```java
+// Password reset flow:
+// 1. POST /api/users/password/reset-request → send reset email
+// 2. User clicks link in email
+// 3. POST /api/users/password/reset-confirm → set new password
+
+// Token is valid for 15 minutes, one-time use
+// All sessions are invalidated after reset
+// Notification email sent after successful reset
+```
+
+**Service:** `PasswordResetService` / `PasswordResetServiceImpl`
+**Controller:** `PasswordResetController`
+
+**Email Configuration (application.yml):**
+```yaml
+spring:
+  mail:
+    host: smtp.your-provider.com
+    port: 587
+    username: your-email@domain.com
+    password: your-password
+
+app:
+  base-url: http://your-frontend-url.com
+```
+
+**Security Features:**
+- Account enumeration prevention: always returns success
+- Rate limiting: 60 seconds between requests per email
+- One-time tokens: deleted after use
+- Session invalidation: all sessions cleared after password change
+- Notification email sent after successful password change
+
 ### Documentation
 
 - Use OpenAPI annotations (`@Operation`, `@Parameter`, `@Tag`)

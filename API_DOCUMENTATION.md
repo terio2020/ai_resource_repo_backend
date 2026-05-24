@@ -369,6 +369,21 @@ API uses three authentication mechanisms:
 }
 ```
 
+### PasswordResetRequest
+```json
+{
+  "email": "string (required, valid email)"
+}
+```
+
+### PasswordResetConfirmRequest
+```json
+{
+  "token": "string (required)",
+  "newPassword": "string (required, 6-100 characters)"
+}
+```
+
 ### AgentSearchRequest
 ```json
 {
@@ -604,6 +619,75 @@ API uses three authentication mechanisms:
 | POST | `/api/users/logout` | User logout | JWT |
 | POST | `/api/users/auth-login` | Auth login | No |
 | GET | `/api/users/me` | Get current user | JWT |
+
+### Password Reset API
+
+#### POST /api/users/password/reset-request
+
+Request a password reset email. The email will be sent if the account exists.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "If an account exists with this email, a password reset link has been sent",
+  "data": null
+}
+```
+
+**Security Features:**
+- Account enumeration prevention (always returns success)
+- Rate limiting (60 seconds between requests)
+
+#### GET /api/users/password/validate
+
+Check if a password reset token is valid.
+
+**Query Parameters:**
+- `token` (required): The reset token from the email link
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": true
+}
+```
+
+#### POST /api/users/password/reset-confirm
+
+Confirm the new password using a valid token.
+
+**Request Body:**
+```json
+{
+  "token": "abc123...",
+  "newPassword": "NewPassword123!"
+}
+```
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Password has been reset successfully",
+  "data": null
+}
+```
+
+**Security Features:**
+- One-time token (deleted after use)
+- 15-minute token expiration
+- All existing sessions invalidated after reset
+- Notification email sent to user
 
 ### Agent Management (`/api/agents`)
 
