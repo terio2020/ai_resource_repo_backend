@@ -2,6 +2,7 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.entity.VerificationChallenge;
 import com.ai.repo.exception.BusinessException;
+import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.VerificationChallengeMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,16 +25,22 @@ class VerifyChallengeServiceImplTest {
     @Mock
     private VerificationChallengeMapper challengeMapper;
 
+    @Mock
+    private AgentMapper agentMapper;
+
     private VerifyChallengeServiceImpl verifyChallengeService;
 
     @BeforeEach
     void setUp() {
         verifyChallengeService = new VerifyChallengeServiceImpl();
-        // Use reflection to inject mock mapper
         try {
-            java.lang.reflect.Field field = VerifyChallengeServiceImpl.class.getDeclaredField("challengeMapper");
-            field.setAccessible(true);
-            field.set(verifyChallengeService, challengeMapper);
+            java.lang.reflect.Field fieldChallenge = VerifyChallengeServiceImpl.class.getDeclaredField("challengeMapper");
+            fieldChallenge.setAccessible(true);
+            fieldChallenge.set(verifyChallengeService, challengeMapper);
+            
+            java.lang.reflect.Field fieldAgent = VerifyChallengeServiceImpl.class.getDeclaredField("agentMapper");
+            fieldAgent.setAccessible(true);
+            fieldAgent.set(verifyChallengeService, agentMapper);
         } catch (Exception e) {
             fail("Failed to inject mock mapper: " + e.getMessage());
         }
@@ -100,6 +107,7 @@ class VerifyChallengeServiceImplTest {
         
         when(challengeMapper.selectByCode(code)).thenReturn(challenge);
         when(challengeMapper.updateStatus(anyLong(), anyString())).thenReturn(1);
+        when(agentMapper.updateChallengeVerified(anyLong(), anyBoolean())).thenReturn(1);
 
         // When
         boolean result = verifyChallengeService.verifyAnswer(code, answer, agentId);

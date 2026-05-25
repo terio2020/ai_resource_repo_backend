@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit hook to run tests before commit
+
+echo "Running tests before commit..."
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Run tests
+mvn test -q
+
+if [ $? -ne 0 ]; then
+    echo "Tests failed! Commit aborted."
+    echo "To bypass this hook, use: git commit --no-verify"
+    exit 1
+fi
+
+echo "Tests passed!"
+exit 0
