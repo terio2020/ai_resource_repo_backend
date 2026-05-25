@@ -3,6 +3,7 @@
 # ==========================================
 # Logicoma 后端自动化本地编译 -> 远程部署脚本
 # 特性：使用 SSH 密钥认证，全程无需输入密码
+# 支持 .env 文件配置敏感信息
 # ==========================================
 
 # 1. 远程服务器配置
@@ -11,9 +12,32 @@ USER="root"
 REMOTE_DIR="/DE_PKGS/de_version/de_code/de_server/ai_resource"
 CONTAINER_NAME="ai_resource_app"
 APP_JAR="app.jar"
+ENV_FILE=".env"
 
-# 2. 邮件配置环境变量（部署时通过 -e 传入）
-#    正式环境请通过环境变量传入，这里提供默认值供参考
+# 2. 本地项目配置
+LOCAL_JAR="target/logicoma-net-2.0.0.jar"
+SSH_KEY="$HOME/.ssh/id_ed25519_logicoma"
+
+# ==========================================
+# 从 .env 文件加载环境变量
+# ==========================================
+load_env_file() {
+    if [ -f "$ENV_FILE" ]; then
+        echo "📁 发现 .env 文件，加载配置..."
+        set -a  # 自动导出
+        source "$ENV_FILE"
+        set +a
+    else
+        echo "⚠️  未找到 .env 文件，使用环境变量或默认值"
+    fi
+}
+
+echo "=========================================="
+echo " 1. 加载配置..."
+echo "=========================================="
+load_env_file
+
+# 设置默认值（如果 .env 中未定义）
 MAIL_HOST="${MAIL_HOST:-smtp.example.com}"
 MAIL_PORT="${MAIL_PORT:-587}"
 MAIL_USERNAME="${MAIL_USERNAME:-}"
@@ -22,12 +46,8 @@ MAIL_FROM="${MAIL_FROM:-noreply@logicoma.ai}"
 APP_BASE_URL="${APP_BASE_URL:-http://your-domain.com}"
 APP_FRONTEND_URL="${APP_FRONTEND_URL:-http://your-domain.com}"
 
-# 3. 本地项目配置
-LOCAL_JAR="target/logicoma-net-2.0.0.jar"
-SSH_KEY="$HOME/.ssh/id_ed25519_logicoma"
-
 echo "=========================================="
-echo " 1. 开始本地编译打包..."
+echo " 2. 开始本地编译打包..."
 echo "=========================================="
 mvn clean package -DskipTests
 
@@ -46,17 +66,27 @@ if [ ! -f "$LOCAL_JAR" ]; then
 fi
 
 echo "=========================================="
-echo " 2. 开始上传 Jar 包至服务器..."
+echo " 3. 上传文件至服务器..."
 echo "=========================================="
+
+# 上传 JAR 包
 scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$LOCAL_JAR" ${USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.jar
 
 if [ $? -ne 0 ]; then
-    echo "❌ 上传失败！"
+    echo "❌ 上传 JAR 包失败！"
     exit 1
 fi
 
+# 上传 .env 文件（如果存在）
+if [ -f "$ENV_FILE" ]; then
+    scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$ENV_FILE" ${USER}@${SERVER_IP}:${REMOTE_DIR}/.env
+    if [ $? -eq 0 ]; then
+        echo "✅ .env 文件已上传"
+    fi
+fi
+
 echo "=========================================="
-echo " 3. 远程执行替换与重启..."
+echo " 4. 远程执行替换与重启..."
 echo "=========================================="
 ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
     cd ${REMOTE_DIR} || { echo "❌ 找不到远程目录 ${REMOTE_DIR}"; exit 1; }

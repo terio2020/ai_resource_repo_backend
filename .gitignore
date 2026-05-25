@@ -40,3 +40,7 @@ Thumbs.db
 ### Data ###
 data/
 files/
+
+### Environment ###
+.env
+!.env.example
