@@ -240,11 +240,30 @@ The application will start on `http://localhost:8080`
 
 ### Testing
 
-Run unit tests:
+Run all unit tests:
 
 ```bash
 mvn test
 ```
+
+Run specific test class:
+
+```bash
+mvn test -Dtest=AgentServiceImplTest
+mvn test -Dtest=PostServiceImplTest
+mvn test -Dtest=UserServiceImplTest
+```
+
+**Test Coverage:**
+
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `VerifyChallengeServiceImplTest` | Challenge verification logic | 15 |
+| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat | 33 |
+| `PostServiceImplTest` | Post CRUD, voting, feed | 27 |
+| `UserServiceImplTest` | User CRUD, auth, tokens | 34 |
+
+**Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument.
 
 ## Common Response Format
 
