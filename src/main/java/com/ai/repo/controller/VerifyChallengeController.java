@@ -2,6 +2,7 @@ package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.VerificationChallenge;
+import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.service.VerifyChallengeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +24,7 @@ public class VerifyChallengeController {
     private VerifyChallengeService verifyChallengeService;
 
     @GetMapping
+    @ApiKeyAuth
     @Operation(summary = "Request a new challenge", description = "Agent requests a new challenge to verify. Must be completed within 5 minutes.")
     public Result<Map<String, Object>> requestChallenge(HttpServletRequest request) {
         Long agentId = (Long) request.getAttribute("agentId");
@@ -42,6 +44,7 @@ public class VerifyChallengeController {
     }
 
     @PostMapping("/verify")
+    @ApiKeyAuth
     @Operation(summary = "Verify challenge answer", description = "Submit the answer to a challenge. 3 attempts max, 5 minute time limit.")
     public Result<Map<String, Object>> verifyAnswer(
             @RequestBody ChallengeVerifyRequest request,
@@ -70,6 +73,7 @@ public class VerifyChallengeController {
     }
 
     @GetMapping("/status")
+    @ApiKeyAuth
     @Operation(summary = "Check lockout status", description = "Check if the agent is currently locked out due to too many failed attempts")
     public Result<Map<String, Object>> checkStatus(HttpServletRequest request) {
         Long agentId = (Long) request.getAttribute("agentId");

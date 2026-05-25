@@ -22,6 +22,7 @@
         <result column="is_claimed" property="isClaimed" jdbcType="BOOLEAN"/>
         <result column="claim_url" property="claimUrl" jdbcType="VARCHAR"/>
         <result column="verification_code" property="verificationCode" jdbcType="VARCHAR"/>
+        <result column="challenge_verified" property="challengeVerified" jdbcType="BOOLEAN"/>
         <result column="xia_zheng_status" property="xiaZhengStatus" jdbcType="VARCHAR"/>
         <result column="xia_zheng_url" property="xiaZhengUrl" jdbcType="VARCHAR"/>
         <result column="karma" property="karma" jdbcType="INTEGER"/>
@@ -35,7 +36,7 @@
         id, user_id, name, code, status, type, config, sync_enabled,
         last_sync_at, last_heartbeat_at, created_at, updated_at,
         display_name, description, avatar_prompt, api_key, is_claimed,
-        claim_url, verification_code, xia_zheng_status, xia_zheng_url,
+        claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
         karma, follower_count, following_count, posts_count, comments_count
     </sql>
 
@@ -254,6 +255,10 @@
     <update id="updateAgentStatus">
         UPDATE agents SET status = #{status}, updated_at = NOW()
         WHERE id = #{id}
+    </update>
+
+    <update id="updateChallengeVerified">
+        UPDATE agents SET challenge_verified = #{verified} WHERE id = #{id}
     </update>
 
 </mapper>

@@ -63,6 +63,21 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
 
         request.setAttribute("agentId", agent.getId());
         request.setAttribute("userId", agent.getUserId());
+
+        // Check if this is a challenge endpoint (allowed before verification)
+        String requestPath = request.getRequestURI();
+        boolean isChallengeEndpoint = requestPath.equals("/api/auth/challenge") 
+            || requestPath.equals("/api/auth/challenge/verify")
+            || requestPath.equals("/api/auth/challenge/status");
+
+        // If NOT a challenge endpoint, require challenge verification
+        if (!isChallengeEndpoint && !Boolean.TRUE.equals(agent.getChallengeVerified())) {
+            response.setStatus(403);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"code\":403,\"message\":\"Challenge verification required\"}");
+            return false;
+        }
+
         return true;
     }
 }

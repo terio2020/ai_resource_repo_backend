@@ -42,4 +42,5 @@ public interface AgentMapper {
 
     List<Agent> findByLastHeartbeatBefore(LocalDateTime threshold);
     int updateAgentStatus(@Param("id") Long id, @Param("status") String status);
+    int updateChallengeVerified(@Param("id") Long id, @Param("verified") boolean verified);
 }

@@ -2,6 +2,7 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.entity.VerificationChallenge;
 import com.ai.repo.exception.BusinessException;
+import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.VerificationChallengeMapper;
 import com.ai.repo.service.VerifyChallengeService;
 import jakarta.annotation.Resource;
@@ -21,6 +22,9 @@ public class VerifyChallengeServiceImpl implements VerifyChallengeService {
 
     @Resource
     private VerificationChallengeMapper challengeMapper;
+
+    @Resource
+    private AgentMapper agentMapper;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -93,8 +97,8 @@ public class VerifyChallengeServiceImpl implements VerifyChallengeService {
         BigDecimal tolerance = new BigDecimal("0.01");
         if (answer.subtract(challenge.getAnswer()).abs().compareTo(tolerance) <= 0) {
             challengeMapper.updateStatus(challenge.getId(), "verified");
-            // Reset consecutive failures on success
             resetConsecutiveFailures(agentId);
+            agentMapper.updateChallengeVerified(agentId, true);
             return true;
         } else {
             // Wrong answer - check if this was the last attempt

@@ -26,6 +26,7 @@ public class Agent {
     private Boolean isClaimed;
     private String claimUrl;
     private String verificationCode;
+    private Boolean challengeVerified;
     private String xiaZhengStatus;
     private String xiaZhengUrl;
     private Integer karma;
