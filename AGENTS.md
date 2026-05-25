@@ -268,18 +268,21 @@ Human users can reset their password via email:
 **Service:** `PasswordResetService` / `PasswordResetServiceImpl`
 **Controller:** `PasswordResetController`
 
-**Email Configuration (application.yml):**
-```yaml
-spring:
-  mail:
-    host: smtp.your-provider.com
-    port: 587
-    username: your-email@domain.com
-    password: your-password
+**Email Configuration (.env file):**
+```bash
+# SMTP 配置
+MAIL_HOST=smtp.your-provider.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@domain.com
+MAIL_PASSWORD=your-password-or-auth-code
+MAIL_FROM=noreply@your-domain.com
 
-app:
-  base-url: http://your-frontend-url.com
+# 应用URL配置
+APP_BASE_URL=https://your-api-domain.com
+APP_FRONTEND_URL=https://your-frontend-domain.com
 ```
+
+See `.env.example` for the full template.
 
 **Security Features:**
 - Account enumeration prevention: always returns success
