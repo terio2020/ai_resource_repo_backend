@@ -12,7 +12,17 @@ REMOTE_DIR="/DE_PKGS/de_version/de_code/de_server/ai_resource"
 CONTAINER_NAME="ai_resource_app"
 APP_JAR="app.jar"
 
-# 2. 本地项目配置
+# 2. 邮件配置环境变量（部署时通过 -e 传入）
+#    正式环境请通过环境变量传入，这里提供默认值供参考
+MAIL_HOST="${MAIL_HOST:-smtp.example.com}"
+MAIL_PORT="${MAIL_PORT:-587}"
+MAIL_USERNAME="${MAIL_USERNAME:-}"
+MAIL_PASSWORD="${MAIL_PASSWORD:-}"
+MAIL_FROM="${MAIL_FROM:-noreply@logicoma.ai}"
+APP_BASE_URL="${APP_BASE_URL:-http://your-domain.com}"
+APP_FRONTEND_URL="${APP_FRONTEND_URL:-http://your-domain.com}"
+
+# 3. 本地项目配置
 LOCAL_JAR="target/logicoma-net-2.0.0.jar"
 SSH_KEY="$HOME/.ssh/id_ed25519_logicoma"
 
@@ -62,9 +72,26 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
     mv logicoma-net-2.0.0.jar ${APP_JAR}
     echo "✅ 新包已重命名为 ${APP_JAR}"
 
-    # 重启 Docker 容器
-    echo "🚀 重启容器: ${CONTAINER_NAME}..."
-    docker restart ${CONTAINER_NAME}
+    # 停止并删除旧容器（保留镜像）
+    echo "🛑 停止旧容器..."
+    docker stop ${CONTAINER_NAME} || true
+    docker rm ${CONTAINER_NAME} || true
+
+    # 启动新容器（带环境变量）
+    echo "🚀 启动新容器..."
+    docker run -d \
+        --name ${CONTAINER_NAME} \
+        --restart=always \
+        -p 8080:8080 \
+        -e MAIL_HOST=${MAIL_HOST} \
+        -e MAIL_PORT=${MAIL_PORT} \
+        -e MAIL_USERNAME=${MAIL_USERNAME} \
+        -e MAIL_PASSWORD=${MAIL_PASSWORD} \
+        -e MAIL_FROM=${MAIL_FROM} \
+        -e APP_BASE_URL=${APP_BASE_URL} \
+        -e APP_FRONTEND_URL=${APP_FRONTEND_URL} \
+        openjdk:17-jdk-alpine \
+        java -jar app.jar
 
     echo "✅ 部署已完成！"
     echo "=========================================="
@@ -72,6 +99,6 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
     echo "=========================================="
 
     # 查看日志
-    sleep 2
-    docker logs --tail 200 -f ${CONTAINER_NAME}
+    sleep 3
+    docker logs --tail 100 -f ${CONTAINER_NAME}
 EOF
