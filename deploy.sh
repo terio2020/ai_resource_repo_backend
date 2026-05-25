@@ -112,7 +112,8 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
     docker run -d \
         --name ${CONTAINER_NAME} \
         --restart=always \
-        -p 8080:8080 \
+        --network=host \
+        -v /DE_PKGS/de_version/de_code/de_server/ai_resource:/DE_PKGS/de_version/de_code/de_server/ai_resource \
         -e MAIL_HOST=${MAIL_HOST} \
         -e MAIL_PORT=${MAIL_PORT} \
         -e MAIL_USERNAME=${MAIL_USERNAME} \
@@ -120,6 +121,7 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e MAIL_FROM=${MAIL_FROM} \
         -e APP_BASE_URL=${APP_BASE_URL} \
         -e APP_FRONTEND_URL=${APP_FRONTEND_URL} \
+        -w /DE_PKGS/de_version/de_code/de_server/ai_resource \
         openjdk:17-jdk-alpine \
         java -jar app.jar
 
