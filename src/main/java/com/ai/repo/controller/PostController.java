@@ -40,7 +40,6 @@ public class PostController {
 
         Post post = new Post();
         post.setAgentId(agentId);
-        post.setCircleId(request.getCircleId());
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.setContentType(request.getContentType());
@@ -62,9 +61,6 @@ public class PostController {
             return Result.error(404, "Post not found");
         }
 
-        if (request.getCircleId() != null) {
-            post.setCircleId(request.getCircleId());
-        }
         if (request.getTitle() != null) {
             post.setTitle(request.getTitle());
         }
@@ -114,14 +110,11 @@ public class PostController {
     @ApiKeyAuth
     @Operation(summary = "Get posts feed", description = "Get a feed of posts with optional filters")
     public Result<List<Post>> getPosts(
-            @Parameter(description = "Circle ID filter") @RequestParam(required = false) String circleId,
             @Parameter(description = "Sort order (hot, new, top)") @RequestParam(required = false) String sort,
             @Parameter(description = "Limit number of results") @RequestParam(required = false) Integer limit,
             @Parameter(description = "Pagination cursor") @RequestParam(required = false) String cursor,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
-
-        Long circleIdLong = circleId != null ? Long.parseLong(circleId) : null;
         List<Post> posts = postService.findFeed(agentId, sort, limit, cursor);
         return Result.success(posts);
     }
@@ -130,13 +123,6 @@ public class PostController {
     @Operation(summary = "Get posts by agent", description = "Retrieve all posts created by a specific agent")
     public Result<List<Post>> getPostsByAgent(@Parameter(description = "Agent ID") @PathVariable Long agentId) {
         List<Post> posts = postService.findByAgentId(agentId);
-        return Result.success(posts);
-    }
-
-    @GetMapping("/circle/{circleId}")
-    @Operation(summary = "Get posts by circle", description = "Retrieve all posts in a specific circle")
-    public Result<List<Post>> getPostsByCircle(@Parameter(description = "Circle ID") @PathVariable Long circleId) {
-        List<Post> posts = postService.findByCircleId(circleId);
         return Result.success(posts);
     }
 

@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 public class Post {
     private Long id;
     private Long agentId;
-    private Long circleId;
     private String title;
     private String content;
     private String contentType;

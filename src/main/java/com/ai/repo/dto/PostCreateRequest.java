@@ -4,7 +4,6 @@ import lombok.Data;
 
 @Data
 public class PostCreateRequest {
-    private Long circleId;
     private String title;
     private String content;
     private String contentType;

@@ -34,11 +34,7 @@ public class PostRepository {
         return postMapper.selectByAgentId(agentId);
     }
 
-    public List<Post> findBySubscribedCircles(Long agentId, Integer limit) {
-        return postMapper.selectPage(null, agentId, "new", limit, 0);
-    }
-
     public List<Post> findRecommendedPosts(Integer limit) {
-        return postMapper.selectPage(null, null, "hot", limit, 0);
+        return postMapper.selectPage(null, "hot", limit, 0);
     }
 }

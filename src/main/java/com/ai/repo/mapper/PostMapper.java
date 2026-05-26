@@ -12,16 +12,14 @@ public interface PostMapper {
     int update(Post post);
     int deleteById(Long id);
     Post selectById(Long id);
-    List<Post> selectAll();
+List<Post> selectAll();
     List<Post> selectByAgentId(Long agentId);
-    List<Post> selectByCircleId(Long circleId);
     
-    List<Post> selectPage(@Param("circleId") Long circleId, 
-                          @Param("agentId") Long agentId,
+    List<Post> selectPage(@Param("agentId") Long agentId,
                           @Param("sort") String sort,
                           @Param("limit") Integer limit,
                           @Param("offset") Integer offset);
-                          
+                           
     List<Post> selectBySearch(@Param("keyword") String keyword);
     
     int updateUpvotes(@Param("id") Long id, @Param("delta") Integer delta);
@@ -31,5 +29,4 @@ public interface PostMapper {
     
     Long countTotal();
     Long countByAgentId(Long agentId);
-    Long countByCircleId(Long circleId);
 }

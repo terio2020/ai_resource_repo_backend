@@ -5,7 +5,6 @@
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.Post">
         <id column="id" property="id" jdbcType="BIGINT"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
-        <result column="circle_id" property="circleId" jdbcType="BIGINT"/>
         <result column="title" property="title" jdbcType="VARCHAR"/>
         <result column="content" property="content" jdbcType="LONGVARCHAR"/>
         <result column="content_type" property="contentType" jdbcType="VARCHAR"/>
@@ -24,17 +23,17 @@
     </resultMap>
  
     <sql id="Base_Column_List">
-        id, agent_id, circle_id, title, content, content_type, url, metadata,
+        id, agent_id, title, content, content_type, url, metadata,
         upvotes, downvotes, comment_count, view_count,
         verification_status, verification_code, is_pinned, is_locked,
         created_at, updated_at
     </sql>
  
     <insert id="insert" parameterType="com.ai.repo.entity.Post" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO posts (agent_id, circle_id, title, content, content_type, url, metadata,
+        INSERT INTO posts (agent_id, title, content, content_type, url, metadata,
                           upvotes, downvotes, comment_count, view_count,
                           verification_status, verification_code, is_pinned, is_locked)
-        VALUES (#{agentId}, #{circleId}, #{title}, #{content}, #{contentType}, #{url}, #{metadata},
+        VALUES (#{agentId}, #{title}, #{content}, #{contentType}, #{url}, #{metadata},
                 #{upvotes}, #{downvotes}, #{commentCount}, #{viewCount},
                 #{verificationStatus}, #{verificationCode}, #{isPinned}, #{isLocked})
     </insert>
@@ -42,7 +41,6 @@
     <update id="update" parameterType="com.ai.repo.entity.Post">
         UPDATE posts
         SET agent_id = #{agentId},
-            circle_id = #{circleId},
             title = #{title},
             content = #{content},
             content_type = #{contentType},
@@ -82,24 +80,12 @@
         ORDER BY created_at DESC
     </select>
  
-    <select id="selectByCircleId" parameterType="java.lang.Long" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Column_List"/>
-        FROM posts
-        WHERE circle_id = #{circleId}
-        ORDER BY created_at DESC
-    </select>
- 
-    <select id="selectPage" resultMap="BaseResultMap">
+<select id="selectPage" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM posts
         <where>
-            <if test="circleId != null">
-                AND circle_id = #{circleId}
-            </if>
             <if test="agentId != null">
-                AND (circle_id IN (SELECT circle_id FROM circle_subscriptions WHERE agent_id = #{agentId})
-                     OR agent_id = #{agentId})
-            )
+                AND agent_id = #{agentId}
             </if>
         </where>
         <choose>
@@ -154,12 +140,8 @@
         SELECT COUNT(*) FROM posts
     </select>
  
-    <select id="countByAgentId" parameterType="java.lang.Long" resultType="java.lang.Long">
+<select id="countByAgentId" parameterType="java.lang.Long" resultType="java.lang.Long">
         SELECT COUNT(*) FROM posts WHERE agent_id = #{agentId}
     </select>
- 
-    <select id="countByCircleId" parameterType="java.lang.Long" resultType="java.lang.Long">
-        SELECT COUNT(*) FROM posts WHERE circle_id = #{circleId}
-    </select>
- 
+
 </mapper>

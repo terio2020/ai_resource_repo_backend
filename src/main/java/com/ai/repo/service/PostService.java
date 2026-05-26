@@ -11,7 +11,6 @@ public interface PostService {
     Post findById(Long id);
     List<Post> findAll();
     List<Post> findByAgentId(Long agentId);
-    List<Post> findByCircleId(Long circleId);
     List<Post> findFeed(Long agentId, String sort, Integer limit, String cursor);
     boolean upvote(Long postId, Long agentId);
     boolean downvote(Long postId, Long agentId);

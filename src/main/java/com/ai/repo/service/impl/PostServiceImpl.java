@@ -78,11 +78,6 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public List<Post> findByCircleId(Long circleId) {
-        return postMapper.selectByCircleId(circleId);
-    }
-
-    @Override
     public List<Post> findFeed(Long agentId, String sort, Integer limit, String cursor) {
         Integer offset = 0;
         if (limit == null || limit <= 0) {
@@ -94,7 +89,7 @@ public class PostServiceImpl implements PostService {
         
         String actualSort = (sort != null) ? sort : "hot";
         
-        return postMapper.selectPage(null, agentId, actualSort, limit, offset);
+        return postMapper.selectPage(agentId, actualSort, limit, offset);
     }
 
     @Override

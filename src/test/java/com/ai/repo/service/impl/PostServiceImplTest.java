@@ -264,29 +264,7 @@ class PostServiceImplTest {
         // Then
         assertEquals(1, result.size());
         assertEquals(agentId, result.get(0).getAgentId());
-        verify(postMapper).selectByAgentId(agentId);
-    }
-
-    // ========== findByCircleId() Tests ==========
-
-    @Test
-    void findByCircleId_shouldReturnPostsForCircle() {
-        // Given
-        Long circleId = 1L;
-        Post post = new Post();
-        post.setId(1L);
-        post.setCircleId(circleId);
-        List<Post> expectedPosts = Collections.singletonList(post);
-
-        when(postMapper.selectByCircleId(circleId)).thenReturn(expectedPosts);
-
-        // When
-        List<Post> result = postService.findByCircleId(circleId);
-
-        // Then
-        assertEquals(1, result.size());
-        assertEquals(circleId, result.get(0).getCircleId());
-        verify(postMapper).selectByCircleId(circleId);
+verify(postMapper).selectByAgentId(agentId);
     }
 
     // ========== findFeed() Tests ==========
@@ -294,7 +272,7 @@ class PostServiceImplTest {
     @Test
     void findFeed_shouldUseDefaultLimit_whenLimitIsNull() {
         // Given
-        when(postMapper.selectPage(isNull(), any(), eq("hot"), eq(25), eq(0)))
+        when(postMapper.selectPage(isNull(), eq("hot"), eq(25), eq(0)))
             .thenReturn(Collections.emptyList());
 
         // When
@@ -302,13 +280,13 @@ class PostServiceImplTest {
 
         // Then
         assertNotNull(result);
-        verify(postMapper).selectPage(isNull(), any(), eq("hot"), eq(25), eq(0));
+        verify(postMapper).selectPage(isNull(), eq("hot"), eq(25), eq(0));
     }
 
     @Test
     void findFeed_shouldEnforceMaxLimitOf100() {
         // Given
-        when(postMapper.selectPage(isNull(), any(), eq("hot"), eq(100), eq(0)))
+        when(postMapper.selectPage(isNull(), eq("hot"), eq(100), eq(0)))
             .thenReturn(Collections.emptyList());
 
         // When
@@ -316,13 +294,13 @@ class PostServiceImplTest {
 
         // Then
         assertNotNull(result);
-        verify(postMapper).selectPage(isNull(), any(), eq("hot"), eq(100), eq(0));
+        verify(postMapper).selectPage(isNull(), eq("hot"), eq(100), eq(0));
     }
 
     @Test
     void findFeed_shouldUseProvidedLimit_whenBelowMax() {
         // Given
-        when(postMapper.selectPage(isNull(), any(), eq("new"), eq(10), eq(0)))
+        when(postMapper.selectPage(isNull(), eq("new"), eq(10), eq(0)))
             .thenReturn(Collections.emptyList());
 
         // When
@@ -330,13 +308,13 @@ class PostServiceImplTest {
 
         // Then
         assertNotNull(result);
-        verify(postMapper).selectPage(isNull(), any(), eq("new"), eq(10), eq(0));
+        verify(postMapper).selectPage(isNull(), eq("new"), eq(10), eq(0));
     }
 
     @Test
     void findFeed_shouldUseDefaultSort_whenSortIsNull() {
         // Given
-        when(postMapper.selectPage(isNull(), any(), eq("hot"), anyInt(), eq(0)))
+        when(postMapper.selectPage(isNull(), eq("hot"), anyInt(), eq(0)))
             .thenReturn(Collections.emptyList());
 
         // When
@@ -344,13 +322,13 @@ class PostServiceImplTest {
 
         // Then
         assertNotNull(result);
-        verify(postMapper).selectPage(isNull(), any(), eq("hot"), eq(10), eq(0));
+        verify(postMapper).selectPage(isNull(), eq("hot"), eq(10), eq(0));
     }
 
     @Test
     void findFeed_shouldUseProvidedSort() {
         // Given
-        when(postMapper.selectPage(isNull(), any(), eq("top"), anyInt(), eq(0)))
+        when(postMapper.selectPage(isNull(), eq("top"), eq(10), eq(0)))
             .thenReturn(Collections.emptyList());
 
         // When
@@ -358,7 +336,7 @@ class PostServiceImplTest {
 
         // Then
         assertNotNull(result);
-        verify(postMapper).selectPage(isNull(), any(), eq("top"), eq(10), eq(0));
+        verify(postMapper).selectPage(isNull(), eq("top"), eq(10), eq(0));
     }
 
     // ========== upvote() Tests ==========

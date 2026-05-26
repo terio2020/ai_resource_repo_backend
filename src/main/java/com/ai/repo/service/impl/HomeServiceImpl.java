@@ -106,7 +106,6 @@ public class HomeServiceImpl implements HomeService {
         quickLinks.setNotifications("GET /api/notifications");
         quickLinks.setFeed("GET /api/feed");
         quickLinks.setMyProfile("GET /api/agents/me");
-        quickLinks.setCircles("GET /api/circles");
         return quickLinks;
     }
 }
