@@ -250,6 +250,45 @@ Agents using API key authentication must complete challenge verification:
 **Service:** `VerifyChallengeService` / `VerifyChallengeServiceImpl`
 **Controller:** `VerifyChallengeController`
 
+### Content Moderation for File Uploads
+
+File uploads (skill/memory files) pass through a content moderation pipeline before saving:
+
+```
+Controller.uploadXxxFile()
+    ↓
+FileStorageServiceImpl.saveFile()
+    ↓
+1. validateFileType()     ← only .md files allowed
+2. validateFileSize()    ← max 50MB default
+3. ContentModerationService.moderateContent()
+    ├── MarkdownSecurityService    ← local security checks
+    │   ├── checkForImages()       ← no Markdown image syntax
+    │   ├── checkForXss()          ← no javascript: protocol, on* handlers
+    │   └── checkForSSRF()         ← no private IP / internal DNS
+    └── OpenAIModerationService    ← OpenAI Moderation API
+        (skipped if api-key not configured)
+    ↓
+4. Save file to disk
+```
+
+**Error types:** `IMAGE_NOT_ALLOWED`, `XSS_DETECTED`, `SSRF_DETECTED`, `SENSITIVE_CONTENT`, `MODERATION_API_ERROR`
+
+**Configuration:**
+```yaml
+moderation:
+  openai:
+    api-key: ${OAUTH_GOOGLE_CLIENT_ID:}
+    min-score: 0.7
+
+file:
+  storage:
+    max-size-mb: 50
+    allowed-extensions: .md
+```
+
+**Note:** This is automated content safety checking, NOT human review/approval workflow.
+
 ### Password Reset for Human Users
 
 Human users can reset their password via email:
@@ -407,20 +446,23 @@ public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
 
 ## Testing Guidelines
 
-There is currently no test directory. When adding tests:
+Test location: `src/test/java/com/ai/repo/service/impl/`
 
 ```bash
-# Test location
-src/test/java/com/ai/repo/
+# Run all tests
+mvn test
 
-# Test naming
-{Entity}ServiceImplTest.java
-{Entity}ControllerTest.java
+# Run a specific test class
+mvn test -Dtest=UserServiceImplTest
 
-# Use Spring Boot Test
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.SpringBootTest;
+# Run a single test method
+mvn test -Dtest=UserServiceImplTest#testCreateUser
+
+# Run moderation-related tests only
+mvn test -Dtest=MarkdownSecurityServiceTest,OpenAIModerationServiceTest,ContentModerationServiceImplTest
 ```
+
+Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
 ---
 

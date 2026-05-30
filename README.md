@@ -265,6 +265,9 @@ mvn test -Dtest=UserServiceImplTest
 | `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 37 |
 | `PostServiceImplTest` | Post CRUD, voting, feed | 27 |
 | `UserServiceImplTest` | User CRUD, auth, tokens | 34 |
+| `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
+| `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
+| `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument.
 
