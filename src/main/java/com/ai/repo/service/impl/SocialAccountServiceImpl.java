@@ -26,16 +26,16 @@ public class SocialAccountServiceImpl implements SocialAccountService {
     @Resource
     private UserMapper userMapper;
 
-    @Value("${app.oauth.google.client-id:}")
+    @Value("${oauth.google.client-id:}")
     private String googleClientId;
 
-    @Value("${app.oauth.github.client-id:}")
+    @Value("${oauth.github.client-id:}")
     private String githubClientId;
 
-    @Value("${app.oauth.apple.client-id:}")
+    @Value("${oauth.apple.client-id:}")
     private String appleClientId;
 
-    @Value("${app.oauth.wechat.client-id:}")
+    @Value("${oauth.wechat.client-id:}")
     private String wechatClientId;
 
     @Override

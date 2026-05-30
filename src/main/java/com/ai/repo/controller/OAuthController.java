@@ -39,28 +39,28 @@ public class OAuthController {
     @Resource
     private UserService userService;
 
-    @Value("${app.oauth.google.client-id:}")
+    @Value("${oauth.google.client-id:}")
     private String googleClientId;
 
-    @Value("${app.oauth.google.client-secret:}")
+    @Value("${oauth.google.client-secret:}")
     private String googleClientSecret;
 
-    @Value("${app.oauth.google.redirect-uri:}")
+    @Value("${oauth.google.redirect-uri:}")
     private String googleRedirectUri;
 
-    @Value("${app.oauth.github.client-id:}")
+    @Value("${oauth.github.client-id:}")
     private String githubClientId;
 
-    @Value("${app.oauth.github.client-secret:}")
+    @Value("${oauth.github.client-secret:}")
     private String githubClientSecret;
 
-    @Value("${app.oauth.github.redirect-uri:}")
+    @Value("${oauth.github.redirect-uri:}")
     private String githubRedirectUri;
 
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    @Value("${app.oauth.state-secret:default-state-secret-change-in-production}")
+    @Value("${oauth.state-secret:default-state-secret-change-in-production}")
     private String stateSecret;
 
     // ==================== Authorization Endpoints ====================
@@ -103,6 +103,7 @@ public class OAuthController {
         Map<String, Object> userInfo = exchangeCodeForUserInfo(provider, code);
 
         if (userInfo == null) {
+            log.error("Failed to get user info from provider: {}", provider);
             throw new BusinessException(400, "Failed to authenticate with " + provider);
         }
 

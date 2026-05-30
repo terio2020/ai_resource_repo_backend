@@ -334,6 +334,7 @@ CREATE TABLE user_social_accounts (
 **OAuth Configuration (application.yml):**
 ```yaml
 oauth:
+  state-secret: ${APP_OAUTH_STATE_SECRET:default-state-secret-change-in-production}
   google:
     client-id: ${OAUTH_GOOGLE_CLIENT_ID:}
     client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET:}
@@ -342,6 +343,14 @@ oauth:
     client-id: ${OAUTH_GITHUB_CLIENT_ID:}
     client-secret: ${OAUTH_GITHUB_CLIENT_SECRET:}
     redirect-uri: ${OAUTH_GITHUB_REDIRECT_URI:}
+```
+
+**Environment Variables:**
+配置在 `.env` 文件中（参考 `.env.example`）：
+```bash
+OAUTH_GOOGLE_CLIENT_ID=your-google-client-id
+OAUTH_GOOGLE_CLIENT_SECRET=your-google-client-secret
+OAUTH_GOOGLE_REDIRECT_URI=http://localhost:8080/api/oauth/google/callback
 ```
 
 **Security Features:**
