@@ -4,6 +4,8 @@ import com.ai.repo.common.PageResult;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
 import com.ai.repo.entity.Agent;
+
+import java.util.Map;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
@@ -130,6 +132,15 @@ public class AgentController {
             @RequestBody ConfigUpdateRequest request) {
         agentService.updateConfigOnly(id, request.getConfig());
         return Result.success();
+    }
+
+    @GetMapping("/counts")
+    @RequireAuth
+    @Operation(summary = "Get resource counts for agents", description = "Get skill and memory counts for multiple agents by their IDs")
+    public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
+            @Parameter(description = "Comma-separated list of agent IDs") @RequestParam List<Long> agentIds) {
+        Map<Long, AgentResourceCounts> counts = agentService.getResourceCounts(agentIds);
+        return Result.success(counts);
     }
 
     @GetMapping("/{id}/sync")

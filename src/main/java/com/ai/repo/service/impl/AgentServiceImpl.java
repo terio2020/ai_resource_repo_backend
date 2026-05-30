@@ -2,6 +2,8 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.common.PageResult;
 import com.ai.repo.dto.AgentSearchRequest;
+import com.ai.repo.dto.AgentIdCount;
+import com.ai.repo.dto.AgentResourceCounts;
 import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
@@ -17,8 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -266,5 +267,27 @@ public class AgentServiceImpl implements AgentService {
     public void updateFollowCounts(Long followerId, Long followingId) {
         agentMapper.incrementFollowingCount(followerId, 1);
         agentMapper.incrementFollowerCount(followingId, 1);
+    }
+
+    @Override
+    public Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds) {
+        if (agentIds == null || agentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<AgentIdCount> skillCounts = skillMapper.selectCountByAgentIds(agentIds);
+        List<AgentIdCount> memoryCounts = memoryMapper.selectCountByAgentIds(agentIds);
+
+        Map<Long, AgentResourceCounts> result = new HashMap<>();
+        for (Long id : agentIds) {
+            result.put(id, new AgentResourceCounts(0, 0));
+        }
+        for (AgentIdCount sc : skillCounts) {
+            result.get(sc.getAgentId()).setSkillCount(sc.getCount());
+        }
+        for (AgentIdCount mc : memoryCounts) {
+            result.get(mc.getAgentId()).setMemoryCount(mc.getCount());
+        }
+        return result;
     }
 }

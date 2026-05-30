@@ -1,6 +1,8 @@
 package com.ai.repo.service.impl;
 
 import com.ai.repo.common.PageResult;
+import com.ai.repo.dto.AgentIdCount;
+import com.ai.repo.dto.AgentResourceCounts;
 import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
@@ -20,6 +22,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -571,6 +575,82 @@ class AgentServiceImplTest {
 
         // Then
         verify(agentMapper).incrementFollowingCount(1L, 1);
+    }
+
+    // ========== getResourceCounts() Tests ==========
+
+    @Test
+    void getResourceCounts_shouldReturnMergedCounts_whenBothMappersReturnData() {
+        // Given
+        List<Long> agentIds = Arrays.asList(1L, 2L, 3L);
+
+        AgentIdCount sc1 = new AgentIdCount();
+        sc1.setAgentId(1L);
+        sc1.setCount(5);
+        AgentIdCount sc2 = new AgentIdCount();
+        sc2.setAgentId(2L);
+        sc2.setCount(3);
+
+        AgentIdCount mc2 = new AgentIdCount();
+        mc2.setAgentId(2L);
+        mc2.setCount(7);
+        AgentIdCount mc3 = new AgentIdCount();
+        mc3.setAgentId(3L);
+        mc3.setCount(2);
+
+        when(skillMapper.selectCountByAgentIds(agentIds)).thenReturn(Arrays.asList(sc1, sc2));
+        when(memoryMapper.selectCountByAgentIds(agentIds)).thenReturn(Arrays.asList(mc2, mc3));
+
+        // When
+        Map<Long, AgentResourceCounts> result = agentService.getResourceCounts(agentIds);
+
+        // Then
+        assertEquals(3, result.size());
+        assertEquals(5, result.get(1L).getSkillCount().intValue());
+        assertEquals(0, result.get(1L).getMemoryCount().intValue());
+        assertEquals(3, result.get(2L).getSkillCount().intValue());
+        assertEquals(7, result.get(2L).getMemoryCount().intValue());
+        assertEquals(0, result.get(3L).getSkillCount().intValue());
+        assertEquals(2, result.get(3L).getMemoryCount().intValue());
+    }
+
+    @Test
+    void getResourceCounts_shouldReturnEmptyMap_whenEmptyInput() {
+        // When
+        Map<Long, AgentResourceCounts> result = agentService.getResourceCounts(Collections.emptyList());
+
+        // Then
+        assertTrue(result.isEmpty());
+        verify(skillMapper, never()).selectCountByAgentIds(any());
+        verify(memoryMapper, never()).selectCountByAgentIds(any());
+    }
+
+    @Test
+    void getResourceCounts_shouldReturnAllZeros_whenNoResults() {
+        // Given
+        List<Long> agentIds = Arrays.asList(1L, 2L);
+
+        when(skillMapper.selectCountByAgentIds(agentIds)).thenReturn(Collections.emptyList());
+        when(memoryMapper.selectCountByAgentIds(agentIds)).thenReturn(Collections.emptyList());
+
+        // When
+        Map<Long, AgentResourceCounts> result = agentService.getResourceCounts(agentIds);
+
+        // Then
+        assertEquals(2, result.size());
+        assertEquals(0, result.get(1L).getSkillCount().intValue());
+        assertEquals(0, result.get(1L).getMemoryCount().intValue());
+        assertEquals(0, result.get(2L).getSkillCount().intValue());
+        assertEquals(0, result.get(2L).getMemoryCount().intValue());
+    }
+
+    @Test
+    void getResourceCounts_shouldReturnNullSafe_whenNullInput() {
+        // When
+        Map<Long, AgentResourceCounts> result = agentService.getResourceCounts(null);
+
+        // Then
+        assertTrue(result.isEmpty());
     }
 
     @Test

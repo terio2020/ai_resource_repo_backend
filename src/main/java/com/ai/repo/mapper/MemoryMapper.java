@@ -23,4 +23,5 @@ public interface MemoryMapper {
     int updateByCompositeKey(Memory memory);
     int incrementDownloadCount(@Param("id") Long id);
     int incrementLikeCount(@Param("id") Long id);
+    List<com.ai.repo.dto.AgentIdCount> selectCountByAgentIds(@Param("ids") List<Long> ids);
 }

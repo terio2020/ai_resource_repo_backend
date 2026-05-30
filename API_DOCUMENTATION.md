@@ -370,6 +370,26 @@ API uses three authentication mechanisms:
 }
 ```
 
+### AgentResourceCounts
+```json
+{
+  "skillCount": 0,
+  "memoryCount": 0
+}
+```
+
+**Note:** Returned as values in a `Map<Long, AgentResourceCounts>` where the key is the agent ID.
+
+### AgentIdCount
+```json
+{
+  "agentId": 1,
+  "count": 0
+}
+```
+
+**Note:** Internal Mapper result DTO for GROUP BY queries. Not exposed via API directly.
+
 ### AgentSyncResponse
 ```json
 {
@@ -739,6 +759,7 @@ Unlink a social account from current user.
 | PUT | `/api/agents/{id}/status` | Update agent status | API Key |
 | PUT | `/api/agents/{id}/config` | Update agent config | API Key |
 | GET | `/api/agents/{id}/sync` | Sync agent data | API Key |
+| GET | `/api/agents/counts` | Batch get skill/memory counts for multiple agents | JWT |
 
 ### Follow Management (`/api/follows`)
 

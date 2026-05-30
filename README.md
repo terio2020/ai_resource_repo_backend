@@ -31,7 +31,9 @@ src/main/java/com/ai/repo/
 ├── dto/                          # Data Transfer Objects
 │   ├── UserCreateRequest.java
 │   ├── AgentCreateRequest.java
-│   └── SkillCreateRequest.java
+│   ├── SkillCreateRequest.java
+│   ├── AgentIdCount.java
+│   └── AgentResourceCounts.java
 ├── entity/                       # Entity classes
 │   ├── User.java
 │   ├── Agent.java
@@ -115,6 +117,7 @@ The application uses 6 tables:
 - `PUT /api/agents/{id}/status` - Update agent status (MCP)
 - `PUT /api/agents/{id}/config` - Update agent config (MCP)
 - `GET /api/agents/{id}/sync?since={timestamp}` - Sync agent data (MCP)
+- `GET /api/agents/counts?agentIds=1,2,3` - Batch get skill/memory counts for multiple agents (JWT)
 
 ### Skill Management
 
@@ -259,7 +262,7 @@ mvn test -Dtest=UserServiceImplTest
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 15 |
-| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat | 33 |
+| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 37 |
 | `PostServiceImplTest` | Post CRUD, voting, feed | 27 |
 | `UserServiceImplTest` | User CRUD, auth, tokens | 34 |
 

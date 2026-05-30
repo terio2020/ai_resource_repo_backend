@@ -3,10 +3,12 @@ package com.ai.repo.service;
 import com.ai.repo.common.PageResult;
 import com.ai.repo.dto.AgentSearchRequest;
 import com.ai.repo.dto.AgentStatsResponse;
+import com.ai.repo.dto.AgentResourceCounts;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
 
 import java.util.List;
+import java.util.Map;
 
 public interface AgentService {
     Agent create(Agent agent);
@@ -42,4 +44,6 @@ public interface AgentService {
     void incrementCommentsCount(Long agentId, int delta);
 
     void updateFollowCounts(Long followerId, Long followingId);
+
+    Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);
 }

@@ -351,6 +351,43 @@ oauth:
 - Access tokens are stored encrypted
 - Unlink removes social account without deleting user
 
+### Batch Resource Counts (`getResourceCounts`)
+
+The service method `getResourceCounts(List<Long> agentIds)` returns a `Map<Long, AgentResourceCounts>` mapping agent IDs to their skill and memory counts.
+
+```java
+// Service interface
+Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);
+
+// Response DTO
+public class AgentResourceCounts {
+    private Integer skillCount;  // default 0
+    private Integer memoryCount; // default 0
+}
+```
+
+**Implementation:**
+- `AgentServiceImpl.getResourceCounts()` — merges results from two parallel GROUP BY queries
+- `SkillMapper.selectCountByAgentIds()` — `SELECT agent_id, COUNT(*) FROM skills WHERE agent_id IN (...) GROUP BY agent_id`
+- `MemoryMapper.selectCountByAgentIds()` — same pattern on `memories` table
+- `AgentIdCount` DTO — intermediate result with `agentId` and `count` fields
+
+**Controller:**
+```java
+@GetMapping("/counts")
+@RequireAuth
+@Operation(summary = "Get resource counts for agents")
+public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
+        @RequestParam List<Long> agentIds) {
+    // comma-separated list of IDs
+}
+```
+
+**Edge cases:**
+- Empty/null input → returns empty map
+- Agent ID with no skills or memories → returns zero counts (no DB row, defaulted in Java)
+- Agents not found → still returns `{skillCount: 0, memoryCount: 0}` for every requested ID
+
 ### Documentation
 
 - Use OpenAPI annotations (`@Operation`, `@Parameter`, `@Tag`)

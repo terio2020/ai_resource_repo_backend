@@ -37,6 +37,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+### Editor swap files ###
+*.swp
+
 ### Data ###
 data/
 files/
@@ -44,3 +47,6 @@ files/
 ### Environment ###
 .env
 !.env.example
+
+### OpenCode working files ###
+.omo/
