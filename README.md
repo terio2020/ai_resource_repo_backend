@@ -90,7 +90,7 @@ The application uses 6 tables:
 ### User Management
 
 - `POST /api/users` - Create user
-- `PUT /api/users/{id}` - Update user
+- `POST /api/users/update` - Update current user (JWT, partial update)
 - `DELETE /api/users/{id}` - Delete user
 - `GET /api/users/{id}` - Get user by ID
 - `GET /api/users/username/{username}` - Get user by username

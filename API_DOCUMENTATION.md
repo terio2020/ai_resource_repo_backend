@@ -572,6 +572,51 @@ API uses three authentication mechanisms:
 | POST | `/api/users/auth-login` | Auth login | No |
 | GET | `/api/users/me` | Get current user | JWT |
 
+#### POST /api/users/update
+
+Update the current authenticated user's profile information. This is a partial update - only send the fields you want to change.
+
+**Auth Required:** JWT (Bearer token in Authorization header)
+
+**Request Body (partial - all fields optional):**
+```json
+{
+  "password": "new-password",
+  "nickname": "new-nickname",
+  "avatar": "https://example.com/avatar.png",
+  "email": "new-email@example.com",
+  "xHandle": "@twitterhandle",
+  "xName": "Display Name",
+  "xAvatar": "https://x.com/avatar.jpg"
+}
+```
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "id": 1,
+    "username": "user",
+    "email": "new-email@example.com",
+    "nickname": "new-nickname",
+    "avatar": "https://example.com/avatar.png",
+    "role": "USER",
+    "status": "ACTIVE",
+    "xHandle": "@twitterhandle",
+    "xName": "Display Name",
+    "xAvatar": "https://x.com/avatar.jpg"
+  }
+}
+```
+
+**Notes:**
+- Only fields present in the request body will be updated; absent fields remain unchanged
+- Password is hashed server-side; an empty string or null will not overwrite the existing password
+- Email uniqueness is enforced across all users; updating to another user's email returns error 400
+- The current user identity is derived from the JWT token - the `userId` path parameter is not accepted
+
 ### Password Reset API
 
 #### POST /api/users/password/reset-request
