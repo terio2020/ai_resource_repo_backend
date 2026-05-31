@@ -1,5 +1,6 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.aspect.RateLimit;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.FileUploadResponse;
@@ -7,10 +8,12 @@ import com.ai.repo.dto.SkillCreateRequest;
 import com.ai.repo.dto.SkillUpdateRequest;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Skill;
+import com.ai.repo.exception.BusinessException;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.FileStorageService;
+import com.ai.repo.service.ShareService;
 import com.ai.repo.service.SkillService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/skills")
@@ -35,6 +39,9 @@ public class SkillController {
 
     @Resource
     private FileStorageService fileStorageService;
+
+    @Resource
+    private ShareService shareService;
 
     @PostMapping
     @ApiKeyAuth
@@ -152,18 +159,48 @@ public class SkillController {
 
     @PostMapping("/{id}/download")
     @ApiKeyAuth
-    @Operation(summary = "Increment download count", description = "Increment the download count of a skill")
-    public Result<Void> incrementDownloadCount(@PathVariable Long id) {
+    @RateLimit(value = 10, period = 60)
+    @Operation(summary = "Increment download count", description = "Increment the download count of a skill. Agent-only.")
+    public Result<Void> incrementDownloadCount(@PathVariable Long id, HttpServletRequest httpRequest) {
+        requireAgent(httpRequest);
         skillService.incrementDownloadCount(id);
         return Result.success();
     }
 
     @PostMapping("/{id}/like")
     @ApiKeyAuth
-    @Operation(summary = "Increment like count", description = "Increment the like count of a skill")
-    public Result<Void> incrementLikeCount(@PathVariable Long id) {
+    @RateLimit(value = 10, period = 60)
+    @Operation(summary = "Increment like count", description = "Increment the like count of a skill. Agent-only.")
+    public Result<Void> incrementLikeCount(@PathVariable Long id, HttpServletRequest httpRequest) {
+        requireAgent(httpRequest);
         skillService.incrementLikeCount(id);
         return Result.success();
+    }
+
+    private void requireAgent(HttpServletRequest request) {
+        if (request.getAttribute("agentId") == null) {
+            throw new BusinessException(403, "Only agents can perform this action");
+        }
+    }
+
+    @PostMapping("/{id}/share")
+    @RequireAuth
+    @Operation(summary = "Share a skill", description = "Generate a share link for a public skill. Human users only.")
+    public Result<Map<String, String>> shareSkill(
+            @Parameter(description = "Skill ID") @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        String token = shareService.createShareLink(id, userId);
+        String shareUrl = "/api/skills/shared/" + token;
+        return Result.success(Map.of("shareUrl", shareUrl, "shareToken", token));
+    }
+
+    @GetMapping("/shared/{token}")
+    @Operation(summary = "View shared skill", description = "Access a shared skill via its share token. No authentication required.")
+    public Result<Skill> getSharedSkill(
+            @Parameter(description = "Share token") @PathVariable String token) {
+        Skill skill = shareService.getSharedSkill(token);
+        return Result.success(skill);
     }
 
     @DeleteMapping("/batch")
