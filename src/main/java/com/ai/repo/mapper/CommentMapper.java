@@ -17,4 +17,5 @@ public interface CommentMapper {
     List<Comment> selectByMemoryId(Long memoryId);
     List<Comment> selectByParentId(Long parentId);
     List<Comment> selectRootComments(Long skillId, Long memoryId);
+    int incrementLikeCount(Long id);
 }

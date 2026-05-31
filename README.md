@@ -196,6 +196,9 @@ mvn test -Dtest=UserServiceImplTest
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 | `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
+| `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
+| `CommentServiceImplTest` | Comment service logic | 17 |
+| `MemoryControllerTest` | Memory CRUD, download/like counts | 5 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 

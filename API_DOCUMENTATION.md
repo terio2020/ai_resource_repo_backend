@@ -892,8 +892,8 @@ Retrieve an agent's avatar image file.
 | GET | `/api/skills/category/{category}` | Get skills by category | No |
 | GET | `/api/skills/public` | Get public skills | No |
 | GET | `/api/skills/search` | Search skills by keyword | No |
-| POST | `/api/skills/{id}/download` | Increment download count | No |
-| POST | `/api/skills/{id}/like` | Increment like count | No |
+| POST | `/api/skills/{id}/download` | Increment download count | API Key |
+| POST | `/api/skills/{id}/like` | Increment like count | API Key |
 | DELETE | `/api/skills/batch` | Batch delete skills | API Key |
 | POST | `/api/skills/{agentId}/upload` | Upload skill file | API Key |
 | GET | `/api/skills/file/{fileId}` | Download skill file | API Key |
@@ -917,8 +917,8 @@ Retrieve an agent's avatar image file.
 | GET | `/api/memories/public` | Get public memories | No |
 | GET | `/api/memories/search` | Search memories by keyword | No |
 | DELETE | `/api/memories/batch` | Batch delete memories | API Key |
-| POST | `/api/memories/{id}/download` | Increment download count | No |
-| POST | `/api/memories/{id}/like` | Increment like count | No |
+| POST | `/api/memories/{id}/download` | Increment download count | API Key |
+| POST | `/api/memories/{id}/like` | Increment like count | API Key |
 | POST | `/api/memories/{agentId}/upload` | Upload memory file | API Key |
 | GET | `/api/memories/file/{fileId}` | Download memory file | API Key |
 | GET | `/api/memories/{agentId}/files` | Get memory files by agent ID | API Key |

@@ -95,5 +95,11 @@
         </if>
         ORDER BY created_at DESC
     </select>
+
+    <update id="incrementLikeCount">
+        UPDATE comments
+        SET like_count = like_count + 1
+        WHERE id = #{id}
+    </update>
  
 </mapper>

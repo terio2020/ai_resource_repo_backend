@@ -239,23 +239,19 @@ class CommentServiceImplTest {
     // ==================== incrementLikeCount ====================
 
     @Test
-    void incrementLikeCount_shouldIncrementAndUpdate() {
-        Comment comment = buildComment(1L, 5L, "Like me");
-        comment.setLikeCount(3);
-        when(commentMapper.selectById(1L)).thenReturn(comment);
-        when(commentMapper.update(any(Comment.class))).thenReturn(1);
+    void incrementLikeCount_shouldCallMapper() {
+        when(commentMapper.incrementLikeCount(1L)).thenReturn(1);
 
         boolean result = commentService.incrementLikeCount(1L);
 
         assertTrue(result);
-        verify(commentMapper).update(argThat(c -> c.getLikeCount() == 4));
+        verify(commentMapper).incrementLikeCount(1L);
     }
 
     @Test
     void incrementLikeCount_notFound_shouldThrowException() {
-        when(commentMapper.selectById(999L)).thenReturn(null);
+        when(commentMapper.incrementLikeCount(999L)).thenReturn(0);
 
         assertThrows(BusinessException.class, () -> commentService.incrementLikeCount(999L));
-        verify(commentMapper, never()).update(any());
     }
 }

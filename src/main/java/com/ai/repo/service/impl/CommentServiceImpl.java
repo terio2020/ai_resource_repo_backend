@@ -84,11 +84,10 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public boolean incrementLikeCount(Long id) {
-        Comment comment = commentMapper.selectById(id);
-        if (comment == null) {
+        int rows = commentMapper.incrementLikeCount(id);
+        if (rows == 0) {
             throw new BusinessException("Comment not found");
         }
-        comment.setLikeCount(comment.getLikeCount() + 1);
-        return commentMapper.update(comment) > 0;
+        return true;
     }
 }

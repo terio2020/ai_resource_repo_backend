@@ -1,5 +1,6 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.aspect.RateLimit;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.FileUploadResponse;
@@ -61,6 +62,8 @@ public class MemoryController {
         memory.setCategory(request.getCategory());
         memory.setIsPublic(request.getIsPublic());
         memory.setMetadata(request.getMetadata());
+        memory.setDownloadCount(0);
+        memory.setLikeCount(0);
 
         Memory createdMemory = memoryService.upsert(memory);
         return Result.success(createdMemory);
@@ -164,6 +167,7 @@ public class MemoryController {
 
     @PostMapping("/{id}/download")
     @ApiKeyAuth
+    @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment download count", description = "Increment download count of a memory")
     public Result<Void> incrementDownloadCount(@PathVariable Long id) {
         memoryService.incrementDownloadCount(id);
@@ -172,6 +176,7 @@ public class MemoryController {
 
     @PostMapping("/{id}/like")
     @ApiKeyAuth
+    @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment like count", description = "Increment the like count of a memory")
     public Result<Void> incrementLikeCount(@PathVariable Long id) {
         memoryService.incrementLikeCount(id);
