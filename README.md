@@ -150,6 +150,7 @@ Required variables:
 - `JWT_SECRET` — JWT signing key
 - OAuth credentials (Google, GitHub) — for social login
 - SMTP settings — for password reset emails
+- `FRONTEND_URL` — frontend base URL for password reset email links (default: `http://localhost:3000`)
 
 ### Building the Project
 
@@ -198,6 +199,7 @@ mvn test -Dtest=UserServiceImplTest
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
+| `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 

@@ -50,6 +50,9 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
@@ -165,7 +168,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         message.setTo(toEmail);
         message.setSubject("Reset Your Password - Logicoma");
         
-        String resetLink = baseUrl + "/api/users/password/reset-confirm?token=" + token;
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
         String emailBody = String.format(
             "Hi %s,\n\n" +
             "You requested a password reset for your Logicoma account.\n\n" +
