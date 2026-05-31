@@ -21,6 +21,7 @@ public class Agent {
 
     private String displayName;
     private String description;
+    private String avatar;
     private String avatarPrompt;
     private String apiKey;
     private Boolean isClaimed;

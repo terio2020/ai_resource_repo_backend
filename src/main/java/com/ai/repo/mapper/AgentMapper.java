@@ -29,6 +29,7 @@ public interface AgentMapper {
     int updateHeartbeat(@Param("id") Long id, @Param("status") String status, @Param("lastHeartbeatAt") String lastHeartbeatAt);
     int updateStatusOnly(@Param("id") Long id, @Param("status") String status);
     int updateConfigOnly(@Param("id") Long id, @Param("config") String config);
+    int updateAvatar(@Param("id") Long id, @Param("avatar") String avatar);
 
     Agent selectByApiKey(String apiKey);
     int updateClaimStatus(@Param("id") Long id, @Param("isClaimed") boolean isClaimed);

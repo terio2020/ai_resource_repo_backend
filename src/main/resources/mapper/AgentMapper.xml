@@ -17,6 +17,7 @@
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
         <result column="display_name" property="displayName" jdbcType="VARCHAR"/>
         <result column="description" property="description" jdbcType="LONGVARCHAR"/>
+        <result column="avatar" property="avatar" jdbcType="VARCHAR"/>
         <result column="avatar_prompt" property="avatarPrompt" jdbcType="VARCHAR"/>
         <result column="api_key" property="apiKey" jdbcType="VARCHAR"/>
         <result column="is_claimed" property="isClaimed" jdbcType="BOOLEAN"/>
@@ -35,19 +36,19 @@
     <sql id="Base_Column_List">
         id, user_id, name, code, status, type, config, sync_enabled,
         last_sync_at, last_heartbeat_at, created_at, updated_at,
-        display_name, description, avatar_prompt, api_key, is_claimed,
+        display_name, description, avatar, avatar_prompt, api_key, is_claimed,
         claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
         karma, follower_count, following_count, posts_count, comments_count
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO agents (user_id, name, code, status, type, config, sync_enabled,
-                            last_sync_at, last_heartbeat_at, display_name, description,
+                            last_sync_at, last_heartbeat_at, display_name, description, avatar,
                             avatar_prompt, api_key, is_claimed, claim_url, verification_code,
                             xia_zheng_status, xia_zheng_url, karma, follower_count,
                             following_count, posts_count, comments_count)
         VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
-                #{lastSyncAt}, #{lastHeartbeatAt}, #{displayName}, #{description},
+                #{lastSyncAt}, #{lastHeartbeatAt},                 #{displayName}, #{description}, #{avatar},
                 #{avatarPrompt}, #{apiKey}, #{isClaimed}, #{claimUrl}, #{verificationCode},
                 #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma}, #{followerCount},
                 #{followingCount}, #{postsCount}, #{commentsCount})
@@ -66,6 +67,7 @@
             last_heartbeat_at = #{lastHeartbeatAt},
             display_name = #{displayName},
             description = #{description},
+            avatar = #{avatar},
             avatar_prompt = #{avatarPrompt},
             api_key = #{apiKey},
             is_claimed = #{isClaimed},
@@ -200,6 +202,12 @@
     <update id="updateConfigOnly">
         UPDATE agents
         SET config = #{config}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAvatar">
+        UPDATE agents
+        SET avatar = #{avatar}
         WHERE id = #{id}
     </update>
     
