@@ -152,27 +152,29 @@ class UserServiceImplTest {
         assertEquals("encodedpassword", result.getPassword());
     }
 
-    // ===== update() tests =====
+    // ===== update() tests (merge-based partial update) =====
 
     @Test
-    void update_shouldReturnUser_whenValidData() {
+    void update_shouldMergeNickname_whenProvided() {
         // Given
         User user = new User();
         user.setId(1L);
-        user.setUsername("updateduser");
+        user.setNickname("new-nickname");
 
         User existingUser = new User();
         existingUser.setId(1L);
+        existingUser.setNickname("old-nickname");
+        existingUser.setEmail("old@example.com");
 
         when(userMapper.selectById(1L)).thenReturn(existingUser);
-        when(passwordEncoderUtil.needsEncoding(any())).thenReturn(false);
         when(userMapper.update(any())).thenReturn(1);
 
         // When
         User result = userService.update(user);
 
         // Then
-        assertNotNull(result);
+        assertEquals("new-nickname", result.getNickname());
+        assertEquals("old@example.com", result.getEmail());
     }
 
     @Test
@@ -199,6 +201,7 @@ class UserServiceImplTest {
 
         User existingUser = new User();
         existingUser.setId(1L);
+        existingUser.setPassword("oldencodedpassword");
 
         when(userMapper.selectById(1L)).thenReturn(existingUser);
         when(passwordEncoderUtil.needsEncoding("newplainpassword")).thenReturn(true);
@@ -210,6 +213,162 @@ class UserServiceImplTest {
 
         // Then
         assertEquals("encodedpassword", result.getPassword());
+    }
+
+    @Test
+    void update_shouldNotOverwritePassword_whenNull() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setNickname("new-nickname");
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setPassword("existingencodedpassword");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("existingencodedpassword", result.getPassword());
+    }
+
+    @Test
+    void update_shouldNotOverwritePassword_whenEmpty() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setPassword("");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setPassword("existingencodedpassword");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("existingencodedpassword", result.getPassword());
+    }
+
+    @Test
+    void update_shouldMergeAvatar_whenProvided() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setAvatar("new-avatar.png");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setAvatar("old-avatar.png");
+        existingUser.setNickname("unchanged");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("new-avatar.png", result.getAvatar());
+        assertEquals("unchanged", result.getNickname());
+    }
+
+    @Test
+    void update_shouldMergeXFields_whenProvided() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setXHandle("new-handle");
+        user.setXName("new-x-name");
+        user.setXAvatar("new-x-avatar.png");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("new-handle", result.getXHandle());
+        assertEquals("new-x-name", result.getXName());
+        assertEquals("new-x-avatar.png", result.getXAvatar());
+    }
+
+    @Test
+    void update_shouldThrowException_whenEmailTakenByAnotherUser() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("taken@example.com");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+
+        User anotherUser = new User();
+        anotherUser.setId(2L);
+        anotherUser.setEmail("taken@example.com");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.selectByEmail("taken@example.com")).thenReturn(anotherUser);
+
+        // When/Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            userService.update(user);
+        });
+        assertTrue(exception.getMessage().contains("Email already exists"));
+    }
+
+    @Test
+    void update_shouldAllowEmailUpdate_whenNotTaken() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("new@example.com");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setEmail("old@example.com");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.selectByEmail("new@example.com")).thenReturn(null);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("new@example.com", result.getEmail());
+    }
+
+    @Test
+    void update_shouldAllowEmailUpdate_whenSameAsOwnEmail() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("existing@example.com");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setEmail("existing@example.com");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.selectByEmail("existing@example.com")).thenReturn(existingUser);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("existing@example.com", result.getEmail());
     }
 
     // ===== delete() tests =====

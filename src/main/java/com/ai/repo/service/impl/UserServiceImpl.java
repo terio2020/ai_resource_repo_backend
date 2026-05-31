@@ -43,14 +43,45 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User update(User user) {
-        if (userMapper.selectById(user.getId()) == null) {
+        User existing = userMapper.selectById(user.getId());
+        if (existing == null) {
             throw new BusinessException("User not found");
         }
-        if (user.getPassword() != null && !user.getPassword().isEmpty() && passwordEncoderUtil.needsEncoding(user.getPassword())) {
-            user.setPassword(passwordEncoderUtil.encode(user.getPassword()));
+
+        // Partial update: only overwrite non-null fields from incoming user
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            if (passwordEncoderUtil.needsEncoding(user.getPassword())) {
+                existing.setPassword(passwordEncoderUtil.encode(user.getPassword()));
+            } else {
+                existing.setPassword(user.getPassword());
+            }
         }
-        userMapper.update(user);
-        return user;
+        if (user.getNickname() != null) {
+            existing.setNickname(user.getNickname());
+        }
+        if (user.getAvatar() != null) {
+            existing.setAvatar(user.getAvatar());
+        }
+        if (user.getEmail() != null) {
+            // Check email uniqueness excluding current user
+            User emailUser = userMapper.selectByEmail(user.getEmail());
+            if (emailUser != null && !emailUser.getId().equals(user.getId())) {
+                throw new BusinessException("Email already exists");
+            }
+            existing.setEmail(user.getEmail());
+        }
+        if (user.getXHandle() != null) {
+            existing.setXHandle(user.getXHandle());
+        }
+        if (user.getXName() != null) {
+            existing.setXName(user.getXName());
+        }
+        if (user.getXAvatar() != null) {
+            existing.setXAvatar(user.getXAvatar());
+        }
+
+        userMapper.update(existing);
+        return existing;
     }
 
     @Override

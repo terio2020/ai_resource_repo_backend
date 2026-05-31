@@ -17,19 +17,25 @@
         <result column="last_login_at" property="lastLoginAt" jdbcType="TIMESTAMP"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+        <result column="x_handle" property="xHandle" jdbcType="VARCHAR"/>
+        <result column="x_name" property="xName" jdbcType="VARCHAR"/>
+        <result column="x_avatar" property="xAvatar" jdbcType="VARCHAR"/>
+        <result column="x_verified" property="xVerified" jdbcType="BOOLEAN"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         id, username, password, email, nickname, avatar, role, status,
         access_token, refresh_token, token_expires_at, last_login_at,
-        created_at, updated_at
+        created_at, updated_at, x_handle, x_name, x_avatar, x_verified
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.User" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO users (username, password, email, nickname, avatar, role, status,
-                          access_token, refresh_token, token_expires_at, last_login_at)
+                           access_token, refresh_token, token_expires_at, last_login_at,
+                           x_handle, x_name, x_avatar, x_verified)
         VALUES (#{username}, #{password}, #{email}, #{nickname}, #{avatar}, #{role}, #{status},
-                #{accessToken}, #{refreshToken}, #{tokenExpiresAt}, #{lastLoginAt})
+                #{accessToken}, #{refreshToken}, #{tokenExpiresAt}, #{lastLoginAt},
+                #{xHandle}, #{xName}, #{xAvatar}, #{xVerified})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.User">
@@ -44,7 +50,11 @@
             access_token = #{accessToken},
             refresh_token = #{refreshToken},
             token_expires_at = #{tokenExpiresAt},
-            last_login_at = #{lastLoginAt}
+            last_login_at = #{lastLoginAt},
+            x_handle = #{xHandle},
+            x_name = #{xName},
+            x_avatar = #{xAvatar},
+            x_verified = #{xVerified}
         WHERE id = #{id}
     </update>
 
