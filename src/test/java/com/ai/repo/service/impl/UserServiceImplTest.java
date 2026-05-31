@@ -371,6 +371,61 @@ class UserServiceImplTest {
         assertEquals("existing@example.com", result.getEmail());
     }
 
+    @Test
+    void update_shouldOverwriteNickname_whenIncomingIsEmptyString() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setNickname("");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setNickname("old-nickname");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("", result.getNickname());
+    }
+
+    @Test
+    void update_shouldUpdateMultipleFieldsSimultaneously() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setNickname("new-nick");
+        user.setEmail("new@example.com");
+        user.setAvatar("new-avatar.png");
+        user.setXHandle("@newhandle");
+        user.setXName("New Name");
+        user.setXAvatar("new-x-avatar.png");
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setNickname("old");
+        existingUser.setEmail("old@example.com");
+        existingUser.setAvatar("old.png");
+
+        when(userMapper.selectById(1L)).thenReturn(existingUser);
+        when(userMapper.selectByEmail("new@example.com")).thenReturn(null);
+        when(userMapper.update(any())).thenReturn(1);
+
+        // When
+        User result = userService.update(user);
+
+        // Then
+        assertEquals("new-nick", result.getNickname());
+        assertEquals("new@example.com", result.getEmail());
+        assertEquals("new-avatar.png", result.getAvatar());
+        assertEquals("@newhandle", result.getXHandle());
+        assertEquals("New Name", result.getXName());
+        assertEquals("new-x-avatar.png", result.getXAvatar());
+    }
+
     // ===== delete() tests =====
 
     @Test

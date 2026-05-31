@@ -21,5 +21,7 @@ public interface SkillMapper {
     int batchDelete(@Param("ids") List<Long> ids);
     Skill selectByUserIdAndAgentIdAndName(@Param("userId") Long userId, @Param("agentId") Long agentId, @Param("name") String name);
     int updateByCompositeKey(Skill skill);
+    int incrementDownloadCount(@Param("id") Long id);
+    int incrementLikeCount(@Param("id") Long id);
     List<com.ai.repo.dto.AgentIdCount> selectCountByAgentIds(@Param("ids") List<Long> ids);
 }

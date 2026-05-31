@@ -90,8 +90,8 @@ mybatis:
 
 file:
   storage:
-    path: /data/logicoma-files
-    base-path: F:/data/logicoma-files
+    path: /DE_PKGS/de_version/de_code/de_server/ai_resource/avatars-data
+    base-path: /DE_PKGS/de_version/de_code/de_server/ai_resource/avatars-data
     allowed-extensions: .md
     max-size-mb: 50
 

@@ -16,6 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * NOTE: This controller provides unified READ-ONLY query endpoints for file metadata.
+ * <p>
+ * File UPLOAD is intentionally NOT implemented here. Uploads are handled per-resource in
+ * {@link SkillController} (POST /api/skills/{agentId}/upload) and
+ * {@link MemoryController} (POST /api/memories/{agentId}/upload).
+ * Do NOT add a POST /api/files/upload endpoint here.
+ */
 @RestController
 @RequestMapping("/api/files")
 @Tag(name = "File API", description = "File management operations")

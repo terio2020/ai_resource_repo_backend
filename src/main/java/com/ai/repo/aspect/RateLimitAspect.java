@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class RateLimitAspect {
@@ -33,15 +34,15 @@ public class RateLimitAspect {
         long limit = rateLimit.value();
         long period = rateLimit.period();
 
-        long current = getCurrentCount(key);
-        if (current >= limit) {
+        Long count = stringRedisTemplate.opsForValue().increment(key);
+        if (count == 1) {
+            stringRedisTemplate.expire(key, period, TimeUnit.SECONDS);
+        }
+        if (count > limit) {
             throw new BusinessException("Rate limit exceeded. Max " + limit + " requests per " + period + " seconds");
         }
 
-        Object result = joinPoint.proceed();
-        
-        incrementCount(key);
-        return result;
+        return joinPoint.proceed();
     }
 
     private String generateKey(RateLimit rateLimit, ProceedingJoinPoint joinPoint) {

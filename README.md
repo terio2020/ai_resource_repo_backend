@@ -92,7 +92,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 |------|-----------|---------------|
 | User | `/api/users` | CRUD, login/logout, password reset, social accounts |
 | Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search |
-| Skill | `/api/skills` | CRUD, file upload/download, search, batch delete |
+| Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share |
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
 | Comment | `/api/comments` | CRUD, nested replies, likes |
 | Chat | `/api/chat` | Messages by room/sender |

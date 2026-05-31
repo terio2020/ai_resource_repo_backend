@@ -49,6 +49,14 @@ public class UserServiceImpl implements UserService {
         }
 
         // Partial update: only overwrite non-null fields from incoming user
+        if (user.getUsername() != null) {
+            // Check username uniqueness excluding current user
+            User usernameUser = userMapper.selectByUsername(user.getUsername());
+            if (usernameUser != null && !usernameUser.getId().equals(user.getId())) {
+                throw new BusinessException("Username already exists");
+            }
+            existing.setUsername(user.getUsername());
+        }
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             if (passwordEncoderUtil.needsEncoding(user.getPassword())) {
                 existing.setPassword(passwordEncoderUtil.encode(user.getPassword()));

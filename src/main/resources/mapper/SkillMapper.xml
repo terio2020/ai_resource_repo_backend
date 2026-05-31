@@ -133,6 +133,14 @@
         WHERE user_id = #{userId} AND agent_id = #{agentId} AND name = #{name}
     </update>
 
+    <update id="incrementDownloadCount">
+        UPDATE skills SET download_count = download_count + 1 WHERE id = #{id}
+    </update>
+
+    <update id="incrementLikeCount">
+        UPDATE skills SET like_count = like_count + 1 WHERE id = #{id}
+    </update>
+
     <select id="selectCountByAgentIds" resultType="com.ai.repo.dto.AgentIdCount">
         SELECT agent_id, COUNT(*) AS count
         FROM skills

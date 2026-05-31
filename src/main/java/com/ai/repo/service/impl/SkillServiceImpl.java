@@ -75,22 +75,20 @@ public class SkillServiceImpl implements SkillService {
 
     @Override
     public boolean incrementDownloadCount(Long id) {
-        Skill skill = skillMapper.selectById(id);
-        if (skill == null) {
+        int rows = skillMapper.incrementDownloadCount(id);
+        if (rows == 0) {
             throw new BusinessException("Skill not found");
         }
-        skill.setDownloadCount(skill.getDownloadCount() + 1);
-        return skillMapper.update(skill) > 0;
+        return true;
     }
 
     @Override
     public boolean incrementLikeCount(Long id) {
-        Skill skill = skillMapper.selectById(id);
-        if (skill == null) {
+        int rows = skillMapper.incrementLikeCount(id);
+        if (rows == 0) {
             throw new BusinessException("Skill not found");
         }
-        skill.setLikeCount(skill.getLikeCount() + 1);
-        return skillMapper.update(skill) > 0;
+        return true;
     }
 
     @Override
