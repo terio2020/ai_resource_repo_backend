@@ -4,6 +4,7 @@ import com.ai.repo.common.PageResult;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
 import com.ai.repo.entity.Agent;
+import com.ai.repo.exception.BusinessException;
 
 import java.util.Map;
 import com.ai.repo.security.ApiKeyAuth;
@@ -16,16 +17,34 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/agents")
 @Tag(name = "Agent API", description = "Agent management operations")
 public class AgentController {
+
+    @Value("${file.storage.base-path:/data/logicoma-files}")
+    private String basePath;
 
     @Resource
     private AgentService agentService;
@@ -143,6 +162,105 @@ public class AgentController {
         return Result.success(counts);
     }
 
+    @PostMapping("/{id}/avatar")
+    @ApiKeyAuth
+    @Operation(summary = "Upload agent avatar", description = "Upload an avatar image for an agent")
+    public Result<Map<String, String>> uploadAvatar(
+            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Avatar image file") @RequestParam("avatar") MultipartFile file,
+            HttpServletRequest request) {
+
+        Long currentAgentId = (Long) request.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(id)) {
+            return Result.error(403, "Access denied");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+        if (originalFilename != null) {
+            int dotIndex = originalFilename.lastIndexOf('.');
+            if (dotIndex > 0) {
+                extension = originalFilename.substring(dotIndex + 1).toLowerCase();
+            }
+        }
+
+        Set<String> allowedExtensions = Set.of("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg");
+        if (!allowedExtensions.contains(extension)) {
+            return Result.error(400, "Only image files (jpg, png, gif, webp, svg, bmp) are allowed");
+        }
+
+        try {
+            boolean preserveAlpha = "png".equals(extension) || "gif".equals(extension) || "webp".equals(extension);
+            String outputFormat = preserveAlpha ? "png" : "jpg";
+            if ("svg".equals(extension) || "bmp".equals(extension)) {
+                outputFormat = "png";
+            }
+
+            BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(file.getBytes()));
+            if (originalImage == null) {
+                return Result.error(400, "Unable to read image file");
+            }
+
+            int width = originalImage.getWidth();
+            int height = originalImage.getHeight();
+            int maxSize = 200;
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            if (width > maxSize || height > maxSize) {
+                double scale = Math.min((double) maxSize / width, (double) maxSize / height);
+                int newWidth = Math.max(1, (int) (width * scale));
+                int newHeight = Math.max(1, (int) (height * scale));
+
+                BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g2d = resizedImage.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
+                g2d.dispose();
+                ImageIO.write(resizedImage, outputFormat, baos);
+            } else {
+                ImageIO.write(originalImage, outputFormat, baos);
+            }
+
+            String extForFile = outputFormat.equals("jpg") ? "jpg" : "png";
+            String fileName = id + "_" + System.currentTimeMillis() + "." + extForFile;
+            String avatarDir = basePath + "/agents/" + id;
+            Files.createDirectories(Paths.get(avatarDir));
+            Files.write(Paths.get(avatarDir, fileName), baos.toByteArray());
+
+            String avatarUrl = "/avatars/agents/" + id + "/" + fileName;
+            agentService.updateAvatar(id, avatarUrl);
+
+            Map<String, String> result = new HashMap<>();
+            result.put("avatar", avatarUrl);
+            return Result.success(result);
+        } catch (IOException e) {
+            throw new BusinessException("Failed to upload avatar: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/avatar/{fileName}")
+    @Operation(summary = "Get agent avatar image", description = "Retrieve an agent's avatar image by file name")
+    public ResponseEntity<org.springframework.core.io.Resource> getAvatar(
+            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "File name") @PathVariable String fileName) {
+        try {
+            Path filePath = Paths.get(basePath, "agents", String.valueOf(id), fileName).normalize();
+            org.springframework.core.io.Resource resource = new UrlResource(filePath.toUri());
+
+            if (resource.exists() && resource.isReadable()) {
+                String contentType = getContentType(fileName);
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .body(resource);
+            }
+
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @GetMapping("/{id}/sync")
     @ApiKeyAuth
     @Operation(summary = "Sync agent data", description = "Synchronize agent data since a specific timestamp")
@@ -151,5 +269,19 @@ public class AgentController {
             @Parameter(description = "Since timestamp (ISO format)") @RequestParam(required = false) String since) {
         AgentSyncResponse response = agentService.syncData(id, since);
         return Result.success(response);
+    }
+
+    private String getContentType(String fileName) {
+        int dotIndex = fileName.lastIndexOf('.');
+        String ext = dotIndex > 0 ? fileName.substring(dotIndex + 1).toLowerCase() : "";
+        switch (ext) {
+            case "jpg": case "jpeg": return "image/jpeg";
+            case "png": return "image/png";
+            case "gif": return "image/gif";
+            case "webp": return "image/webp";
+            case "bmp": return "image/bmp";
+            case "svg": return "image/svg+xml";
+            default: return "application/octet-stream";
+        }
     }
 }
