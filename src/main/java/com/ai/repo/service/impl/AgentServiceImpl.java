@@ -7,10 +7,12 @@ import com.ai.repo.dto.AgentResourceCounts;
 import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
+import com.ai.repo.entity.AgentSkillAssociation;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
+import com.ai.repo.mapper.AgentSkillAssociationMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.AgentService;
@@ -45,6 +47,9 @@ public class AgentServiceImpl implements AgentService {
     @Resource
     private MemoryMapper memoryMapper;
 
+    @Resource
+    private AgentSkillAssociationMapper agentSkillAssociationMapper;
+
     @Override
     public Agent create(Agent agent) {
         if (agentMapper.selectByCode(agent.getCode()) != null) {
@@ -62,7 +67,7 @@ public class AgentServiceImpl implements AgentService {
                 String avatarUrl = AvatarUtil.generateDefaultAvatar(
                         (long) Math.abs(agent.hashCode()), nameForAvatar, avatarDir);
                 agent.setAvatar(avatarUrl);
-            } catch (IOException e) {
+            } catch (Throwable e) {
                 System.err.println("Failed to generate default avatar: " + e.getMessage());
             }
         }
@@ -89,7 +94,7 @@ public class AgentServiceImpl implements AgentService {
                 updateAvatar.setId(agent.getId());
                 updateAvatar.setAvatar(avatarUrl);
                 agentMapper.update(updateAvatar);
-            } catch (IOException e) {
+            } catch (Throwable e) {
                 System.err.println("Failed to regenerate default avatar: " + e.getMessage());
             }
         }
@@ -339,5 +344,50 @@ public class AgentServiceImpl implements AgentService {
             result.get(mc.getAgentId()).setMemoryCount(mc.getCount());
         }
         return result;
+    }
+
+    @Override
+    public AgentSkillAssociation bindSkill(Long agentId, Long skillId, Double proficiency) {
+        if (agentMapper.selectById(agentId) == null) {
+            throw new BusinessException("Agent not found");
+        }
+        if (skillMapper.selectById(skillId) == null) {
+            throw new BusinessException("Skill not found");
+        }
+
+        AgentSkillAssociation existing = agentSkillAssociationMapper
+                .findByAgentAndSkill(String.valueOf(agentId), String.valueOf(skillId));
+        if (existing != null) {
+            return existing;
+        }
+
+        AgentSkillAssociation assoc = new AgentSkillAssociation();
+        assoc.setId(UUID.randomUUID().toString());
+        assoc.setAgentId(String.valueOf(agentId));
+        assoc.setSkillId(String.valueOf(skillId));
+        assoc.setProficiency(proficiency);
+        agentSkillAssociationMapper.insert(assoc);
+        return assoc;
+    }
+
+    @Override
+    public boolean unbindSkill(Long agentId, Long skillId) {
+        AgentSkillAssociation existing = agentSkillAssociationMapper
+                .findByAgentAndSkill(String.valueOf(agentId), String.valueOf(skillId));
+        if (existing == null) {
+            return false;
+        }
+        agentSkillAssociationMapper.deleteById(existing.getId());
+        return true;
+    }
+
+    @Override
+    public List<Skill> getAgentSkills(Long agentId) {
+        List<AgentSkillAssociation> associations = agentSkillAssociationMapper
+                .findByAgentId(String.valueOf(agentId));
+        return associations.stream()
+                .map(a -> skillMapper.selectById(Long.valueOf(a.getSkillId())))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 }

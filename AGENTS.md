@@ -242,6 +242,7 @@ if (user == null) {
 - Column names: snake_case (`user_id`, `created_at`)
 - Entity fields: camelCase (`userId`, `createdAt`)
 - Use `@Mapper` annotation for MyBatis interfaces
+- Association tables use UUID primary keys (e.g., `agent_skill_association`) and `String` type in entities — IDs are cast from/to `Long` via `String.valueOf()` in service layer
 
 ### Security
 

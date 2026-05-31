@@ -211,6 +211,21 @@ API uses three authentication mechanisms:
 }
 ```
 
+### AgentSkillAssociation Entity
+
+Many-to-many association between agents and skills (beyond direct FK ownership).
+
+```json
+{
+  "id": "string (UUID)",
+  "agentId": "string",
+  "skillId": "string",
+  "proficiency": 0.0,
+  "createdAt": "ISO 8601 datetime",
+  "updatedAt": "ISO 8601 datetime"
+}
+```
+
 ### File Upload Log Entity
 ```json
 {
@@ -430,6 +445,14 @@ API uses three authentication mechanisms:
 ```json
 {
   "config": "string"
+}
+```
+
+### SkillBindRequest
+```json
+{
+  "skillId": 1,
+  "proficiency": 0.85
 }
 ```
 
@@ -817,6 +840,9 @@ Unlink a social account from current user.
 | PUT | `/api/agents/{id}/config` | Update agent config | API Key |
 | POST | `/api/agents/{id}/avatar` | Upload agent avatar image | API Key |
 | GET | `/api/agents/{id}/avatar/{fileName}` | Get agent avatar image | No |
+| POST | `/api/agents/{id}/skills` | Bind a skill to an agent (many-to-many) | JWT |
+| GET | `/api/agents/{id}/skills` | Get skills bound to an agent (association table) | JWT |
+| DELETE | `/api/agents/{id}/skills/{skillId}` | Unbind a skill from an agent | JWT |
 | GET | `/api/agents/{id}/sync` | Sync agent data | API Key |
 | GET | `/api/agents/counts` | Batch get skill/memory counts for multiple agents | JWT |
 
@@ -864,6 +890,101 @@ Retrieve an agent's avatar image file.
 
 **Error Responses:**
 - `404` — File not found
+
+---
+
+#### POST /api/agents/{id}/skills
+
+Bind a skill to an agent via the `agent_skill_association` many-to-many table. This is separate from the FK `agent_id` on the skill entity — skills can be directly owned by one agent (FK) and additionally associated with other agents via this binding.
+
+**Auth Required:** JWT (Bearer token)
+
+**Path Parameters:**
+- `id`: Agent ID (Long)
+
+**Request Body:**
+```json
+{
+  "skillId": 42,
+  "proficiency": 0.85
+}
+```
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "id": "uuid-string",
+    "agentId": "1",
+    "skillId": "42",
+    "proficiency": 0.85,
+    "createdAt": "2026-05-31T10:00:00",
+    "updatedAt": "2026-05-31T10:00:00"
+  }
+}
+```
+
+**Edge cases:**
+- If agent not found → 404
+- If skill not found → 404
+- If association already exists → returns existing association (idempotent)
+
+#### GET /api/agents/{id}/skills
+
+Get all skills currently bound to an agent via the `agent_skill_association` table. This returns only association-table bindings, NOT the skills owned via FK.
+
+**Auth Required:** JWT (Bearer token)
+
+**Path Parameters:**
+- `id`: Agent ID (Long)
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": [
+    {
+      "id": 42,
+      "name": "Python-helper",
+      "version": "1.0",
+      "description": "A Python utility skill",
+      ...
+    }
+  ]
+}
+```
+
+#### DELETE /api/agents/{id}/skills/{skillId}
+
+Unbind a skill from an agent (remove the `agent_skill_association` row).
+
+**Auth Required:** JWT (Bearer token)
+
+**Path Parameters:**
+- `id`: Agent ID (Long)
+- `skillId`: Skill ID (Long)
+
+**Response:**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": null
+}
+```
+
+**Note:** If the association does not exist, returns success (no-op).
+
+#### SkillController: Merged skill listing
+
+`GET /api/skills/agent/{agentId}` now merges results from both sources:
+1. Skills directly owned by the agent (FK `agent_id`)
+2. Skills bound via `agent_skill_association` table
+
+Duplicate skills (same ID appearing in both sources) are deduplicated.
 
 ---
 

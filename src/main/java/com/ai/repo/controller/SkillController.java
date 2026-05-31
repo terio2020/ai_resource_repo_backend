@@ -13,6 +13,7 @@ import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.FileStorageService;
+import com.ai.repo.service.AgentService;
 import com.ai.repo.service.ShareService;
 import com.ai.repo.service.SkillService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,8 +27,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/skills")
@@ -36,6 +43,9 @@ public class SkillController {
 
     @Resource
     private SkillService skillService;
+
+    @Resource
+    private AgentService agentService;
 
     @Resource
     private FileStorageService fileStorageService;
@@ -127,10 +137,19 @@ public class SkillController {
 
     @GetMapping("/agent/{agentId}")
     @RequireAuth
-    @Operation(summary = "Get skills by agent", description = "Retrieve all skills belonging to a specific agent")
+    @Operation(summary = "Get skills by agent", description = "Retrieve all skills belonging to a specific agent (FK + association table)")
     public Result<List<Skill>> getSkillsByAgentId(@PathVariable Long agentId) {
-        List<Skill> skills = skillService.findByAgentId(agentId);
-        return Result.success(skills);
+        List<Skill> directSkills = skillService.findByAgentId(agentId);
+        List<Skill> boundSkills = agentService.getAgentSkills(agentId);
+        Set<Long> seen = new HashSet<>();
+        List<Skill> merged = new ArrayList<>();
+        for (Skill s : directSkills) {
+            if (seen.add(s.getId())) merged.add(s);
+        }
+        for (Skill s : boundSkills) {
+            if (seen.add(s.getId())) merged.add(s);
+        }
+        return Result.success(merged);
     }
 
     @GetMapping("/category/{category}")

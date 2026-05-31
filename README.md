@@ -45,6 +45,7 @@ src/main/java/com/ai/repo/
 │   ├── Agent.java
 │   ├── Skill.java
 │   ├── Memory.java
+│   ├── AgentSkillAssociation.java  # Agent-skill many-to-many binding
 │   ├── Comment.java
 │   ├── ChatMessage.java
 │   ├── Statistics.java
@@ -89,7 +90,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 | Area | Base Path | Key Endpoints |
 |------|-----------|---------------|
 | User | `/api/users` | CRUD, login/logout, password reset, social accounts |
-| Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search |
+| Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search, skill binding |
 | Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share |
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |

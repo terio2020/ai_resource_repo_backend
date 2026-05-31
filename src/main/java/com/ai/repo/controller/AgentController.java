@@ -4,6 +4,8 @@ import com.ai.repo.common.PageResult;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
 import com.ai.repo.entity.Agent;
+import com.ai.repo.entity.AgentSkillAssociation;
+import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 
 import java.util.Map;
@@ -269,6 +271,35 @@ public class AgentController {
             @Parameter(description = "Since timestamp (ISO format)") @RequestParam(required = false) String since) {
         AgentSyncResponse response = agentService.syncData(id, since);
         return Result.success(response);
+    }
+
+    @PostMapping("/{id}/skills")
+    @RequireAuth
+    @Operation(summary = "Bind skill to agent", description = "Associate a skill with an agent")
+    public Result<AgentSkillAssociation> bindSkill(
+            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @RequestBody SkillBindRequest request) {
+        AgentSkillAssociation assoc = agentService.bindSkill(id, request.getSkillId(), request.getProficiency());
+        return Result.success(assoc);
+    }
+
+    @GetMapping("/{id}/skills")
+    @RequireAuth
+    @Operation(summary = "List agent skills", description = "Get all skills bound to an agent")
+    public Result<List<Skill>> getAgentSkills(
+            @Parameter(description = "Agent ID") @PathVariable Long id) {
+        List<Skill> skills = agentService.getAgentSkills(id);
+        return Result.success(skills);
+    }
+
+    @DeleteMapping("/{id}/skills/{skillId}")
+    @RequireAuth
+    @Operation(summary = "Unbind skill from agent", description = "Remove a skill association from an agent")
+    public Result<Void> unbindSkill(
+            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Skill ID") @PathVariable Long skillId) {
+        agentService.unbindSkill(id, skillId);
+        return Result.success();
     }
 
     private String getContentType(String fileName) {
