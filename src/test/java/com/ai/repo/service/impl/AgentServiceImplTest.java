@@ -18,10 +18,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -43,10 +48,11 @@ class AgentServiceImplTest {
 
     private AgentServiceImpl agentService;
 
+    private static final Path TEST_BASE_PATH = Paths.get("/tmp/test-agent-avatars");
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         agentService = new AgentServiceImpl();
-        // Use reflection to inject mock mappers
         try {
             java.lang.reflect.Field agentField = AgentServiceImpl.class.getDeclaredField("agentMapper");
             agentField.setAccessible(true);
@@ -59,8 +65,20 @@ class AgentServiceImplTest {
             java.lang.reflect.Field memoryField = AgentServiceImpl.class.getDeclaredField("memoryMapper");
             memoryField.setAccessible(true);
             memoryField.set(agentService, memoryMapper);
+
+            java.lang.reflect.Field basePathField = AgentServiceImpl.class.getDeclaredField("basePath");
+            basePathField.setAccessible(true);
+            basePathField.set(agentService, TEST_BASE_PATH.toString());
         } catch (Exception e) {
-            fail("Failed to inject mock mappers: " + e.getMessage());
+            fail("Failed to inject fields: " + e.getMessage());
+        }
+
+        if (Files.exists(TEST_BASE_PATH)) {
+            Files.walk(TEST_BASE_PATH)
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(p -> {
+                        try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                    });
         }
     }
 
@@ -68,7 +86,6 @@ class AgentServiceImplTest {
 
     @Test
     void create_shouldSucceed_whenCodeIsUnique() {
-        // Given
         Agent agent = new Agent();
         agent.setUserId(1L);
         agent.setName("Test Agent");
@@ -78,12 +95,30 @@ class AgentServiceImplTest {
         when(agentMapper.selectByCode("test-agent-001")).thenReturn(null);
         when(agentMapper.insert(any(Agent.class))).thenReturn(1);
 
-        // When
         Agent result = agentService.create(agent);
 
-        // Then
         assertNotNull(result);
         assertEquals("test-agent-001", result.getCode());
+        assertNotNull(result.getAvatar());
+        assertTrue(result.getAvatar().contains("/avatars/agents/"));
+        verify(agentMapper).insert(any(Agent.class));
+    }
+
+    @Test
+    void create_shouldKeepExistingAvatar_whenProvided() {
+        Agent agent = new Agent();
+        agent.setUserId(1L);
+        agent.setName("Test Agent");
+        agent.setCode("test-agent-002");
+        agent.setAvatar("/custom/avatar.png");
+
+        when(agentMapper.selectByCode("test-agent-002")).thenReturn(null);
+        when(agentMapper.insert(any(Agent.class))).thenReturn(1);
+
+        Agent result = agentService.create(agent);
+
+        assertNotNull(result);
+        assertEquals("/custom/avatar.png", result.getAvatar());
         verify(agentMapper).insert(any(Agent.class));
     }
 
@@ -547,6 +582,30 @@ class AgentServiceImplTest {
         // When/Then
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             agentService.updateConfigOnly(999L, "{}");
+        });
+        assertTrue(exception.getMessage().contains("not found"));
+    }
+
+    @Test
+    void updateAvatar_shouldSucceed_whenAgentExists() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(agentMapper.updateAvatar(1L, "/avatars/agents/1/new.png")).thenReturn(1);
+
+        boolean result = agentService.updateAvatar(1L, "/avatars/agents/1/new.png");
+
+        assertTrue(result);
+        verify(agentMapper).updateAvatar(1L, "/avatars/agents/1/new.png");
+    }
+
+    @Test
+    void updateAvatar_shouldThrowException_whenAgentNotFound() {
+        when(agentMapper.selectById(999L)).thenReturn(null);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            agentService.updateAvatar(999L, "/avatars/agents/999/new.png");
         });
         assertTrue(exception.getMessage().contains("not found"));
     }
