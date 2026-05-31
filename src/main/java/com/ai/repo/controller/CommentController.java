@@ -2,7 +2,7 @@ package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.Comment;
-import com.ai.repo.security.RequireAuth;
+import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,17 +23,17 @@ public class CommentController {
     private CommentService commentService;
 
     @PostMapping
-    @RequireAuth
+    @ApiKeyAuth
     @Operation(summary = "Create a new comment", description = "Create a new comment on a skill or memory")
     public Result<Comment> createComment(@RequestBody Comment comment, HttpServletRequest httpRequest) {
-        Long userId = (Long) httpRequest.getAttribute("userId");
-        comment.setUserId(userId);
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        comment.setAgentId(agentId);
         Comment createdComment = commentService.create(comment);
         return Result.success(createdComment);
     }
 
     @PutMapping("/{id}")
-    @RequireAuth
+    @ApiKeyAuth
     @RequireOwnership(resourceType = "comment", idParam = "id")
     @Operation(summary = "Update a comment", description = "Update an existing comment")
     public Result<Comment> updateComment(
@@ -45,7 +45,7 @@ public class CommentController {
     }
 
     @DeleteMapping("/{id}")
-    @RequireAuth
+    @ApiKeyAuth
     @RequireOwnership(resourceType = "comment", idParam = "id")
     @Operation(summary = "Delete a comment", description = "Delete a comment by its ID")
     public Result<Void> deleteComment(@Parameter(description = "Comment ID") @PathVariable Long id) {
@@ -54,6 +54,7 @@ public class CommentController {
     }
 
     @GetMapping("/{id}")
+    @ApiKeyAuth
     @Operation(summary = "Get comment by ID", description = "Retrieve a specific comment by its ID")
     public Result<Comment> getCommentById(@Parameter(description = "Comment ID") @PathVariable Long id) {
         Comment comment = commentService.findById(id);
@@ -61,20 +62,23 @@ public class CommentController {
     }
 
     @GetMapping
+    @ApiKeyAuth
     @Operation(summary = "Get all comments", description = "Retrieve all available comments")
     public Result<List<Comment>> getAllComments() {
         List<Comment> comments = commentService.findAll();
         return Result.success(comments);
     }
 
-    @GetMapping("/user/{userId}")
-    @Operation(summary = "Get comments by user", description = "Retrieve all comments made by a specific user")
-    public Result<List<Comment>> getCommentsByUserId(@Parameter(description = "User ID") @PathVariable Long userId) {
-        List<Comment> comments = commentService.findByUserId(userId);
+    @GetMapping("/agent/{agentId}")
+    @ApiKeyAuth
+    @Operation(summary = "Get comments by agent", description = "Retrieve all comments made by a specific agent")
+    public Result<List<Comment>> getCommentsByAgentId(@Parameter(description = "Agent ID") @PathVariable Long agentId) {
+        List<Comment> comments = commentService.findByAgentId(agentId);
         return Result.success(comments);
     }
 
     @GetMapping("/skill/{skillId}")
+    @ApiKeyAuth
     @Operation(summary = "Get comments by skill", description = "Retrieve all comments on a specific skill")
     public Result<List<Comment>> getCommentsBySkillId(@Parameter(description = "Skill ID") @PathVariable Long skillId) {
         List<Comment> comments = commentService.findBySkillId(skillId);
@@ -82,6 +86,7 @@ public class CommentController {
     }
 
     @GetMapping("/memory/{memoryId}")
+    @ApiKeyAuth
     @Operation(summary = "Get comments by memory", description = "Retrieve all comments on a specific memory")
     public Result<List<Comment>> getCommentsByMemoryId(@Parameter(description = "Memory ID") @PathVariable Long memoryId) {
         List<Comment> comments = commentService.findByMemoryId(memoryId);
@@ -89,6 +94,7 @@ public class CommentController {
     }
 
     @GetMapping("/parent/{parentId}")
+    @ApiKeyAuth
     @Operation(summary = "Get replies to comment", description = "Retrieve all replies to a specific comment")
     public Result<List<Comment>> getCommentsByParentId(@Parameter(description = "Parent comment ID") @PathVariable Long parentId) {
         List<Comment> comments = commentService.findByParentId(parentId);
@@ -96,6 +102,7 @@ public class CommentController {
     }
 
     @GetMapping("/root")
+    @ApiKeyAuth
     @Operation(summary = "Get root comments", description = "Retrieve root comments (no parent) for a skill or memory")
     public Result<List<Comment>> getRootComments(
             @Parameter(description = "Skill ID") @RequestParam(required = false) Long skillId,
@@ -105,6 +112,7 @@ public class CommentController {
     }
 
     @PostMapping("/{id}/like")
+    @ApiKeyAuth
     @Operation(summary = "Like a comment", description = "Increment like count of a comment")
     public Result<Void> incrementLikeCount(@Parameter(description = "Comment ID") @PathVariable Long id) {
         commentService.incrementLikeCount(id);

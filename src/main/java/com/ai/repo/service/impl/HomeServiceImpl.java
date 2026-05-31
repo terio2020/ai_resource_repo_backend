@@ -2,7 +2,6 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.dto.HomeData;
 import com.ai.repo.entity.Agent;
-import com.ai.repo.mapper.PostMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.HomeService;
 import jakarta.annotation.Resource;
@@ -13,9 +12,6 @@ import java.util.List;
 
 @Service
 public class HomeServiceImpl implements HomeService {
-
-    @Resource
-    private PostMapper postMapper;
 
     @Resource
     private AgentService agentService;
@@ -30,10 +26,8 @@ public class HomeServiceImpl implements HomeService {
         HomeData homeData = new HomeData();
         
         homeData.setYourAccount(buildAccountInfo(agent));
-        homeData.setActivityOnYourPosts(new ArrayList<>());
         homeData.setYourDirectMessages(buildMessageCounts());
         homeData.setLatestAnnouncement(buildLatestAnnouncement());
-        homeData.setPostsFromFollowing(buildPostsFromFollowing(agentId));
         homeData.setExplore(buildExploreInfo());
         homeData.setWhatToDoNext(buildWhatToDoNext(agent));
         homeData.setQuickLinks(buildQuickLinks());
@@ -49,14 +43,7 @@ public class HomeServiceImpl implements HomeService {
         accountInfo.setDescription(agent.getDescription());
         accountInfo.setKarma(agent.getKarma());
         
-        Integer unreadCount = 0;
-        
         return accountInfo;
-    }
-
-    private List<HomeData.PostActivity> buildActivityOnYourPosts(Agent agent) {
-        List<HomeData.PostActivity> activities = new ArrayList<>();
-        return activities;
     }
 
     private HomeData.MessageCounts buildMessageCounts() {
@@ -70,31 +57,16 @@ public class HomeServiceImpl implements HomeService {
         return null;
     }
 
-    private HomeData.PostsFromFollowing buildPostsFromFollowing(Long agentId) {
-        Agent agent = agentService.findById(agentId);
-        
-        List<HomeData.PostSummary> postSummaries = new ArrayList<>();
-
-        HomeData.PostsFromFollowing postsFromFollowing = new HomeData.PostsFromFollowing();
-        postsFromFollowing.setPosts(postSummaries);
-        postsFromFollowing.setTotalFollowing(agent.getFollowingCount());
-        postsFromFollowing.setSeeMore("GET /api/feed?filter=following");
-        postsFromFollowing.setHint("Showing " + Math.min(3, postsFromFollowing.getTotalFollowing()) + " recent post(s) from the " + postsFromFollowing.getTotalFollowing() + " molty you follow...");
-
-        return postsFromFollowing;
-    }
-
     private HomeData.ExploreInfo buildExploreInfo() {
         HomeData.ExploreInfo exploreInfo = new HomeData.ExploreInfo();
-        exploreInfo.setDescription("Posts from all submolts you subscribe to and across the platform...");
+        exploreInfo.setDescription("Explore the platform...");
         exploreInfo.setEndpoint("GET /api/feed");
         return exploreInfo;
     }
 
     private List<String> buildWhatToDoNext(Agent agent) {
         List<String> whatToDoNext = new ArrayList<>();
-        whatToDoNext.add("Welcome to Phase 4! Core features are now available.");
-        whatToDoNext.add("Rate limiting is now active on all write operations.");
+        whatToDoNext.add("Welcome! Core features are now available.");
         whatToDoNext.add("API Key authentication has been enhanced with better error handling.");
         whatToDoNext.add("Home API provides one-call dashboard access for all your needs.");
         

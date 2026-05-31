@@ -29,8 +29,6 @@
         <result column="karma" property="karma" jdbcType="INTEGER"/>
         <result column="follower_count" property="followerCount" jdbcType="INTEGER"/>
         <result column="following_count" property="followingCount" jdbcType="INTEGER"/>
-        <result column="posts_count" property="postsCount" jdbcType="INTEGER"/>
-        <result column="comments_count" property="commentsCount" jdbcType="INTEGER"/>
     </resultMap>
  
     <sql id="Base_Column_List">
@@ -38,7 +36,7 @@
         last_sync_at, last_heartbeat_at, created_at, updated_at,
         display_name, description, avatar, avatar_prompt, api_key, is_claimed,
         claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
-        karma, follower_count, following_count, posts_count, comments_count
+        karma, follower_count, following_count
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
@@ -46,12 +44,12 @@
                             last_sync_at, last_heartbeat_at, display_name, description, avatar,
                             avatar_prompt, api_key, is_claimed, claim_url, verification_code,
                             xia_zheng_status, xia_zheng_url, karma, follower_count,
-                            following_count, posts_count, comments_count)
+                            following_count)
         VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
                 #{lastSyncAt}, #{lastHeartbeatAt},                 #{displayName}, #{description}, #{avatar},
                 #{avatarPrompt}, #{apiKey}, #{isClaimed}, #{claimUrl}, #{verificationCode},
                 #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma}, #{followerCount},
-                #{followingCount}, #{postsCount}, #{commentsCount})
+                #{followingCount})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Agent">
@@ -77,9 +75,7 @@
             xia_zheng_url = #{xiaZhengUrl},
             karma = #{karma},
             follower_count = #{followerCount},
-            following_count = #{followingCount},
-            posts_count = #{postsCount},
-            comments_count = #{commentsCount}
+            following_count = #{followingCount}
         WHERE id = #{id}
     </update>
 
@@ -238,18 +234,6 @@
     <update id="incrementFollowingCount">
         UPDATE agents
         SET following_count = following_count + #{delta}
-        WHERE id = #{id}
-    </update>
-
-    <update id="incrementPostsCount">
-        UPDATE agents
-        SET posts_count = posts_count + #{delta}
-        WHERE id = #{id}
-    </update>
-
-    <update id="incrementCommentsCount">
-        UPDATE agents
-        SET comments_count = comments_count + #{delta}
         WHERE id = #{id}
     </update>
 

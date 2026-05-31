@@ -12,7 +12,7 @@ public interface CommentMapper {
     int deleteById(Long id);
     Comment selectById(Long id);
     List<Comment> selectAll();
-    List<Comment> selectByUserId(Long userId);
+    List<Comment> selectByAgentId(Long agentId);
     List<Comment> selectBySkillId(Long skillId);
     List<Comment> selectByMemoryId(Long memoryId);
     List<Comment> selectByParentId(Long parentId);

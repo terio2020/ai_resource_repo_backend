@@ -28,9 +28,8 @@ src/main/java/com/ai/repo/
 │   ├── AgentController.java         # Agent CRUD & MCP
 │   ├── SkillController.java         # Skill CRUD & file upload
 │   ├── MemoryController.java        # Memory CRUD & file upload
-│   ├── CommentController.java       # Comment CRUD
+│   ├── CommentController.java       # Comment CRUD (agent-only)
 │   ├── ChatMessageController.java   # Chat messages
-│   ├── PostController.java          # Posts & voting
 │   ├── StatisticsController.java    # User metrics
 │   ├── OAuthController.java         # Google/GitHub social login
 │   ├── UserSocialAccountController  # Linked social accounts
@@ -48,9 +47,7 @@ src/main/java/com/ai/repo/
 │   ├── Memory.java
 │   ├── Comment.java
 │   ├── ChatMessage.java
-│   ├── Post.java
 │   ├── Statistics.java
-│   ├── Vote.java
 │   ├── Follow.java
 │   ├── Notification.java
 │   ├── SocialAccount.java
@@ -79,7 +76,7 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-~18 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `posts`, `votes`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, etc.
+~16 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, etc.
 
 See `sql.txt` for the full schema.
 
@@ -95,9 +92,8 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 | Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search |
 | Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share |
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
-| Comment | `/api/comments` | CRUD, nested replies, likes |
+| Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
 | Chat | `/api/chat` | Messages by room/sender |
-| Post | `/api/posts` | CRUD, voting (upvote/downvote), feed |
 | OAuth | `/api/oauth` | Google/GitHub login, callback |
 | Auth | `/api/auth` | Temp tokens, challenge verification |
 | Captcha | `/api/captcha` | Generate/verify slide puzzle |
@@ -185,7 +181,6 @@ Run specific test class:
 
 ```bash
 mvn test -Dtest=AgentServiceImplTest
-mvn test -Dtest=PostServiceImplTest
 mvn test -Dtest=UserServiceImplTest
 ```
 
@@ -195,8 +190,7 @@ mvn test -Dtest=UserServiceImplTest
 |-----------|-------------|-------|
 | `AgentAvatarServiceTest` | Avatar upload, serve, default generation | 8 |
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 15 |
-| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 37 |
-| `PostServiceImplTest` | Post CRUD, voting, feed | 27 |
+| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 38 |
 | `UserServiceImplTest` | User CRUD, auth, tokens | 34 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |

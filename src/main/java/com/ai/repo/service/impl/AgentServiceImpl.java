@@ -314,16 +314,6 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public void incrementPostsCount(Long agentId, int delta) {
-        agentMapper.incrementPostsCount(agentId, delta);
-    }
-
-    @Override
-    public void incrementCommentsCount(Long agentId, int delta) {
-        agentMapper.incrementCommentsCount(agentId, delta);
-    }
-
-    @Override
     public void updateFollowCounts(Long followerId, Long followingId) {
         agentMapper.incrementFollowingCount(followerId, 1);
         agentMapper.incrementFollowerCount(followingId, 1);

@@ -58,8 +58,8 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public List<Comment> findByUserId(Long userId) {
-        return commentMapper.selectByUserId(userId);
+    public List<Comment> findByAgentId(Long agentId) {
+        return commentMapper.selectByAgentId(agentId);
     }
 
     @Override

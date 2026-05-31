@@ -10,7 +10,7 @@ public interface CommentService {
     boolean delete(Long id);
     Comment findById(Long id);
     List<Comment> findAll();
-    List<Comment> findByUserId(Long userId);
+    List<Comment> findByAgentId(Long agentId);
     List<Comment> findBySkillId(Long skillId);
     List<Comment> findByMemoryId(Long memoryId);
     List<Comment> findByParentId(Long parentId);

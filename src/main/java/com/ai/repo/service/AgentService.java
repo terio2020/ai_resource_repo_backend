@@ -40,10 +40,6 @@ public interface AgentService {
 
     void incrementFollowingCount(Long agentId, int delta);
 
-    void incrementPostsCount(Long agentId, int delta);
-
-    void incrementCommentsCount(Long agentId, int delta);
-
     void updateFollowCounts(Long followerId, Long followingId);
 
     Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);

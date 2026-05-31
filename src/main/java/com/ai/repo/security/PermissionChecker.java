@@ -52,7 +52,8 @@ public class PermissionChecker {
     @Before("@annotation(requireOwnership)")
     public void checkOwnership(JoinPoint joinPoint, RequireOwnership requireOwnership) {
         Long currentUserId = getCurrentUserId();
-        if (currentUserId == null) {
+        Long currentAgentId = getCurrentAgentId();
+        if (currentUserId == null && currentAgentId == null) {
             throw new AuthenticationException("Authentication required");
         }
 
@@ -66,13 +67,20 @@ public class PermissionChecker {
             throw new IllegalArgumentException("Resource not found");
         }
 
-        if (!resourceOwnerId.equals(currentUserId)) {
-            log.warn("Ownership check failed: User {} attempted to access resource {} owned by {}", 
-                    currentUserId, resourceId, resourceOwnerId);
+        boolean authorized;
+        if ("comment".equalsIgnoreCase(requireOwnership.resourceType())) {
+            authorized = currentAgentId != null && currentAgentId.equals(resourceOwnerId);
+        } else {
+            authorized = currentUserId != null && currentUserId.equals(resourceOwnerId);
+        }
+
+        if (!authorized) {
+            log.warn("Ownership check failed: principal attempted to access resource {} owned by {}",
+                    resourceId, resourceOwnerId);
             throw new BusinessException(403, "Access denied: you don't own this resource");
         }
 
-        log.debug("Ownership check passed for user {} on resource {}", currentUserId, resourceId);
+        log.debug("Ownership check passed on resource {}", resourceId);
     }
 
     private Long getCurrentUserId() {
@@ -81,6 +89,16 @@ public class PermissionChecker {
             HttpServletRequest request = attributes.getRequest();
             Object userId = request.getAttribute("userId");
             return userId != null ? Long.valueOf(userId.toString()) : null;
+        }
+        return null;
+    }
+
+    private Long getCurrentAgentId() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            HttpServletRequest request = attributes.getRequest();
+            Object agentId = request.getAttribute("agentId");
+            return agentId != null ? Long.valueOf(agentId.toString()) : null;
         }
         return null;
     }
@@ -135,7 +153,7 @@ public class PermissionChecker {
                 case "memory":
                     return memoryService.findById(resourceId).getUserId();
                 case "comment":
-                    return commentService.findById(resourceId).getUserId();
+                    return commentService.findById(resourceId).getAgentId();
                 case "chatmessage":
 //                    return chatMessageService.findById(resourceId).getUserId();
                     return 0L;

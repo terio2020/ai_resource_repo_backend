@@ -713,24 +713,6 @@ class AgentServiceImplTest {
     }
 
     @Test
-    void incrementPostsCount_shouldCallMapper() {
-        // When
-        agentService.incrementPostsCount(1L, 1);
-
-        // Then
-        verify(agentMapper).incrementPostsCount(1L, 1);
-    }
-
-    @Test
-    void incrementCommentsCount_shouldCallMapper() {
-        // When
-        agentService.incrementCommentsCount(1L, 1);
-
-        // Then
-        verify(agentMapper).incrementCommentsCount(1L, 1);
-    }
-
-    @Test
     void findByStatus_shouldReturnAgentsByStatus() {
         // Given
         Agent agent = new Agent();

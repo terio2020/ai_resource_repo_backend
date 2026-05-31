@@ -33,6 +33,4 @@ public class Agent {
     private Integer karma;
     private Integer followerCount;
     private Integer followingCount;
-    private Integer postsCount;
-    private Integer commentsCount;
 }
