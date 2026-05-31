@@ -73,7 +73,8 @@ src/main/java/com/ai/repo/
 │   └── impl/                        # Implementations
 ├── scheduler/                       # Scheduled tasks
 │   └── AgentHeartbeatScheduler.java # 90-min offline detection
-└── util/                            # Utility classes
+├── util/                            # Utility classes
+│   └── AvatarUtil.java              # Default avatar generation (200×200, colored, initial letter)
 ```
 
 ## Database
@@ -192,6 +193,7 @@ mvn test -Dtest=UserServiceImplTest
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
+| `AgentAvatarServiceTest` | Avatar upload, serve, default generation | 8 |
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 15 |
 | `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 37 |
 | `PostServiceImplTest` | Post CRUD, voting, feed | 27 |
