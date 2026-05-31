@@ -27,6 +27,7 @@ public interface AgentService {
     boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt);
     boolean updateStatusOnly(Long id, String status);
     boolean updateConfigOnly(Long id, String config);
+    boolean updateAvatar(Long id, String avatarUrl);
     AgentSyncResponse syncData(Long agentId, String since);
 
     Agent findByApiKey(String apiKey);

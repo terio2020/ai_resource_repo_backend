@@ -14,9 +14,15 @@ import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.AgentService;
+import com.ai.repo.util.AvatarUtil;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -26,6 +32,9 @@ import java.util.stream.Collectors;
 public class AgentServiceImpl implements AgentService {
 
     private static final Set<String> VALID_STATUSES = Set.of("ACTIVE", "IDLE", "BUSY", "OFFLINE");
+
+    @Value("${file.storage.base-path:/data/logicoma-files}")
+    private String basePath;
 
     @Resource
     private AgentMapper agentMapper;
@@ -41,7 +50,50 @@ public class AgentServiceImpl implements AgentService {
         if (agentMapper.selectByCode(agent.getCode()) != null) {
             throw new BusinessException("Agent code already exists");
         }
+
+        if (agent.getAvatar() == null || agent.getAvatar().isEmpty()) {
+            try {
+                Path avatarDir = Paths.get(basePath, "agents", "0");
+                Files.createDirectories(avatarDir);
+                String nameForAvatar = agent.getDisplayName() != null ? agent.getDisplayName() : agent.getName();
+                if (nameForAvatar == null) {
+                    nameForAvatar = agent.getCode();
+                }
+                String avatarUrl = AvatarUtil.generateDefaultAvatar(
+                        (long) Math.abs(agent.hashCode()), nameForAvatar, avatarDir);
+                agent.setAvatar(avatarUrl);
+            } catch (IOException e) {
+                System.err.println("Failed to generate default avatar: " + e.getMessage());
+            }
+        }
+
         agentMapper.insert(agent);
+
+        if (agent.getAvatar() != null && agent.getAvatar().contains("/0_")) {
+            try {
+                String fileName = agent.getAvatar().substring(agent.getAvatar().lastIndexOf('/') + 1);
+                Path oldFile = Paths.get(basePath, "agents", "0", fileName);
+                Files.deleteIfExists(oldFile);
+
+                Path avatarDir = Paths.get(basePath, "agents", String.valueOf(agent.getId()));
+                Files.createDirectories(avatarDir);
+                String nameForAvatar = agent.getDisplayName() != null ? agent.getDisplayName() : agent.getName();
+                if (nameForAvatar == null) {
+                    nameForAvatar = agent.getCode();
+                }
+                String avatarUrl = AvatarUtil.generateDefaultAvatar(
+                        agent.getId(), nameForAvatar, avatarDir);
+                agent.setAvatar(avatarUrl);
+
+                Agent updateAvatar = new Agent();
+                updateAvatar.setId(agent.getId());
+                updateAvatar.setAvatar(avatarUrl);
+                agentMapper.update(updateAvatar);
+            } catch (IOException e) {
+                System.err.println("Failed to regenerate default avatar: " + e.getMessage());
+            }
+        }
+
         return agent;
     }
 
@@ -167,6 +219,14 @@ public class AgentServiceImpl implements AgentService {
             throw new BusinessException("Agent not found");
         }
         return agentMapper.updateConfigOnly(id, config) > 0;
+    }
+
+    @Override
+    public boolean updateAvatar(Long id, String avatarUrl) {
+        if (agentMapper.selectById(id) == null) {
+            throw new BusinessException("Agent not found");
+        }
+        return agentMapper.updateAvatar(id, avatarUrl) > 0;
     }
 
     @Override
