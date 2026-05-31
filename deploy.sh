@@ -121,6 +121,18 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e MAIL_FROM=${MAIL_FROM} \
         -e APP_BASE_URL=${APP_BASE_URL} \
         -e APP_FRONTEND_URL=${APP_FRONTEND_URL} \
+        -e OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID:-} \
+        -e OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET:-} \
+        -e OAUTH_GOOGLE_REDIRECT_URI=${OAUTH_GOOGLE_REDIRECT_URI:-} \
+        -e OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID:-} \
+        -e OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET:-} \
+        -e OAUTH_GITHUB_REDIRECT_URI=${OAUTH_GITHUB_REDIRECT_URI:-} \
+        -e OAUTH_APPLE_CLIENT_ID=${OAUTH_APPLE_CLIENT_ID:-} \
+        -e OAUTH_APPLE_TEAM_ID=${OAUTH_APPLE_TEAM_ID:-} \
+        -e OAUTH_APPLE_KEY_ID=${OAUTH_APPLE_KEY_ID:-} \
+        -e OAUTH_APPLE_PRIVATE_KEY=${OAUTH_APPLE_PRIVATE_KEY:-} \
+        -e OAUTH_APPLE_REDIRECT_URI=${OAUTH_APPLE_REDIRECT_URI:-} \
+        -e OPENAI_API_KEY=${OPENAI_API_KEY:-} \
         -w /DE_PKGS/de_version/de_code/de_server/ai_resource \
         openjdk:17-jdk-alpine \
         java -jar app.jar

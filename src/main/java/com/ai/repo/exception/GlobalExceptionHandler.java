@@ -6,6 +6,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -53,10 +54,22 @@ public class GlobalExceptionHandler {
         return Result.error(400, message);
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public Result<?> handleMissingParams(MissingServletRequestParameterException e) {
+        log.warn("Missing request parameter: {}", e.getMessage());
+        return Result.error(400, "Required parameter '" + e.getParameterName() + "' is missing");
+    }
+
     @ExceptionHandler(Exception.class)
     public Result<?> handleException(Exception e) {
         log.error("System exception: ", e);
         return Result.error("System error, please contact administrator");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public Result<?> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.error("Illegal argument: {}", e.getMessage());
+        return Result.error(400, e.getMessage());
     }
 
     @ExceptionHandler(InvalidFileTypeException.class)

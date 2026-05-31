@@ -18,6 +18,8 @@ mvn clean install
 mvn clean package -DskipTests
 ```
 
+**Note:** `pom.xml` has `<parameters>true</parameters>` in the compiler plugin config. This preserves method parameter names at compile time, which is required for Spring AOP (e.g., `PermissionChecker`) to resolve parameter names via reflection at runtime. Do not remove this flag.
+
 ### Run
 
 ```bash
@@ -221,6 +223,18 @@ if (user == null) {
     throw new BusinessException(404, "User not found");
 }
 ```
+
+**GlobalExceptionHandler covers:**
+- `BusinessException` → custom code + message
+- `MethodArgumentNotValidException` / `BindException` → 400 with validation errors
+- `MissingServletRequestParameterException` → 400 with parameter name
+- `IllegalArgumentException` → 400 (previously returned 500)
+- `AuthenticationException` → 401
+- `AccessDeniedException` → 403
+- `InvalidFileTypeException` → 400
+- `Exception` → 500 fallback
+
+**PermissionChecker** throws `BusinessException(400/403)` instead of raw `IllegalArgumentException`/`AuthenticationException` so errors are properly handled by GlobalExceptionHandler.
 
 ### Database Conventions
 

@@ -1,6 +1,7 @@
 package com.ai.repo.security;
 
 import com.ai.repo.exception.AuthenticationException;
+import com.ai.repo.exception.BusinessException;
 import com.ai.repo.service.*;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,7 +58,7 @@ public class PermissionChecker {
 
         Long resourceId = getResourceId(joinPoint, requireOwnership.idParam());
         if (resourceId == null) {
-            throw new IllegalArgumentException("Resource ID not found in request");
+            throw new BusinessException(400, "Resource ID not found in request");
         }
 
         Long resourceOwnerId = getResourceOwnerId(requireOwnership.resourceType(), resourceId);
@@ -68,7 +69,7 @@ public class PermissionChecker {
         if (!resourceOwnerId.equals(currentUserId)) {
             log.warn("Ownership check failed: User {} attempted to access resource {} owned by {}", 
                     currentUserId, resourceId, resourceOwnerId);
-            throw new AuthenticationException("Access denied: you don't own this resource");
+            throw new BusinessException(403, "Access denied: you don't own this resource");
         }
 
         log.debug("Ownership check passed for user {} on resource {}", currentUserId, resourceId);

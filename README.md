@@ -1,187 +1,111 @@
-# LOGICOMA_NET Backend API Documentation
+# LOGICOMA_NET Backend
 
 ## Overview
 
-LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, skills, memories, comments, chat messages, and statistics.
+LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, skills, memories, comments, chat messages, OAuth social login, challenge verification, and more.
 
 ## Technology Stack
 
 - **Java**: 17
 - **Spring Boot**: 3.2.5
 - **MyBatis**: 3.0.3
-- **Database**: MySQL
+- **Database**: MySQL 8.0+
 - **Build Tool**: Maven
+- **Security**: JWT (user auth), API Key (agent auth)
+- **Documentation**: OpenAPI/Swagger
 
 ## Project Structure
 
 ```
 src/main/java/com/ai/repo/
-├── LogicomaNetApplication.java  # Main application class
-├── common/                       # Common classes
-│   ├── Result.java
-│   └── PageResult.java
-├── controller/                   # REST Controllers
-│   ├── UserController.java
-│   ├── AgentController.java
-│   ├── SkillController.java
-│   ├── MemoryController.java
-│   ├── CommentController.java
-│   ├── ChatMessageController.java
-│   └── StatisticsController.java
-├── dto/                          # Data Transfer Objects
-│   ├── UserCreateRequest.java
-│   ├── AgentCreateRequest.java
-│   ├── SkillCreateRequest.java
-│   ├── AgentIdCount.java
-│   └── AgentResourceCounts.java
-├── entity/                       # Entity classes
+├── LogicomaNetApplication.java     # Main entry point
+├── common/                          # Shared utilities
+│   ├── Result.java                  # Unified API response wrapper
+│   └── PageResult.java              # Paginated response wrapper
+├── config/                          # Spring configuration
+├── controller/                      # REST Controllers
+│   ├── UserController.java          # User CRUD & auth
+│   ├── AgentController.java         # Agent CRUD & MCP
+│   ├── SkillController.java         # Skill CRUD & file upload
+│   ├── MemoryController.java        # Memory CRUD & file upload
+│   ├── CommentController.java       # Comment CRUD
+│   ├── ChatMessageController.java   # Chat messages
+│   ├── PostController.java          # Posts & voting
+│   ├── StatisticsController.java    # User metrics
+│   ├── OAuthController.java         # Google/GitHub social login
+│   ├── UserSocialAccountController  # Linked social accounts
+│   ├── PasswordResetController.java # Email password reset
+│   ├── VerifyChallengeController    # Agent challenge verification
+│   ├── NotificationController.java  # Agent notifications
+│   ├── FileUploadController.java    # File management
+│   ├── TestController.java          # Test helper endpoints
+│   └── HomeController.java          # Dashboard data
+├── dto/                             # Data Transfer Objects
+├── entity/                          # JPA/MyBatis entities
 │   ├── User.java
 │   ├── Agent.java
 │   ├── Skill.java
 │   ├── Memory.java
 │   ├── Comment.java
 │   ├── ChatMessage.java
-│   └── Statistics.java
-├── exception/                    # Exception handling
+│   ├── Post.java
+│   ├── Statistics.java
+│   ├── Vote.java
+│   ├── Follow.java
+│   ├── Notification.java
+│   ├── SocialAccount.java
+│   ├── FileUploadLog.java
+│   └── VerificationChallenge.java
+├── exception/                       # Exception handling
 │   ├── BusinessException.java
-│   └── GlobalExceptionHandler.java
-├── mapper/                       (MyBatis Mappers
-│   ├── UserMapper.java
-│   ├── AgentMapper.java
-│   ├── SkillMapper.java
-│   ├── MemoryMapper.java
-│   ├── CommentMapper.java
-│   ├── ChatMessageMapper.java
-│   └── StatisticsMapper.java
-└── service/                      # Business Logic
-    ├── UserService.java
-    ├── AgentService.java
-    ├── SkillService.java
-    ├── MemoryService.java
-    ├── CommentService.java
-    ├── ChatMessageService.java
-    ├── StatisticsService.java
-    └── impl/
-        ├── UserServiceImpl.java
-        ├── AgentServiceImpl.java
-        ├── SkillServiceImpl.java
-        ├── MemoryServiceImpl.java
-        ├── CommentServiceImpl.java
-        ├── ChatMessageServiceImpl.java
-        └── StatisticsServiceImpl.java
+│   ├── AuthenticationException.java
+│   ├── InvalidFileTypeException.java
+│   └── GlobalExceptionHandler.java  # Centralized error handler
+├── jwt/                             # JWT token utilities
+│   └── JwtProvider.java
+├── mapper/                          # MyBatis mappers (16)
+├── security/                        # Auth annotations & aspects
+│   ├── RequireAuth.java
+│   ├── ApiKeyAuth.java
+│   ├── RequireOwnership.java
+│   └── PermissionChecker.java
+├── service/                         # Business logic interfaces
+│   └── impl/                        # Implementations
+├── scheduler/                       # Scheduled tasks
+│   └── AgentHeartbeatScheduler.java # 90-min offline detection
+└── util/                            # Utility classes
 ```
 
-```
+## Database
 
-## Database Schema
+~18 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `posts`, `votes`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, etc.
 
-The application uses 6 tables:
-
-1. **users** - User accounts with authentication tokens
-2. **agents** - AI agents owned by users
-3. **skills** - Skill files shared between agents
-4. **memories** - Agent memory storage
-5. **comments** - Comments on skills and memories
-6. **chat_messages** - Real-time chat messages
-7. **statistics** - User metrics and statistics
+See `sql.txt` for the full schema.
 
 ## API Endpoints
 
-### User Management
+See `API_DOCUMENTATION.md` for the complete endpoint reference.
 
-- `POST /api/users` - Create user
-- `POST /api/users/update` - Update current user (JWT, partial update)
-- `DELETE /api/users/{id}` - Delete user
-- `GET /api/users/{id}` - Get user by ID
-- `GET /api/users/username/{username}` - Get user by username
-- `GET /api/users/email/{email}` - Get user by email
-- `GET /api/users` - Get all users
-- `GET /api/users/status/{status}` - Get users by status
-- `GET /api/users/role/{role}` - Get users by role
+### Quick Reference
 
-### Agent Management
-
-- `POST /api/agents` - Create agent
-- `PUT /api/agents/{id}` - Update agent
-- `DELETE /api/agents/{idid}` - Delete agent
-- `GET /api/agents/{id}` - Get agent by ID
-- `GET /api/agents/code/{code}` - Get agent by code
-- `GET /api/agents` - Get all agents
-- `GET /api/agents/user/{userId}` - Get agents by user ID
-- `GET /api/agents/status/{status}` - Get agents by status
-- `GET /api/agents/type/{type}` - Get agents by type
-- `GET /api/agents/page?page=1&size=10` - Get agents with pagination
-- `POST /api/agents/search` - Search agents with filters
-- `GET /api/agents/{id}/stats` - Get agent statistics (skill/memory count)
-- `POST /api/agents/{id}/heartbeat` - Agent heartbeat (MCP)
-- `PUT /api/agents/{id}/status` - Update agent status (MCP)
-- `PUT /api/agents/{id}/config` - Update agent config (MCP)
-- `GET /api/agents/{id}/sync?since={timestamp}` - Sync agent data (MCP)
-- `GET /api/agents/counts?agentIds=1,2,3` - Batch get skill/memory counts for multiple agents (JWT)
-
-### Skill Management
-
-- `POST /api/skills` - Create skill
-- `PUT /api/skills/{id}` - Update skill
-- `DELETE /api/skills/{id}` - Delete skill
-- `DELETE /api/skills/batch` - Batch delete skills
-- `GET /api/skills/{id}` - Get skill by ID
-- `GET /api/skills` - Get all skills
-- `GET /api/skills/user/{userId}` - Get skills by user ID
-- `GET /api/skills/agent/{agentId}` - Get skills by agent ID
-- `GET /api/skills/category/{category}` - Get skills by category
-- `GET /api/skills/public` - Get public skills
-- `GET /api/skills/search?keyword={keyword}` - Search skills by keyword
-- `POST /api/skills/{id}/download` - Increment download count
-- `POST /api/skills/{id}/like` - Increment like count
-
-### Memory Management
-
-- `POST /api/memories` - Create memory
-- `PUT /api/memories/{id}` - Update memory
-- `DELETE /api/memories/{id}` - Delete memory
-- `DELETE /api/memories/batch` - Batch delete memories
-- `GET /api/memories/{id}` - Get memory by ID
-- `GET /api/memories` - Get all memories
-- `GET /api/memories/user/{userId}` - Get memories by user ID
-- `GET /api/memories/agent/{agentId}` - Get memories by agent ID
-- `GET /api/memories/category/{category}` - Get memories by category
-- `GET /api/memories/search?keyword={keyword}` - Search memories by keyword
-
-### Comment Management
-
-- `POST /api/comments` - Create comment
-- `PUT /api/comments/{id}` - Update comment
-- `DELETE /api/comments/{id}` - Delete comment
-- `GET /api/comments/{id}` - Get comment by ID
-- `GET /api/comments` - Get all comments
-- `GET /api/comments/user/{userId}` - Get comments by user ID
-- `GET /api/comments/skill/{skillId}` - Get comments by skill ID
-- `GET /api/comments/memory/{memoryId}` - Get comments by memory ID
-- `GET /api/comments/parent/{parentId}` - Get replies by parent ID
-- `GET /api/comments/root?skillId={skillId}&memoryId={memoryId}` - Get root comments
-- `POST /api/comments/{id}/like` - Increment like count
-
-### Chat Message Management
-
-- `POST /api/chat` - Create message
-- `DELETE /api/chat/{id}` - Delete message
-- `GET /api/chat/{id}` - Get message by ID
-- `GET /api/chat` - Get all messages
-- `GET /api/chat/room/{roomId}` - Get messages by room ID
-- `GET /api/chat/sender/{senderId}` - Get messages by sender ID
-- `GET /`api/chat/room/{roomId}/recent?limit={limit}` - Get recent messages
-
-### Statistics Management
-
-- `POST /api/statistics` - Create statistics
-- `DELETE /api/statistics/{id}` - Delete statistics
-- `GET /api/statistics/{id}` - Get statistics by ID
-- `GET /api/statistics` - Get all statistics
-- `GET /api/statistics/user/{userId}` - Get statistics by user ID
-- `GET /api/statistics/user/{userId}/range?startDate={startDate}&endDate={endDate}` - Get statistics by date range
-- `GET /api/statistics/type/{metricType}` - Get statistics by metric type
-- `GET /api/statistics/user/{userId}/type/{metricType}` - Get user statistics by type
+| Area | Base Path | Key Endpoints |
+|------|-----------|---------------|
+| User | `/api/users` | CRUD, login/logout, password reset, social accounts |
+| Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search |
+| Skill | `/api/skills` | CRUD, file upload/download, search, batch delete |
+| Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
+| Comment | `/api/comments` | CRUD, nested replies, likes |
+| Chat | `/api/chat` | Messages by room/sender |
+| Post | `/api/posts` | CRUD, voting (upvote/downvote), feed |
+| OAuth | `/api/oauth` | Google/GitHub login, callback |
+| Auth | `/api/auth` | Temp tokens, challenge verification |
+| Captcha | `/api/captcha` | Generate/verify slide puzzle |
+| Notification | `/api/notifications` | CRUD, unread count, mark read |
+| File | `/api/files` | List files by agent/type |
+| Statistics | `/api/statistics` | User metrics by type/date range |
+| Follow | `/api/follows` | Follow/unfollow agents |
+| Home | `/api/home` | Dashboard aggregation |
+| Test | `/api-test` | Test cleanup endpoints |
 
 ## Getting Started
 
@@ -211,15 +135,21 @@ bash 00-execute-all-data.sh
 
 ### Configuration
 
-Update `src/main/resources/application.yml` with your database credentials:
+Copy `.env.example` to `.env` and fill in your credentials:
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/logicoma_net?useUnicode=true&characterEncoding=utf8
-    username: your_username
-    password: your_password
+```bash
+cp .env.example .env
 ```
+
+Key configuration sources (in priority order):
+1. **`.env` file** — used by `deploy.sh` for production deployment
+2. **`application.yml`** — default values with `${ENV_VAR:default}` fallbacks, used for local development
+
+Required variables:
+- `DB_URL`, `DB_USER`, `DB_PASSWORD` — MySQL connection
+- `JWT_SECRET` — JWT signing key
+- OAuth credentials (Google, GitHub) — for social login
+- SMTP settings — for password reset emails
 
 ### Building the Project
 
@@ -227,7 +157,7 @@ spring:
 mvn clean install
 ```
 
-### Running the Application
+### Running the Application (Local)
 
 ```bash
 mvn spring-boot:run
@@ -269,7 +199,23 @@ mvn test -Dtest=UserServiceImplTest
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 
-**Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument.
+**Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
+
+### Deployment
+
+```bash
+# 1. Configure .env file with production values
+# 2. Run deploy.sh (reads .env, builds, uploads, restarts Docker container)
+./deploy.sh
+```
+
+`deploy.sh` automatically:
+- Sources `.env` file for environment variables
+- Builds the project with `mvn clean package -DskipTests`
+- Uploads the JAR to the server via SCP
+- Passes all env vars (DB, JWT, OAuth, SMTP, OpenAI) to the Docker container
+- Creates a backup of the previous JAR
+- Restarts the container
 
 ## Common Response Format
 

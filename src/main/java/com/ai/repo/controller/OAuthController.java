@@ -19,6 +19,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -174,19 +175,28 @@ public class OAuthController {
         String userInfoUrl = "https://www.googleapis.com/oauth2/v2/userinfo";
 
         // Exchange code for access token
-        RestTemplate restTemplate = new RestTemplate();
-        Map<String, String> tokenRequest = new HashMap<>();
-        tokenRequest.put("code", code);
-        tokenRequest.put("client_id", googleClientId);
-        tokenRequest.put("client_secret", googleClientSecret);
-        tokenRequest.put("redirect_uri", googleRedirectUri != null && !googleRedirectUri.isEmpty() 
-                ? googleRedirectUri : baseUrl + "/api/oauth/google/callback");
-        tokenRequest.put("grant_type", "authorization_code");
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(5000);
+        RestTemplate restTemplate = new RestTemplate(factory);
+
+        // Build form-encoded body as explicit string — Google only accepts application/x-www-form-urlencoded
+        String redirectUri = googleRedirectUri != null && !googleRedirectUri.isEmpty()
+                ? googleRedirectUri : baseUrl + "/api/oauth/google/callback";
+        String formBody = "code=" + java.net.URLEncoder.encode(code, java.nio.charset.StandardCharsets.UTF_8)
+                + "&client_id=" + java.net.URLEncoder.encode(googleClientId, java.nio.charset.StandardCharsets.UTF_8)
+                + "&client_secret=" + java.net.URLEncoder.encode(googleClientSecret, java.nio.charset.StandardCharsets.UTF_8)
+                + "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri, java.nio.charset.StandardCharsets.UTF_8)
+                + "&grant_type=authorization_code";
 
         try {
-            ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenUrl, tokenRequest, Map.class);
+            HttpHeaders tokenHeaders = new HttpHeaders();
+            tokenHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+            HttpEntity<String> requestEntity = new HttpEntity<>(formBody, tokenHeaders);
+            ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenUrl, requestEntity, Map.class);
             if (tokenResponse.getStatusCode() != HttpStatus.OK || tokenResponse.getBody() == null) {
-                log.error("Failed to exchange Google code for token");
+                log.error("Failed to exchange Google code for token. Status: {}, Body: {}",
+                    tokenResponse.getStatusCode(), tokenResponse.getBody());
                 return null;
             }
 
@@ -208,6 +218,10 @@ public class OAuthController {
                 userInfo.put("email", googleUser.get("email"));
                 userInfo.put("name", googleUser.get("name"));
                 userInfo.put("picture", googleUser.get("picture"));
+                log.error("Google user info fetched successfully for id: {}", googleUser.get("id"));
+            } else {
+                log.error("Failed to fetch Google user info. Status: {}, Body: {}",
+                    userResponse.getStatusCode(), userResponse.getBody());
             }
 
             userInfo.put("access_token", accessToken);
@@ -216,7 +230,11 @@ public class OAuthController {
 
             return userInfo;
         } catch (Exception e) {
-            log.error("Failed to exchange Google code", e);
+            log.error("Failed to exchange Google code: {}", e.getMessage());
+            if (e instanceof org.springframework.web.client.HttpClientErrorException) {
+                org.springframework.web.client.HttpClientErrorException hce = (org.springframework.web.client.HttpClientErrorException) e;
+                log.error("Google API error response body: {}", hce.getResponseBodyAsString());
+            }
             return null;
         }
     }
@@ -226,7 +244,10 @@ public class OAuthController {
         String userInfoUrl = "https://api.github.com/user";
         String emailsUrl = "https://api.github.com/user/emails";
 
-        RestTemplate restTemplate = new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(5000);
+        RestTemplate restTemplate = new RestTemplate(factory);
         Map<String, String> tokenRequest = new HashMap<>();
         tokenRequest.put("code", code);
         tokenRequest.put("client_id", githubClientId);
@@ -327,7 +348,8 @@ public class OAuthController {
         // In production, use proper state management with Redis
         long timestamp = System.currentTimeMillis();
         String random = UUID.randomUUID().toString();
-        String rawState = (redirectUri != null ? redirectUri : "") + ":" + timestamp + ":" + random;
+        String safeRedirectUri = (redirectUri != null && !redirectUri.isEmpty()) ? redirectUri : "default";
+        String rawState = safeRedirectUri + ":" + timestamp + ":" + random;
         return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(rawState.getBytes());
     }
 
