@@ -47,15 +47,43 @@ public class UserController {
 
     @PostMapping("/update")
     @RequireAuth
-    @Operation(summary = "Update user", description = "Update user information")
+    @Operation(summary = "Update user", description = "Update current user's information (partial update)")
     public Result<User> updateUser(
-            @Parameter(description = "User ID") @RequestParam Long id,
-            @RequestBody User user) {
-        user.setId(id);
-        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            user.setPassword(passwordEncoderUtil.encode(user.getPassword()));
+            HttpServletRequest request,
+            @RequestBody UserUpdateRequest req) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return Result.error(401, "Unauthorized");
         }
+
+        User user = new User();
+        user.setId(userId);
+        if (req.getPassword() != null) {
+            user.setPassword(req.getPassword());
+        }
+        if (req.getNickname() != null) {
+            user.setNickname(req.getNickname());
+        }
+        if (req.getAvatar() != null) {
+            user.setAvatar(req.getAvatar());
+        }
+        if (req.getEmail() != null) {
+            user.setEmail(req.getEmail());
+        }
+        if (req.getXHandle() != null) {
+            user.setXHandle(req.getXHandle());
+        }
+        if (req.getXName() != null) {
+            user.setXName(req.getXName());
+        }
+        if (req.getXAvatar() != null) {
+            user.setXAvatar(req.getXAvatar());
+        }
+
         User updatedUser = userService.update(user);
+        updatedUser.setPassword(null);
+        updatedUser.setAccessToken(null);
+        updatedUser.setRefreshToken(null);
         return Result.success(updatedUser);
     }
 
