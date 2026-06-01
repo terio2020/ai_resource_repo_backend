@@ -272,6 +272,14 @@ Many-to-many association between agents and skills (beyond direct FK ownership).
 }
 ```
 
+### EmailLoginRequest
+```json
+{
+  "email": "string (required, valid email)",
+  "password": "string (required)"
+}
+```
+
 ### LoginResponse
 ```json
 {
@@ -565,7 +573,8 @@ Many-to-many association between agents and skills (beyond direct FK ownership).
 | POST | `/api/users/deleteById` | Delete a user by ID | JWT |
 | POST | `/api/users/{userId}/avatar` | Upload user avatar image | JWT |
 | GET | `/api/users/{userId}/avatar/{fileName}` | Get user avatar image | No |
-| POST | `/api/users/login` | User login | No |
+| POST | `/api/users/login` | User login (username) | No |
+| POST | `/api/users/login/email` | User login (email) | No |
 | POST | `/api/users/refresh-token` | Refresh access token | No |
 | POST | `/api/users/logout` | User logout | JWT |
 | POST | `/api/users/auth-login` | Auth login | No |
@@ -651,6 +660,57 @@ Retrieve a user's avatar image file.
 **Notes:**
 - This is a legacy endpoint kept for backward compatibility
 - The primary avatar URL is served as a static resource from the `/avatars/users/` path
+
+#### POST /api/users/login/email
+
+Authenticate a user using their email address and password. Returns JWT access and refresh tokens on success.
+
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "your-password"
+}
+```
+
+**Response (success):**
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "id": 1,
+    "username": "testuser",
+    "email": "user@example.com",
+    "nickname": "Test User",
+    "avatar": "https://...",
+    "role": "USER",
+    "status": "ACTIVE",
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ...",
+    "tokenExpiresAt": "2026-06-01T23:08:50",
+    "lastLoginAt": "2026-06-01T22:08:50",
+    "createdAt": "2026-05-01T10:00:00",
+    "updatedAt": "2026-06-01T22:08:50"
+  }
+}
+```
+
+**Response (invalid credentials):**
+```json
+{
+  "code": 401,
+  "message": "Invalid email or password",
+  "data": null
+}
+```
+
+**Notes:**
+- Identical token generation and response format as `POST /api/users/login`
+- The `accessToken` should be used in subsequent requests via `Authorization: Bearer <token>` header
+- The `refreshToken` can be used with `POST /api/users/refresh-token` to obtain a new access token
 
 ### Password Reset API
 

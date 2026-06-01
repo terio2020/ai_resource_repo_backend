@@ -138,6 +138,24 @@ public class UserController {
         return Result.success(response);
     }
 
+    @PostMapping("/login/email")
+    @Operation(summary = "User login by email", description = "Authenticate user by email and password, generate JWT tokens")
+    public Result<LoginResponse> loginByEmail(@RequestBody EmailLoginRequest request) {
+        User user = userService.findByEmail(request.getEmail());
+        if (user == null) {
+            return Result.error(401, "Invalid email or password");
+        }
+
+        if (!userService.verifyPasswordByEmail(request.getEmail(), request.getPassword())) {
+            return Result.error(401, "Invalid email or password");
+        }
+
+        userService.updateLoginTime(user.getId());
+        LoginResponse response = userService.generateTokens(user.getId());
+
+        return Result.success(response);
+    }
+
     @PostMapping("/refresh-token")
     @Operation(summary = "Refresh access token", description = "Refresh JWT access token using refresh token")
     public Result<TokenRefreshResponse> refreshToken(@RequestBody TokenRefreshRequest request) {

@@ -1,5 +1,6 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.dto.LoginResponse;
 import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.GlobalExceptionHandler;
@@ -188,6 +189,82 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("User not found"));
+    }
+
+    // ===== L-01: Email login success =====
+
+    @Test
+    void loginByEmail_shouldReturnTokens_whenValidCredentials() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEmail("user@example.com");
+
+        LoginResponse loginResponse = new LoginResponse();
+        loginResponse.setId(1L);
+        loginResponse.setUsername("testuser");
+        loginResponse.setEmail("user@example.com");
+        loginResponse.setAccessToken("access-token-123");
+        loginResponse.setRefreshToken("refresh-token-456");
+
+        when(userService.findByEmail("user@example.com")).thenReturn(user);
+        when(userService.verifyPasswordByEmail("user@example.com", "correct-password")).thenReturn(true);
+        when(userService.generateTokens(1L)).thenReturn(loginResponse);
+
+        mockMvc.perform(post("/api/users/login/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"user@example.com\",\"password\":\"correct-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("Success"))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token-123"))
+                .andExpect(jsonPath("$.data.refreshToken").value("refresh-token-456"))
+                .andExpect(jsonPath("$.data.email").value("user@example.com"));
+    }
+
+    // ===== L-02: Email login wrong password =====
+
+    @Test
+    void loginByEmail_shouldReturn401_whenWrongPassword() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("user@example.com");
+
+        when(userService.findByEmail("user@example.com")).thenReturn(user);
+        when(userService.verifyPasswordByEmail("user@example.com", "wrong-password")).thenReturn(false);
+
+        mockMvc.perform(post("/api/users/login/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"user@example.com\",\"password\":\"wrong-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid email or password"));
+    }
+
+    // ===== L-03: Email login non-existent user =====
+
+    @Test
+    void loginByEmail_shouldReturn401_whenEmailNotFound() throws Exception {
+        when(userService.findByEmail("nonexistent@example.com")).thenReturn(null);
+
+        mockMvc.perform(post("/api/users/login/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nonexistent@example.com\",\"password\":\"any-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid email or password"));
+    }
+
+    // ===== L-04: Email login missing email =====
+
+    @Test
+    void loginByEmail_shouldReturn401_whenEmailMissing() throws Exception {
+        mockMvc.perform(post("/api/users/login/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"password123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
 
     // ===== A-01: Avatar upload returns new URL format =====
