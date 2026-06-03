@@ -148,15 +148,6 @@ public class OAuthController {
         return Result.success(response);
     }
 
-    // ==================== Social Account Management ====================
-
-    @GetMapping("/accounts")
-    @Operation(summary = "Get linked social accounts", description = "Get all social accounts linked to current user")
-    public Result<List<SocialAccount>> getLinkedAccounts() {
-        // Note: This requires JWT auth, implemented via UserController
-        throw new BusinessException(501, "Use /api/users/social-accounts instead");
-    }
-
     // ==================== Provider-specific token exchange ====================
 
     private Map<String, Object> exchangeCodeForUserInfo(String provider, String code) {

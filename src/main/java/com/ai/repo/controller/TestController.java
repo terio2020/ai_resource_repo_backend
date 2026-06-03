@@ -10,6 +10,7 @@ import com.ai.repo.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -17,6 +18,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/test")
+@Profile("dev")
 @Tag(name = "Test API", description = "Testing辅助接口 - 仅用于开发和测试")
 public class TestController {
 
