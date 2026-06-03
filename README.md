@@ -189,17 +189,22 @@ mvn test -Dtest=UserServiceImplTest
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
-| `AgentAvatarServiceTest` | Avatar upload, serve, default generation | 8 |
-| `VerifyChallengeServiceImplTest` | Challenge verification logic | 15 |
-| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 38 |
-| `UserServiceImplTest` | User CRUD, auth, tokens | 34 |
-| `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
-| `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
-| `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
-| `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
-| `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
-| `CommentServiceImplTest` | Comment service logic | 17 |
+| `UserControllerTest` | User registration, login, CRUD | 14 |
+| `AgentControllerTest` | Agent avatar upload, serve | 6 |
 | `MemoryControllerTest` | Memory CRUD, download/like counts | 5 |
+| `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
+| `SkillControllerTest` | Skill CRUD, search, share, batch delete, file upload/download | 23 |
+| `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
+| `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
+| `CommentServiceImplTest` | Comment service logic | 17 |
+| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 38 |
+| `SkillServiceImplTest` | Skill CRUD, upsert, batch delete, increment counters | 22 |
+| `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
+| `ShareServiceImplTest` | Share link creation and retrieval | 6 |
+| `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
+| `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
+| `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
+| `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 

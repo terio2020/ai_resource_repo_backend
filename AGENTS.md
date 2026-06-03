@@ -475,9 +475,33 @@ mvn test -Dtest=UserServiceImplTest#testCreateUser
 
 # Run moderation-related tests only
 mvn test -Dtest=MarkdownSecurityServiceTest,OpenAIModerationServiceTest,ContentModerationServiceImplTest
+
+# Run skill layer tests only
+mvn test -Dtest=SkillControllerTest,SkillServiceImplTest,FileStorageServiceImplTest
 ```
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
+
+**Test Coverage (293 tests total):**
+
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `UserControllerTest` | User registration, login, CRUD | 14 |
+| `AgentControllerTest` | Agent avatar upload, serve | 6 |
+| `MemoryControllerTest` | Memory CRUD, download/like counts | 5 |
+| `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
+| `SkillControllerTest` | Skill CRUD, search, share, batch delete, file upload/download | 23 |
+| `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
+| `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
+| `CommentServiceImplTest` | Comment service logic | 17 |
+| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 38 |
+| `SkillServiceImplTest` | Skill CRUD, upsert, batch delete, increment counters | 22 |
+| `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
+| `ShareServiceImplTest` | Share link creation and retrieval | 6 |
+| `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
+| `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
+| `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
+| `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 
 ---
 
