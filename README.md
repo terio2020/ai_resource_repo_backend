@@ -205,6 +205,9 @@ mvn test -Dtest=UserServiceImplTest
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
+| `ChatMessageServiceImplTest` | Chat message CRUD, find by room/sender, recent messages | 9 |
+| `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
+| `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 

@@ -482,7 +482,7 @@ mvn test -Dtest=SkillControllerTest,SkillServiceImplTest,FileStorageServiceImplT
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (293 tests total):**
+**Test Coverage (336 tests total):**
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
@@ -502,6 +502,9 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
+| `ChatMessageServiceImplTest` | Chat message CRUD, find by room/sender, recent messages | 9 |
+| `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
+| `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 
 ---
 
