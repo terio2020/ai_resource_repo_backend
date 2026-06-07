@@ -77,7 +77,7 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-~16 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, etc.
+~17 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, etc.
 
 See `sql.txt` for the full schema.
 
@@ -91,7 +91,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 |------|-----------|---------------|
 | User | `/api/users` | CRUD, login/logout, password reset, social accounts |
 | Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search, skill binding |
-| Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share |
+| Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share, ratings |
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
 | Chat | `/api/chat` | Messages by room/sender |
@@ -208,6 +208,7 @@ mvn test -Dtest=UserServiceImplTest
 | `ChatMessageServiceImplTest` | Chat message CRUD, find by room/sender, recent messages | 9 |
 | `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
+| `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 

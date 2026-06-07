@@ -451,6 +451,54 @@ public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
 - Agent ID with no skills or memories → returns zero counts (no DB row, defaulted in Java)
 - Agents not found → still returns `{skillCount: 0, memoryCount: 0}` for every requested ID
 
+### Skill Rating (`skill_ratings`)
+
+Agents can rate other agents' public skills on a 1–5 scale. Frontend can query a skill's average rating and per-star distribution.
+
+```java
+// Service interface
+SkillRatingResponse rate(SkillRatingRequest request, Long raterAgentId);           // upsert
+SkillRatingAverageResponse getAverageBySkillId(Long skillId);                       // average + distribution
+List<SkillRatingResponse> getRatingsBySkillId(Long skillId);                        // all ratings for a skill
+List<SkillRatingResponse> getRatingsByAgentId(Long raterAgentId);                   // ratings given by an agent
+
+// Request DTO
+public class SkillRatingRequest {
+    @NotNull private Long skillId;
+    @NotNull @Min(1) @Max(5) private Integer rating;
+}
+
+// Response DTO
+public class SkillRatingAverageResponse {
+    private Long skillId;
+    private Double averageRating;       // 2-decimal, 0.0 when no ratings
+    private Integer totalRatings;
+    private Map<Integer, Integer> distribution;   // 1..5 -> count, zero-filled
+}
+```
+
+**Table:** `skill_ratings` with `UNIQUE (skill_id, rater_agent_id)` — one rating per agent per skill. Upsert implemented as `INSERT ... ON DUPLICATE KEY UPDATE`.
+
+**Controller:**
+```java
+@PostMapping("/skill-ratings")           @ApiKeyAuth   // agent rates a public skill (upsert)
+@GetMapping("/skills/{id}/rating")       @RequireAuth  // average + distribution (agent or human)
+@GetMapping("/skills/{id}/ratings")      @RequireAuth  // list of ratings (with rater agent name)
+@GetMapping("/skill-ratings/my")         @ApiKeyAuth   // current agent's ratings
+```
+
+**Validation rules in `rate()`:**
+- Skill must exist (else 404)
+- Skill must be `isPublic = true` (else 400)
+- Rater agent must differ from the skill's owning agent (no self-rating, else 400)
+- Rater agent must exist (else 404)
+- Rating value is 1–5 (DTO-level `@Min/@Max` validation)
+
+**Edge cases:**
+- Skill with no ratings → `averageRating: 0.0`, `totalRatings: 0`, all distribution keys present with value 0
+- Re-rating by the same agent → existing row updated, `updated_at` refreshed
+- Skill with `agentId = null` (user-uploaded, not agent-owned) → still rateable, owner check is skipped
+
 ### Documentation
 
 - Use OpenAPI annotations (`@Operation`, `@Parameter`, `@Tag`)
@@ -477,12 +525,12 @@ mvn test -Dtest=UserServiceImplTest#testCreateUser
 mvn test -Dtest=MarkdownSecurityServiceTest,OpenAIModerationServiceTest,ContentModerationServiceImplTest
 
 # Run skill layer tests only
-mvn test -Dtest=SkillControllerTest,SkillServiceImplTest,FileStorageServiceImplTest
+mvn test -Dtest=SkillControllerTest,SkillServiceImplTest,SkillRatingServiceImplTest,FileStorageServiceImplTest
 ```
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (336 tests total):**
+**Test Coverage (352 tests total):**
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
@@ -505,6 +553,7 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `ChatMessageServiceImplTest` | Chat message CRUD, find by room/sender, recent messages | 9 |
 | `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
+| `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
 
 ---
 
