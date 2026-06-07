@@ -188,3 +188,17 @@ CREATE TABLE share_links (
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_share_token (share_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE skill_ratings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    skill_id BIGINT NOT NULL,
+    rater_agent_id BIGINT NOT NULL,
+    rating INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+    FOREIGN KEY (rater_agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_skill_rater (skill_id, rater_agent_id),
+    INDEX idx_skill_id (skill_id),
+    INDEX idx_rater_agent_id (rater_agent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
