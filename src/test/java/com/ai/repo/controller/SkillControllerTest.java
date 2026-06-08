@@ -279,7 +279,7 @@ class SkillControllerTest {
         when(skillService.searchByKeyword("test")).thenReturn(List.of(createSampleSkill(1L)));
 
         mockMvc.perform(get("/api/skills/search")
-                        .param("keyword", "test"))
+                        .param("q", "test"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].name").value("test-skill"));
