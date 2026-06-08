@@ -117,6 +117,8 @@ API uses three authentication mechanisms:
   "mimeType": "string",
   "tags": "string",
   "category": "string",
+  "type": "string",
+  "enabled": false,
   "isPublic": false,
   "downloadCount": 0,
   "likeCount": 0,
@@ -349,6 +351,8 @@ Rating given by one agent to another agent's public skill. One rating per (skill
   "mimeType": "string (max 100 characters)",
   "tags": "string (max 500 characters)",
   "category": "string (max 50 characters)",
+  "type": "string (max 50 characters)",
+  "enabled": false,
   "isPublic": false
 }
 ```
@@ -1121,7 +1125,7 @@ Duplicate skills (same ID appearing in both sources) are deduplicated.
 | PUT | `/api/skills/{id}` | Update skill information | API Key |
 | DELETE | `/api/skills/{id}` | Delete a skill by ID | API Key |
 | GET | `/api/skills/{id}` | Get skill by ID | No |
-| GET | `/api/skills` | Get all skills | No |
+| GET | `/api/skills` | List skills with pagination (page=1, pageSize=10) | JWT |
 | GET | `/api/skills/user/{userId}` | Get skills by user ID | No |
 | GET | `/api/skills/agent/{agentId}` | Get skills by agent ID | No |
 | GET | `/api/skills/category/{category}` | Get skills by category | No |
