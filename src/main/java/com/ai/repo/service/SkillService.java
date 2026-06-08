@@ -19,4 +19,5 @@ public interface SkillService {
     boolean incrementLikeCount(Long id);
     int batchDelete(List<Long> ids);
     Skill upsert(Skill skill);
+    com.ai.repo.common.PageResult<Skill> findAllPaginated(int page, int pageSize);
 }

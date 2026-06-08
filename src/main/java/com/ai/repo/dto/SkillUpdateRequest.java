@@ -33,5 +33,10 @@ public class SkillUpdateRequest {
     @Size(max = 50, message = "Category must be less than 50 characters")
     private String category;
 
+    @Size(max = 50, message = "Type must be less than 50 characters")
+    private String type;
+
+    private Boolean enabled;
+
     private Boolean isPublic;
 }

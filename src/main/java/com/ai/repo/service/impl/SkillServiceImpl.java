@@ -1,5 +1,6 @@
 package com.ai.repo.service.impl;
 
+import com.ai.repo.common.PageResult;
 import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SkillMapper;
@@ -97,6 +98,14 @@ public class SkillServiceImpl implements SkillService {
             throw new BusinessException("IDs cannot be null or empty");
         }
         return skillMapper.batchDelete(ids);
+    }
+
+    @Override
+    public PageResult<Skill> findAllPaginated(int page, int pageSize) {
+        long total = skillMapper.countAll();
+        long offset = (long) (page - 1) * pageSize;
+        List<Skill> records = skillMapper.selectAllPaginated(offset, pageSize);
+        return new PageResult<>(records, total, (long) page, (long) pageSize);
     }
 
     @Override

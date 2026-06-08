@@ -59,6 +59,8 @@ CREATE TABLE skills (
     mime_type VARCHAR(100),
     tags VARCHAR(500),
     category VARCHAR(50),
+    type VARCHAR(50) DEFAULT NULL,
+    enabled TINYINT(1) DEFAULT NULL,
     is_public BOOLEAN DEFAULT FALSE,
     download_count INT DEFAULT 0,
     like_count INT DEFAULT 0,

@@ -13,6 +13,8 @@ public interface SkillMapper {
     int deleteById(Long id);
     Skill selectById(Long id);
     List<Skill> selectAll();
+    List<Skill> selectAllPaginated(@Param("offset") long offset, @Param("limit") long limit);
+    Long countAll();
     List<Skill> selectByUserId(Long userId);
     List<Skill> selectByAgentId(Long agentId);
     List<Skill> selectByCategory(String category);

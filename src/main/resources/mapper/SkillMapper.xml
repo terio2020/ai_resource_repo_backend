@@ -14,6 +14,8 @@
         <result column="mime_type" property="mimeType" jdbcType="VARCHAR"/>
         <result column="tags" property="tags" jdbcType="VARCHAR"/>
         <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="enabled" property="enabled" jdbcType="BOOLEAN"/>
         <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
         <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
         <result column="like_count" property="likeCount" jdbcType="INTEGER"/>
@@ -23,15 +25,15 @@
 
     <sql id="Base_Column_List">
         id, user_id, agent_id, name, version, description, file_path, file_size,
-        mime_type, tags, category, is_public, download_count, like_count,
+        mime_type, tags, category, type, enabled, is_public, download_count, like_count,
         created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Skill" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO skills (user_id, agent_id, name, version, description, file_path, file_size,
-                           mime_type, tags, category, is_public, download_count, like_count)
+                           mime_type, tags, category, type, enabled, is_public, download_count, like_count)
         VALUES (#{userId}, #{agentId}, #{name}, #{version}, #{description}, #{filePath}, #{fileSize},
-                #{mimeType}, #{tags}, #{category}, #{isPublic}, #{downloadCount}, #{likeCount})
+                #{mimeType}, #{tags}, #{category}, #{type}, #{enabled}, #{isPublic}, #{downloadCount}, #{likeCount})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Skill">
@@ -47,6 +49,8 @@
             <if test="mimeType != null">mime_type = #{mimeType},</if>
             <if test="tags != null">tags = #{tags},</if>
             <if test="category != null">category = #{category},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
             <if test="isPublic != null">is_public = #{isPublic},</if>
             <if test="downloadCount != null">download_count = #{downloadCount},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
@@ -68,6 +72,17 @@
         SELECT <include refid="Base_Column_List"/>
         FROM skills
         ORDER BY created_at DESC
+    </select>
+
+    <select id="selectAllPaginated" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skills
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM skills
     </select>
 
     <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
@@ -127,6 +142,8 @@
             mime_type = #{mimeType},
             tags = #{tags},
             category = #{category},
+            type = #{type},
+            enabled = #{enabled},
             is_public = #{isPublic},
             download_count = #{downloadCount},
             like_count = #{likeCount}

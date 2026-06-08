@@ -1,6 +1,7 @@
 package com.ai.repo.controller;
 
 import com.ai.repo.aspect.RateLimit;
+import com.ai.repo.common.PageResult;
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.FileUploadResponse;
@@ -74,6 +75,8 @@ public class SkillController {
         }
 
         skill.setCategory(request.getCategory());
+        skill.setType(request.getType());
+        skill.setEnabled(request.getEnabled());
         skill.setIsPublic(request.getIsPublic());
         skill.setDownloadCount(0);
         skill.setLikeCount(0);
@@ -106,6 +109,8 @@ public class SkillController {
         }
 
         skill.setCategory(request.getCategory());
+        skill.setType(request.getType());
+        skill.setEnabled(request.getEnabled());
         skill.setIsPublic(request.getIsPublic());
         Skill updatedSkill = skillService.update(skill);
         return Result.success(updatedSkill);
@@ -125,6 +130,16 @@ public class SkillController {
     public Result<Skill> getSkillById(@PathVariable Long id) {
         Skill skill = skillService.findById(id);
         return Result.success(skill);
+    }
+
+    @GetMapping
+    @RequireAuth
+    @Operation(summary = "List skills with pagination", description = "Retrieve paginated list of skills")
+    public Result<PageResult<Skill>> listSkills(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        PageResult<Skill> pageResult = skillService.findAllPaginated(page, pageSize);
+        return Result.success(pageResult);
     }
 
     @GetMapping("/user/{userId}")
@@ -161,8 +176,7 @@ public class SkillController {
     }
 
     @GetMapping("/public")
-    @RequireAuth
-    @Operation(summary = "Get public skills", description = "Retrieve all public skills")
+    @Operation(summary = "Get public skills", description = "Retrieve all public skills. No authentication required.")
     public Result<List<Skill>> getPublicSkills() {
         List<Skill> skills = skillService.findByPublic(true);
         return Result.success(skills);
@@ -171,7 +185,7 @@ public class SkillController {
     @GetMapping("/search")
     @RequireAuth
     @Operation(summary = "Search skills", description = "Search skills by keyword")
-    public Result<List<Skill>> searchSkills(@RequestParam String keyword) {
+    public Result<List<Skill>> searchSkills(@RequestParam("q") String keyword) {
         List<Skill> skills = skillService.searchByKeyword(keyword);
         return Result.success(skills);
     }

@@ -17,6 +17,8 @@ public class Skill {
     private String mimeType;
     private String tags;
     private String category;
+    private String type;
+    private Boolean enabled;
     private Boolean isPublic;
     private Integer downloadCount;
     private Integer likeCount;
