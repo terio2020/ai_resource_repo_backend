@@ -104,8 +104,14 @@ public class AgentServiceImpl implements AgentService {
 
     @Override
     public Agent update(Agent agent) {
-        if (agentMapper.selectById(agent.getId()) == null) {
+        Agent existing = agentMapper.selectById(agent.getId());
+        if (existing == null) {
             throw new BusinessException("Agent not found");
+        }
+        // Preserve api_key if not explicitly provided in update request
+        // (the mapper UPDATE includes api_key = #{apiKey} which would overwrite with NULL)
+        if (agent.getApiKey() == null) {
+            agent.setApiKey(existing.getApiKey());
         }
         agentMapper.update(agent);
         return agent;

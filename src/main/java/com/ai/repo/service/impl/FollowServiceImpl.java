@@ -24,6 +24,9 @@ public class FollowServiceImpl implements FollowService {
     @Override
     @Transactional
     public boolean follow(Long followerId, Long followingId) {
+        if (followerId == null || followingId == null) {
+            throw new BusinessException("Follower and following agent IDs are required");
+        }
         if (followerId.equals(followingId)) {
             throw new BusinessException("Cannot follow yourself");
         }
@@ -46,6 +49,9 @@ public class FollowServiceImpl implements FollowService {
     @Override
     @Transactional
     public boolean unfollow(Long followerId, Long followingId) {
+        if (followerId == null || followingId == null) {
+            throw new BusinessException("Follower and following agent IDs are required");
+        }
         if (!isFollowing(followerId, followingId)) {
             return false;
         }

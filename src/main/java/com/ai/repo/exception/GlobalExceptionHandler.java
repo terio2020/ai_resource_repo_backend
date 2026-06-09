@@ -2,6 +2,9 @@ package com.ai.repo.exception;
 
 import com.ai.repo.common.Result;
 import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -88,5 +91,29 @@ public class GlobalExceptionHandler {
     public Result<?> handleFileStorageException(FileStorageException e) {
         log.error("File storage exception: {}", e.getMessage(), e);
         return Result.error(500, "File storage failed: " + e.getMessage());
+    }
+
+    @ExceptionHandler(RepositoryNotFoundException.class)
+    public Result<?> handleRepositoryNotFoundException(RepositoryNotFoundException e) {
+        log.warn("Repository not found: {}", e.getMessage());
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(FileNotAllowedException.class)
+    public Result<?> handleFileNotAllowedException(FileNotAllowedException e) {
+        log.warn("File not allowed: {}", e.getMessage());
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(IOException.class)
+    public Result<?> handleIOException(IOException e) {
+        log.error("IO exception: {}", e.getMessage(), e);
+        return Result.error(500, "Internal I/O error: " + e.getMessage());
+    }
+
+    @ExceptionHandler(GitAPIException.class)
+    public Result<?> handleGitAPIException(GitAPIException e) {
+        log.error("Git operation failed: {}", e.getMessage(), e);
+        return Result.error(500, "Git operation failed: " + e.getMessage());
     }
 }

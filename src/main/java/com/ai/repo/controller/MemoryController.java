@@ -44,6 +44,11 @@ public class MemoryController {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Long agentId = (Long) httpRequest.getAttribute("agentId");
 
+        // agentId is required for memory creation — validate early
+        if (agentId == null) {
+            throw new com.ai.repo.exception.BusinessException(400, "Agent ID is required for memory creation");
+        }
+
         Memory memory = new Memory();
         memory.setUserId(userId);
         memory.setAgentId(agentId);

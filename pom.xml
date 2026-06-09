@@ -27,6 +27,21 @@
         <lombok.version>1.18.42</lombok.version>
     </properties>
 
+    <repositories>
+        <!-- Maven Central (needed for JGit 7.x which is not on Aliyun mirror) -->
+        <repository>
+            <id>maven-central</id>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -148,6 +163,20 @@
             <groupId>io.github.cdimascio</groupId>
             <artifactId>dotenv-java</artifactId>
             <version>3.0.2</version>
+        </dependency>
+
+        <!-- JGit for Git repository operations (Jakarta Servlet compatible) -->
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit</artifactId>
+            <version>7.1.1.202505221757-r</version>
+        </dependency>
+
+        <!-- JGit HTTP server for smart HTTP (clone/push) — Jakarta Servlet compatible -->
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit.http.server</artifactId>
+            <version>7.1.1.202505221757-r</version>
         </dependency>
     </dependencies>
 

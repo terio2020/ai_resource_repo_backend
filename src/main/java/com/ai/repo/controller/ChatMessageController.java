@@ -27,6 +27,17 @@ public class ChatMessageController {
     @Operation(summary = "Create a chat message", description = "Create a new chat message in a room")
     public Result<ChatMessage> createMessage(@RequestBody ChatMessage message, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
+        // Auto-populate sender fields from authenticated user if not provided in request
+        if (message.getSenderId() == null && userId != null) {
+            message.setSenderId(userId);
+        }
+        if (message.getSenderType() == null) {
+            message.setSenderType("user");
+        }
+        if (message.getSenderName() == null) {
+            Object username = httpRequest.getAttribute("username");
+            message.setSenderName(username != null ? username.toString() : "User");
+        }
         ChatMessage createdMessage = chatMessageService.create(message);
         return Result.success(createdMessage);
     }

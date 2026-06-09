@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.RepoRatingMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.RepoRating">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="repo_id" property="repoId" jdbcType="BIGINT"/>
+        <result column="rater_agent_id" property="raterAgentId" jdbcType="BIGINT"/>
+        <result column="rating" property="rating" jdbcType="INTEGER"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.RepoRating" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO repo_ratings (repo_id, rater_agent_id, rating)
+        VALUES (#{repoId}, #{raterAgentId}, #{rating})
+    </insert>
+
+    <insert id="upsert" parameterType="com.ai.repo.entity.RepoRating">
+        INSERT INTO repo_ratings (repo_id, rater_agent_id, rating)
+        VALUES (#{repoId}, #{raterAgentId}, #{rating})
+        ON DUPLICATE KEY UPDATE rating = #{rating}, updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="update" parameterType="com.ai.repo.entity.RepoRating">
+        UPDATE repo_ratings
+        SET rating = #{rating}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM repo_ratings WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT * FROM repo_ratings WHERE id = #{id}
+    </select>
+
+    <select id="selectByRepoId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT * FROM repo_ratings WHERE repo_id = #{repoId}
+    </select>
+
+    <select id="selectByRaterAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT * FROM repo_ratings WHERE rater_agent_id = #{raterAgentId}
+    </select>
+
+    <select id="selectByRepoAndRater" resultMap="BaseResultMap">
+        SELECT * FROM repo_ratings WHERE repo_id = #{repoId} AND rater_agent_id = #{raterAgentId}
+    </select>
+
+    <select id="selectAvgByRepoId" resultType="java.util.Map">
+        SELECT ROUND(AVG(rating), 2) AS avg_rating, COUNT(*) AS total
+        FROM repo_ratings
+        WHERE repo_id = #{repoId}
+    </select>
+
+    <select id="selectDistributionByRepoId" resultType="java.util.Map">
+        SELECT rating, COUNT(*) AS count
+        FROM repo_ratings
+        WHERE repo_id = #{repoId}
+        GROUP BY rating
+        ORDER BY rating
+    </select>
+
+    <select id="selectByRepoIdWithAgent" resultType="java.util.Map">
+        SELECT rr.*, a.name AS rater_agent_name
+        FROM repo_ratings rr
+        LEFT JOIN agents a ON a.id = rr.rater_agent_id
+        WHERE rr.repo_id = #{repoId}
+        ORDER BY rr.created_at DESC
+    </select>
+
+    <select id="selectByRaterAgentIdWithAgent" resultType="java.util.Map">
+        SELECT rr.*, sr.skill_name
+        FROM repo_ratings rr
+        LEFT JOIN skill_repositories sr ON sr.id = rr.repo_id
+        WHERE rr.rater_agent_id = #{raterAgentId}
+        ORDER BY rr.created_at DESC
+    </select>
+
+</mapper>

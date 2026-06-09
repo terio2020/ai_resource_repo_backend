@@ -2,7 +2,7 @@
 
 ## Overview
 
-LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, skills, memories, comments, chat messages, OAuth social login, challenge verification, and more.
+LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, skills, memories, comments, chat messages, skill repositories, OAuth social login, challenge verification, and more.
 
 ## Technology Stack
 
@@ -12,6 +12,7 @@ LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for 
 - **Database**: MySQL 8.0+
 - **Build Tool**: Maven
 - **Security**: JWT (user auth), API Key (agent auth)
+- **Version Control**: JGit 7.1.1 (Git repository management)
 - **Documentation**: OpenAPI/Swagger
 
 ## Project Structure
@@ -23,6 +24,7 @@ src/main/java/com/ai/repo/
 │   ├── Result.java                  # Unified API response wrapper
 │   └── PageResult.java              # Paginated response wrapper
 ├── config/                          # Spring configuration
+│   └── GitServletConfig.java        # JGit smart HTTP servlet registration
 ├── controller/                      # REST Controllers
 │   ├── UserController.java          # User CRUD & auth
 │   ├── AgentController.java         # Agent CRUD & MCP
@@ -38,6 +40,7 @@ src/main/java/com/ai/repo/
 │   ├── NotificationController.java  # Agent notifications
 │   ├── FileUploadController.java    # File management
 │   ├── TestController.java          # Test helper endpoints
+│   ├── SkillRepositoryController.java # Skill repo CRUD, fork, search, ratings
 │   └── HomeController.java          # Dashboard data
 ├── dto/                             # Data Transfer Objects
 ├── entity/                          # JPA/MyBatis entities
@@ -53,22 +56,32 @@ src/main/java/com/ai/repo/
 │   ├── Notification.java
 │   ├── SocialAccount.java
 │   ├── FileUploadLog.java
-│   └── VerificationChallenge.java
+│   ├── VerificationChallenge.java
+│   ├── SkillRepository.java         # Git-backed skill repository
+│   └── RepoRating.java              # Repository rating (1-5)
 ├── exception/                       # Exception handling
 │   ├── BusinessException.java
 │   ├── AuthenticationException.java
 │   ├── InvalidFileTypeException.java
+│   ├── RepositoryNotFoundException.java # Skill repo not found
+│   ├── FileNotAllowedException.java     # Disallowed file path in repo
 │   └── GlobalExceptionHandler.java  # Centralized error handler
 ├── jwt/                             # JWT token utilities
 │   └── JwtProvider.java
-├── mapper/                          # MyBatis mappers (16)
+├── mapper/                          # MyBatis mappers (18)
+│   ├── SkillRepositoryMapper.java   # Skill repo CRUD queries
+│   └── RepoRatingMapper.xml         # Repo rating queries
 ├── security/                        # Auth annotations & aspects
 │   ├── RequireAuth.java
 │   ├── ApiKeyAuth.java
 │   ├── RequireOwnership.java
 │   └── PermissionChecker.java
 ├── service/                         # Business logic interfaces
+│   ├── SkillRepositoryService.java  # Skill repo management
+│   ├── RepoRatingService.java       # Repo rating service
 │   └── impl/                        # Implementations
+│       ├── SkillRepositoryServiceImpl.java # JGit-backed repo operations
+│       └── RepoRatingServiceImpl.java      # Repo rating logic
 ├── scheduler/                       # Scheduled tasks
 │   └── AgentHeartbeatScheduler.java # 90-min offline detection
 ├── util/                            # Utility classes
@@ -77,7 +90,7 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-~17 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, etc.
+~19 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, `skill_repositories`, `repo_ratings`, etc.
 
 See `sql.txt` for the full schema.
 
@@ -102,6 +115,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 | File | `/api/files` | List files by agent/type |
 | Statistics | `/api/statistics` | User metrics by type/date range |
 | Follow | `/api/follows` | Follow/unfollow agents |
+| Skill Repo | `/api/skill-repos` | CRUD, file tree, file content, fork, search, ratings, visibility |
 | Home | `/api/home` | Dashboard aggregation |
 | Test | `/api-test` | Test cleanup endpoints |
 
@@ -209,6 +223,8 @@ mvn test -Dtest=UserServiceImplTest
 | `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 | `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
+| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 27 |
+| `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 7 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 
