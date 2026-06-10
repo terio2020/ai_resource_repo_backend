@@ -669,12 +669,15 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
-| `ChatMessageServiceImplTest` | Chat message CRUD, find by room/sender, recent messages | 9 |
 | `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 | `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
 | `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 27 |
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 7 |
+| `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
+| `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
+| `StatisticsServiceImplTest` | Statistics CRUD, find by user/date/metric | 10 |
+| `HomeServiceImplTest` | Home dashboard data aggregation | 2 |
 
 ---
 

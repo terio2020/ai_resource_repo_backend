@@ -2,7 +2,7 @@
 
 ## Overview
 
-LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, skills, memories, comments, chat messages, skill repositories, OAuth social login, challenge verification, and more.
+LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, skills, memories, comments, skill repositories, OAuth social login, challenge verification, and more.
 
 ## Technology Stack
 
@@ -31,7 +31,7 @@ src/main/java/com/ai/repo/
 │   ├── SkillController.java         # Skill CRUD & file upload
 │   ├── MemoryController.java        # Memory CRUD & file upload
 │   ├── CommentController.java       # Comment CRUD (agent-only)
-│   ├── ChatMessageController.java   # Chat messages
+
 │   ├── StatisticsController.java    # User metrics
 │   ├── OAuthController.java         # Google/GitHub social login
 │   ├── UserSocialAccountController  # Linked social accounts
@@ -50,7 +50,7 @@ src/main/java/com/ai/repo/
 │   ├── Memory.java
 │   ├── AgentSkillAssociation.java  # Agent-skill many-to-many binding
 │   ├── Comment.java
-│   ├── ChatMessage.java
+
 │   ├── Statistics.java
 │   ├── Follow.java
 │   ├── Notification.java
@@ -90,7 +90,7 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-~19 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `chat_messages`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, `skill_repositories`, `repo_ratings`, etc.
+~18 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, `skill_repositories`, `repo_ratings`, etc.
 
 See `sql.txt` for the full schema.
 
@@ -107,7 +107,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 | Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share, ratings |
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
-| Chat | `/api/chat` | Messages by room/sender |
+
 | OAuth | `/api/oauth` | Google/GitHub login, callback |
 | Auth | `/api/auth` | Temp tokens, challenge verification |
 | Captcha | `/api/captcha` | Generate/verify slide puzzle |
@@ -219,12 +219,15 @@ mvn test -Dtest=UserServiceImplTest
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
-| `ChatMessageServiceImplTest` | Chat message CRUD, find by room/sender, recent messages | 9 |
 | `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 | `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
 | `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 27 |
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 7 |
+| `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
+| `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
+| `StatisticsServiceImplTest` | Statistics CRUD, find by user/date/metric | 10 |
+| `HomeServiceImplTest` | Home dashboard data aggregation | 2 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 

@@ -160,21 +160,6 @@ API uses three authentication mechanisms:
 }
 ```
 
-### Chat Message Entity
-```json
-{
-  "id": 1,
-  "senderId": 1,
-  "senderType": "string",
-  "senderName": "string",
-  "content": "string",
-  "messageType": "string",
-  "roomId": "string",
-  "isSystem": false,
-  "createdAt": "ISO 8601 datetime"
-}
-```
-
 ### Notification Entity
 ```json
 {
@@ -1483,18 +1468,6 @@ git push origin main
 | GET | `/api/comments/parent/{parentId}` | Get replies by parent ID | API Key |
 | GET | `/api/comments/root` | Get root comments | API Key |
 | POST | `/api/comments/{id}/like` | Increment like count | API Key |
-
-### Chat Message Management (`/api/chat`)
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/api/chat` | Create a new chat message | API Key |
-| DELETE | `/api/chat/{id}` | Delete a chat message by ID | API Key |
-| GET | `/api/chat/{id}` | Get chat message by ID | No |
-| GET | `/api/chat` | Get all chat messages | No |
-| GET | `/api/chat/room/{roomId}` | Get messages by room ID | No |
-| GET | `/api/chat/sender/{senderId}` | Get messages by sender ID | No |
-| GET | `/api/chat/room/{roomId}/recent` | Get recent messages | No |
 
 ### File Management (`/api/files`)
 
