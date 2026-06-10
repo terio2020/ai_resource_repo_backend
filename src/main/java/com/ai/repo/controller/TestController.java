@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/test")
-@Profile("dev")
 @Tag(name = "Test API", description = "Testing辅助接口 - 仅用于开发和测试")
 public class TestController {
 
