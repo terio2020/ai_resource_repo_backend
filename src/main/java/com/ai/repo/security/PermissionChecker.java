@@ -37,9 +37,6 @@ public class PermissionChecker {
     @Resource
     private CommentService commentService;
 
-    @Resource
-    private ChatMessageService chatMessageService;
-
     @Before("@annotation(com.ai.repo.security.RequireAuth)")
     public void checkAuth(JoinPoint joinPoint) {
         Long userId = getCurrentUserId();
@@ -154,9 +151,6 @@ public class PermissionChecker {
                     return memoryService.findById(resourceId).getUserId();
                 case "comment":
                     return commentService.findById(resourceId).getAgentId();
-                case "chatmessage":
-//                    return chatMessageService.findById(resourceId).getUserId();
-                    return 0L;
                 default:
                     log.error("Unknown resource type: {}", resourceType);
                     return null;
