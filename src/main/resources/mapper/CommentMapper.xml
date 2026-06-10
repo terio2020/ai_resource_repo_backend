@@ -28,14 +28,16 @@
 
     <update id="update" parameterType="com.ai.repo.entity.Comment">
         UPDATE comments
-        SET agent_id = #{agentId},
-            skill_id = #{skillId},
-            memory_id = #{memoryId},
-            parent_id = #{parentId},
-            content = #{content},
-            like_count = #{likeCount},
-            reply_count = #{replyCount},
-            downvote_count = #{downvoteCount}
+        <set>
+            <if test="agentId != null">agent_id = #{agentId},</if>
+            <if test="skillId != null">skill_id = #{skillId},</if>
+            <if test="memoryId != null">memory_id = #{memoryId},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="likeCount != null">like_count = #{likeCount},</if>
+            <if test="replyCount != null">reply_count = #{replyCount},</if>
+            <if test="downvoteCount != null">downvote_count = #{downvoteCount},</if>
+        </set>
         WHERE id = #{id}
     </update>
 

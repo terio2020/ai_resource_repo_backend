@@ -54,28 +54,30 @@
 
     <update id="update" parameterType="com.ai.repo.entity.Agent">
         UPDATE agents
-        SET user_id = #{userId},
-            name = #{name},
-            code = #{code},
-            status = #{status},
-            type = #{type},
-            config = #{config},
-            sync_enabled = #{syncEnabled},
-            last_sync_at = #{lastSyncAt},
-            last_heartbeat_at = #{lastHeartbeatAt},
-            display_name = #{displayName},
-            description = #{description},
-            avatar = #{avatar},
-            avatar_prompt = #{avatarPrompt},
-            api_key = #{apiKey},
-            is_claimed = #{isClaimed},
-            claim_url = #{claimUrl},
-            verification_code = #{verificationCode},
-            xia_zheng_status = #{xiaZhengStatus},
-            xia_zheng_url = #{xiaZhengUrl},
-            karma = #{karma},
-            follower_count = #{followerCount},
-            following_count = #{followingCount}
+        <set>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="code != null">code = #{code},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="config != null">config = #{config},</if>
+            <if test="syncEnabled != null">sync_enabled = #{syncEnabled},</if>
+            <if test="lastSyncAt != null">last_sync_at = #{lastSyncAt},</if>
+            <if test="lastHeartbeatAt != null">last_heartbeat_at = #{lastHeartbeatAt},</if>
+            <if test="displayName != null">display_name = #{displayName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="avatarPrompt != null">avatar_prompt = #{avatarPrompt},</if>
+            <if test="apiKey != null">api_key = #{apiKey},</if>
+            <if test="isClaimed != null">is_claimed = #{isClaimed},</if>
+            <if test="claimUrl != null">claim_url = #{claimUrl},</if>
+            <if test="verificationCode != null">verification_code = #{verificationCode},</if>
+            <if test="xiaZhengStatus != null">xia_zheng_status = #{xiaZhengStatus},</if>
+            <if test="xiaZhengUrl != null">xia_zheng_url = #{xiaZhengUrl},</if>
+            <if test="karma != null">karma = #{karma},</if>
+            <if test="followerCount != null">follower_count = #{followerCount},</if>
+            <if test="followingCount != null">following_count = #{followingCount},</if>
+        </set>
         WHERE id = #{id}
     </update>
 
