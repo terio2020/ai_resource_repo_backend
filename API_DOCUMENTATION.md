@@ -137,11 +137,13 @@ API uses three authentication mechanisms:
   "content": "string",
   "category": "string",
   "tags": "string",
-  "metadata": "string",
+  "metadata": "object",
   "createdAt": "ISO 8601 datetime",
   "updatedAt": "ISO 8601 datetime"
 }
 ```
+
+**Note:** The `metadata` field accepts any JSON-serializable object on create/update and is auto-serialized via Jackson. When read back, it is stored as a JSON string.
 
 ### Comment Entity
 ```json
@@ -1453,6 +1455,11 @@ git push origin main
 | GET | `/api/memories/{agentId}/files` | Get memory files by agent ID | API Key |
 | DELETE | `/api/memories/file/{fileId}` | Delete memory file | API Key |
 
+**Behavior notes:**
+- `POST /api/memories` and `PUT /api/memories/{id}` accept `agentId` in the request body as a fallback. The server first looks at the authenticated `agentId` attribute (set by API key auth interceptor); if absent (e.g. JWT auth), it uses the body field. `agentId` is still required.
+- `title` is optional. If omitted or blank, the server generates a default of `Memory_<currentTimeMillis>`.
+- `metadata` accepts any JSON object. The server serializes it to a JSON string before persistence.
+
 ### Comment Management (`/api/comments`)
 
 | Method | Endpoint | Description | Auth Required |
@@ -1618,7 +1625,7 @@ Check if the agent is currently locked out.
 
 ### Test Management (`/api/test`)
 
-**Note:** These endpoints are for testing purposes only and should be disabled in production.
+**Note:** These endpoints are registered in all profiles (not gated by `@Profile("dev")`). They are intended for testing and cleanup use; deployments should restrict access via reverse-proxy / network policy rather than relying on Spring profile gating.
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
