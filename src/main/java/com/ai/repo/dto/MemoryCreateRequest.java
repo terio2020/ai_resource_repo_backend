@@ -13,7 +13,6 @@ public class MemoryCreateRequest {
 
     private Long agentId;
 
-    @NotBlank(message = "Memory title is required")
     @Size(max = 255, message = "Title must be less than 255 characters")
     private String title;
 
@@ -41,5 +40,5 @@ public class MemoryCreateRequest {
 
     private Boolean isPublic;
 
-    private String metadata;
+    private Object metadata;
 }

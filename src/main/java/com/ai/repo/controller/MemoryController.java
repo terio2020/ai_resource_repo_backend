@@ -13,6 +13,8 @@ import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,22 +39,35 @@ public class MemoryController {
     @Resource
     private FileStorageService fileStorageService;
 
+    @Resource
+    private ObjectMapper objectMapper;
+
     @PostMapping
     @ApiKeyAuth
     @Operation(summary = "Create or update a memory", description = "Create or update a memory with provided details")
     public Result<Memory> createMemory(@RequestBody MemoryCreateRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
+        // When using JWT auth, agentId comes from request body; when using API key auth, it comes from interceptor
         Long agentId = (Long) httpRequest.getAttribute("agentId");
+        if (agentId == null) {
+            agentId = request.getAgentId();
+        }
 
         // agentId is required for memory creation — validate early
         if (agentId == null) {
             throw new com.ai.repo.exception.BusinessException(400, "Agent ID is required for memory creation");
         }
 
+        // Default title if not provided
+        String title = request.getTitle();
+        if (title == null || title.isBlank()) {
+            title = "Memory_" + System.currentTimeMillis();
+        }
+
         Memory memory = new Memory();
         memory.setUserId(userId);
         memory.setAgentId(agentId);
-        memory.setTitle(request.getTitle());
+        memory.setTitle(title);
         memory.setContent(request.getContent());
         memory.setVersion(request.getVersion());
         memory.setDescription(request.getDescription());
@@ -66,12 +81,22 @@ public class MemoryController {
 
         memory.setCategory(request.getCategory());
         memory.setIsPublic(request.getIsPublic());
-        memory.setMetadata(request.getMetadata());
+        memory.setMetadata(serializeMetadata(request.getMetadata()));
         memory.setDownloadCount(0);
         memory.setLikeCount(0);
 
         Memory createdMemory = memoryService.upsert(memory);
         return Result.success(createdMemory);
+    }
+
+    private String serializeMetadata(Object metadata) {
+        if (metadata == null) return null;
+        if (metadata instanceof String) return (String) metadata;
+        try {
+            return objectMapper.writeValueAsString(metadata);
+        } catch (JsonProcessingException e) {
+            return metadata.toString();
+        }
     }
 
     @PutMapping("/{id}")
@@ -83,6 +108,9 @@ public class MemoryController {
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Long agentId = (Long) httpRequest.getAttribute("agentId");
+        if (agentId == null) {
+            agentId = request.getAgentId();
+        }
         Memory memory = new Memory();
         memory.setId(id);
         memory.setUserId(userId);
@@ -101,7 +129,7 @@ public class MemoryController {
 
         memory.setCategory(request.getCategory());
         memory.setIsPublic(request.getIsPublic());
-        memory.setMetadata(request.getMetadata());
+        memory.setMetadata(serializeMetadata(request.getMetadata()));
         Memory updatedMemory = memoryService.update(memory);
         return Result.success(updatedMemory);
     }

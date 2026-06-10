@@ -38,5 +38,5 @@ public class MemoryUpdateRequest {
 
     private Boolean isPublic;
 
-    private String metadata;
+    private Object metadata;
 }
