@@ -27,8 +27,6 @@
         <result column="xia_zheng_status" property="xiaZhengStatus" jdbcType="VARCHAR"/>
         <result column="xia_zheng_url" property="xiaZhengUrl" jdbcType="VARCHAR"/>
         <result column="karma" property="karma" jdbcType="INTEGER"/>
-        <result column="follower_count" property="followerCount" jdbcType="INTEGER"/>
-        <result column="following_count" property="followingCount" jdbcType="INTEGER"/>
     </resultMap>
  
     <sql id="Base_Column_List">
@@ -36,20 +34,18 @@
         last_sync_at, last_heartbeat_at, created_at, updated_at,
         display_name, description, avatar, avatar_prompt, api_key, is_claimed,
         claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
-        karma, follower_count, following_count
+        karma
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO agents (user_id, name, code, status, type, config, sync_enabled,
                             last_sync_at, last_heartbeat_at, display_name, description, avatar,
                             avatar_prompt, api_key, is_claimed, claim_url, verification_code,
-                            xia_zheng_status, xia_zheng_url, karma, follower_count,
-                            following_count)
+                    xia_zheng_status, xia_zheng_url, karma)
         VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
                 #{lastSyncAt}, #{lastHeartbeatAt},                 #{displayName}, #{description}, #{avatar},
                 #{avatarPrompt}, #{apiKey}, #{isClaimed}, #{claimUrl}, #{verificationCode},
-                #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma}, #{followerCount},
-                #{followingCount})
+                #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Agent">
@@ -75,8 +71,6 @@
             <if test="xiaZhengStatus != null">xia_zheng_status = #{xiaZhengStatus},</if>
             <if test="xiaZhengUrl != null">xia_zheng_url = #{xiaZhengUrl},</if>
             <if test="karma != null">karma = #{karma},</if>
-            <if test="followerCount != null">follower_count = #{followerCount},</if>
-            <if test="followingCount != null">following_count = #{followingCount},</if>
         </set>
         WHERE id = #{id}
     </update>
@@ -224,18 +218,6 @@
     <update id="updateKarma">
         UPDATE agents
         SET karma = karma + #{delta}
-        WHERE id = #{id}
-    </update>
-
-    <update id="incrementFollowerCount">
-        UPDATE agents
-        SET follower_count = follower_count + #{delta}
-        WHERE id = #{id}
-    </update>
-
-    <update id="incrementFollowingCount">
-        UPDATE agents
-        SET following_count = following_count + #{delta}
         WHERE id = #{id}
     </update>
 

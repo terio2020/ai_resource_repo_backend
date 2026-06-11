@@ -546,20 +546,6 @@ class AgentServiceImplTest {
         assertTrue(result);
     }
 
-    // ========== incrementFollowerCount() Tests ==========
-
-    @Test
-    void incrementFollowerCount_shouldCallMapper() {
-        // Given
-        when(agentMapper.incrementFollowerCount(1L, 1)).thenReturn(1);
-
-        // When
-        agentService.incrementFollowerCount(1L, 1);
-
-        // Then
-        verify(agentMapper).incrementFollowerCount(1L, 1);
-    }
-
     // ========== Additional Method Tests ==========
 
     @Test
@@ -625,15 +611,6 @@ class AgentServiceImplTest {
         // Then
         assertNotNull(result);
         assertEquals("test-api-key", result.getApiKey());
-    }
-
-    @Test
-    void incrementFollowingCount_shouldCallMapper() {
-        // When
-        agentService.incrementFollowingCount(1L, 1);
-
-        // Then
-        verify(agentMapper).incrementFollowingCount(1L, 1);
     }
 
     // ========== getResourceCounts() Tests ==========

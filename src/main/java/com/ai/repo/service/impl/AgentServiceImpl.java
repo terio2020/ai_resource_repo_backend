@@ -315,22 +315,6 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public void incrementFollowerCount(Long agentId, int delta) {
-        agentMapper.incrementFollowerCount(agentId, delta);
-    }
-
-    @Override
-    public void incrementFollowingCount(Long agentId, int delta) {
-        agentMapper.incrementFollowingCount(agentId, delta);
-    }
-
-    @Override
-    public void updateFollowCounts(Long followerId, Long followingId) {
-        agentMapper.incrementFollowingCount(followerId, 1);
-        agentMapper.incrementFollowerCount(followingId, 1);
-    }
-
-    @Override
     public Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds) {
         if (agentIds == null || agentIds.isEmpty()) {
             return Collections.emptyMap();

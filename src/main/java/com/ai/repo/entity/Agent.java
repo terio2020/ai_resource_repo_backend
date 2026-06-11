@@ -31,6 +31,4 @@ public class Agent {
     private String xiaZhengStatus;
     private String xiaZhengUrl;
     private Integer karma;
-    private Integer followerCount;
-    private Integer followingCount;
 }

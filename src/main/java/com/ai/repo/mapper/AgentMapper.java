@@ -36,8 +36,6 @@ public interface AgentMapper {
     int updateKarma(@Param("id") Long id, @Param("delta") int delta);
 
     Long countTotal();
-    int incrementFollowerCount(@Param("id") Long id, @Param("delta") int delta);
-    int incrementFollowingCount(@Param("id") Long id, @Param("delta") int delta);
     List<Agent> findByLastHeartbeatBefore(LocalDateTime threshold);
     int updateAgentStatus(@Param("id") Long id, @Param("status") String status);
     int updateChallengeVerified(@Param("id") Long id, @Param("verified") boolean verified);

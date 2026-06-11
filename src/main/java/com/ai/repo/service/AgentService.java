@@ -38,12 +38,6 @@ public interface AgentService {
 
     boolean updateKarma(Long id, int delta);
 
-    void incrementFollowerCount(Long agentId, int delta);
-
-    void incrementFollowingCount(Long agentId, int delta);
-
-    void updateFollowCounts(Long followerId, Long followingId);
-
     Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);
 
     AgentSkillAssociation bindSkill(Long agentId, Long skillId, Double proficiency);
