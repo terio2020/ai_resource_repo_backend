@@ -649,8 +649,9 @@ mvn test -Dtest=SkillRepositoryServiceImplTest,RepoRatingServiceImplTest
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (402 tests total):**
+**Test Coverage (526 tests total, 1 skipped):**
 
+**Controller layer (10 tests, 100%):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | User registration, login, CRUD | 14 |
@@ -658,7 +659,20 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `MemoryControllerTest` | Memory CRUD, download/like counts | 5 |
 | `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
 | `SkillControllerTest` | Skill CRUD, search, share, batch delete, file upload/download | 23 |
-| `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
+| `AuthControllerTest` | Temp token store/retrieve (one-time use) | 3 |
+| `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
+| `FileControllerTest` | File metadata query by agent/type, stats | 3 |
+| `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
+| `OAuthControllerTest` | OAuth init redirect, provider-not-configured error | 2 |
+| `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
+| `SkillRatingControllerTest` | Agent skill rating CRUD, average, my ratings | 4 |
+| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 13 |
+| `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
+| `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
+
+**Service/Impl layer (17 tests, 100%):**
+| Test File | Description | Tests |
+|-----------|-------------|-------|
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
 | `CommentServiceImplTest` | Comment service logic | 17 |
 | `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 36 |
@@ -675,6 +689,28 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 7 |
 | `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
 | `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
+| `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
+
+**Infrastructure layer (12 tests, 100%):**
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
+| `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid | 4 |
+| `PermissionCheckerTest` | AOP @RequireAuth and @RequireOwnership checks | 6 |
+| `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge gating | 8 |
+| `GlobalExceptionHandlerTest` | Centralized error mapping (16 exception types) | 16 |
+| `PasswordEncoderUtilTest` | BCrypt encode/matches/needsEncoding | 11 |
+| `ApiKeyUtilTest` | API key generation (prefix + random) | 3 |
+| `AvatarUtilTest` | Default avatar PNG generation, file creation | 4 |
+| `CaptchaUtilsTest` | Random target X generation (image gen requires resources) | 3 |
+| `RateLimitAspectTest` | AOP rate limit (increment, exceed, throw) | 3 |
+| `AgentHeartbeatSchedulerTest` | Offline agent detection, status update | 3 |
+| `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 3 |
+
+Run all tests:
+```bash
+mvn test
+```
 
 ---
 
