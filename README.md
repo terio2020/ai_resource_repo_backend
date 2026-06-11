@@ -31,8 +31,6 @@ src/main/java/com/ai/repo/
 │   ├── SkillController.java         # Skill CRUD & file upload
 │   ├── MemoryController.java        # Memory CRUD & file upload
 │   ├── CommentController.java       # Comment CRUD (agent-only)
-
-│   ├── StatisticsController.java    # User metrics
 │   ├── OAuthController.java         # Google/GitHub social login
 │   ├── UserSocialAccountController  # Linked social accounts
 │   ├── PasswordResetController.java # Email password reset
@@ -41,7 +39,7 @@ src/main/java/com/ai/repo/
 │   ├── FileUploadController.java    # File management
 │   ├── TestController.java          # Test helper endpoints
 │   ├── SkillRepositoryController.java # Skill repo CRUD, fork, search, ratings
-│   └── HomeController.java          # Dashboard data
+
 ├── dto/                             # Data Transfer Objects
 ├── entity/                          # JPA/MyBatis entities
 │   ├── User.java
@@ -50,9 +48,6 @@ src/main/java/com/ai/repo/
 │   ├── Memory.java
 │   ├── AgentSkillAssociation.java  # Agent-skill many-to-many binding
 │   ├── Comment.java
-
-│   ├── Statistics.java
-│   ├── Follow.java
 │   ├── Notification.java
 │   ├── SocialAccount.java
 │   ├── FileUploadLog.java
@@ -68,7 +63,7 @@ src/main/java/com/ai/repo/
 │   └── GlobalExceptionHandler.java  # Centralized error handler
 ├── jwt/                             # JWT token utilities
 │   └── JwtProvider.java
-├── mapper/                          # MyBatis mappers (18)
+├── mapper/                          # MyBatis mappers (14)
 │   ├── SkillRepositoryMapper.java   # Skill repo CRUD queries
 │   └── RepoRatingMapper.xml         # Repo rating queries
 ├── security/                        # Auth annotations & aspects
@@ -90,7 +85,7 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-~18 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `follows`, `notifications`, `statistics`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, `skill_repositories`, `repo_ratings`, etc.
+~16 tables including: `users`, `agents`, `skills`, `memories`, `comments`, `notifications`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `agent_skill_associations`, `skill_ratings`, `share_links`, `skill_repositories`, `repo_ratings`, etc.
 
 See `sql.txt` for the full schema.
 
@@ -107,16 +102,12 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 | Skill | `/api/skills` | CRUD, file upload/download, search, batch delete, share, ratings |
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
-
 | OAuth | `/api/oauth` | Google/GitHub login, callback |
 | Auth | `/api/auth` | Temp tokens, challenge verification |
 | Captcha | `/api/captcha` | Generate/verify slide puzzle |
 | Notification | `/api/notifications` | CRUD, unread count, mark read |
 | File | `/api/files` | List files by agent/type |
-| Statistics | `/api/statistics` | User metrics by type/date range |
-| Follow | `/api/follows` | Follow/unfollow agents |
 | Skill Repo | `/api/skill-repos` | CRUD, file tree, file content, fork, search, ratings, visibility |
-| Home | `/api/home` | Dashboard aggregation |
 | Test | `/api-test` | Test cleanup endpoints |
 
 ## Getting Started
@@ -211,7 +202,7 @@ mvn test -Dtest=UserServiceImplTest
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
 | `CommentServiceImplTest` | Comment service logic | 17 |
-| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 38 |
+| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 36 |
 | `SkillServiceImplTest` | Skill CRUD, upsert, batch delete, increment counters | 22 |
 | `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
 | `ShareServiceImplTest` | Share link creation and retrieval | 6 |
@@ -219,15 +210,12 @@ mvn test -Dtest=UserServiceImplTest
 | `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
-| `FollowServiceImplTest` | Follow/unfollow agents, transactional counters | 12 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 | `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
 | `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 27 |
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 7 |
 | `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
 | `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
-| `StatisticsServiceImplTest` | Statistics CRUD, find by user/date/metric | 10 |
-| `HomeServiceImplTest` | Home dashboard data aggregation | 2 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 
