@@ -135,6 +135,7 @@ class SkillRepositoryServiceImplTest {
     @Test
     void delete_shouldDeleteFromDb() {
         SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath("/tmp/test_repo_1");
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
         when(skillRepositoryMapper.deleteById(1L)).thenReturn(1);
 
@@ -149,6 +150,24 @@ class SkillRepositoryServiceImplTest {
 
         assertThrows(RepositoryNotFoundException.class, () -> service.delete(999L));
         verify(skillRepositoryMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void delete_shouldCleanupDiskDirectory() throws Exception {
+        // Create a temp directory to simulate the repo on disk
+        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("test_repo_delete");
+        java.nio.file.Files.createFile(tempDir.resolve("HEAD"));
+        java.nio.file.Files.createFile(tempDir.resolve("config"));
+
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath(tempDir.toAbsolutePath().toString());
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+        when(skillRepositoryMapper.deleteById(1L)).thenReturn(1);
+
+        service.delete(1L);
+
+        assertFalse(java.nio.file.Files.exists(tempDir), "Repository directory should be deleted");
+        verify(skillRepositoryMapper).deleteById(1L);
     }
 
     // ==================== forkRepository ====================
@@ -173,6 +192,43 @@ class SkillRepositoryServiceImplTest {
                 () -> service.forkRepository(20L, 1L, 1L));
         assertTrue(ex.getMessage().contains("already have a fork"));
         verify(skillRepositoryMapper, never()).insert(any());
+    }
+
+    @Test
+    void forkRepository_shouldSucceed_whenValid() throws Exception {
+        java.nio.file.Path tempRoot = java.nio.file.Files.createTempDirectory("git_root_fork");
+        ReflectionTestUtils.setField(service, "gitRootPath", tempRoot.toAbsolutePath().toString() + "/");
+
+        java.nio.file.Path sourceDir = java.nio.file.Files.createTempDirectory("source_repo_fork");
+        java.nio.file.Files.createFile(sourceDir.resolve("HEAD"));
+        java.nio.file.Files.createFile(sourceDir.resolve("skill.md"));
+
+        SkillRepository source = createSampleRepo(1L, 10L, "weather");
+        source.setRepoPath(sourceDir.toAbsolutePath().toString());
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(source);
+        when(skillRepositoryMapper.selectByAgentIdAndSkillName(20L, "weather_fork")).thenReturn(null);
+
+        SkillRepository result = service.forkRepository(20L, 1L, 1L);
+
+        assertNotNull(result);
+        assertEquals("weather_fork", result.getSkillName());
+        assertEquals(20L, result.getAgentId());
+        assertEquals(1L, result.getParentId());
+        verify(skillRepositoryMapper).insert(any(SkillRepository.class));
+
+        // Cleanup
+        java.nio.file.Path targetDir = java.nio.file.Paths.get(result.getRepoPath()).getParent();
+        if (java.nio.file.Files.exists(targetDir)) {
+            java.nio.file.Files.walk(targetDir)
+                    .sorted((a, b) -> b.compareTo(a))
+                    .forEach(p -> { try { java.nio.file.Files.deleteIfExists(p); } catch (Exception ignored) {} });
+        }
+        java.nio.file.Files.walk(sourceDir)
+                .sorted((a, b) -> b.compareTo(a))
+                .forEach(p -> { try { java.nio.file.Files.deleteIfExists(p); } catch (Exception ignored) {} });
+        java.nio.file.Files.walk(tempRoot)
+                .sorted((a, b) -> b.compareTo(a))
+                .forEach(p -> { try { java.nio.file.Files.deleteIfExists(p); } catch (Exception ignored) {} });
     }
 
     // ==================== setVisibility ====================
@@ -296,6 +352,15 @@ class SkillRepositoryServiceImplTest {
     }
 
     @Test
+    void findByRepoPath_shouldReturnNull_whenNotFound() {
+        when(skillRepositoryMapper.selectByRepoPath("/nonexistent")).thenReturn(null);
+
+        SkillRepository result = service.findByRepoPath("/nonexistent");
+
+        assertNull(result);
+    }
+
+    @Test
     void findForksByParentId_shouldReturnList() {
         when(skillRepositoryMapper.selectByParentId(1L))
                 .thenReturn(List.of(createSampleRepo(2L, 20L, "weather_fork")));
@@ -304,6 +369,49 @@ class SkillRepositoryServiceImplTest {
 
         assertEquals(1, result.size());
         verify(skillRepositoryMapper).selectByParentId(1L);
+    }
+
+    @Test
+    void findPublicReposByAgentId_shouldReturnList() {
+        when(skillRepositoryMapper.selectPublicByAgentId(10L))
+                .thenReturn(List.of(createSampleRepo(1L, 10L, "weather")));
+
+        var result = service.findPublicReposByAgentId(10L);
+
+        assertEquals(1, result.size());
+        verify(skillRepositoryMapper).selectPublicByAgentId(10L);
+    }
+
+    @Test
+    void findPublicReposByAgentId_shouldReturnEmpty_whenNone() {
+        when(skillRepositoryMapper.selectPublicByAgentId(99L)).thenReturn(List.of());
+
+        var result = service.findPublicReposByAgentId(99L);
+
+        assertTrue(result.isEmpty());
+    }
+
+    // ==================== getFileTree ====================
+
+    @Test
+    void getFileTree_shouldReturnEmpty_whenNoCommits() {
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath("/tmp/nonexistent_repo_path");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+
+        // The repo path does not point to a real git repo, so openRepository will throw IOException
+        assertThrows(BusinessException.class, () -> service.getFileTree(1L));
+    }
+
+    // ==================== getFileContent ====================
+
+    @Test
+    void getFileContent_shouldThrow_whenRepoPathInvalid() {
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath("/tmp/nonexistent_repo");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+
+        assertThrows(BusinessException.class, () -> service.getFileContent(1L, "test.txt"));
     }
 
     // ==================== sanitizePath ====================

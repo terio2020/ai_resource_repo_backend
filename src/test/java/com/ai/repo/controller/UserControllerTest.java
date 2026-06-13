@@ -36,9 +36,10 @@ import java.nio.file.Paths;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(classes = {UserController.class, GlobalExceptionHandler.class})
@@ -345,5 +346,265 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.message").value("Success"))
                 .andExpect(jsonPath("$.data.avatar").value("new-avatar.png"))
                 .andExpect(jsonPath("$.data.nickname").value("old-nickname"));
+    }
+
+    // ==================== POST /api/users (registration) ====================
+
+    @Test
+    void createUser_shouldEncodePasswordAndPersist() throws Exception {
+        User created = new User();
+        created.setId(99L);
+        created.setUsername("newuser");
+        when(userService.create(any(User.class))).thenReturn(created);
+        when(passwordEncoderUtil.encode("raw-password")).thenReturn("ENCODED");
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"newuser\",\"password\":\"raw-password\",\"email\":\"new@x.com\",\"nickname\":\"New U\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(passwordEncoderUtil).encode("raw-password");
+        verify(userService).create(org.mockito.ArgumentMatchers.argThat(u ->
+                "newuser".equals(u.getUsername())
+                        && "ENCODED".equals(u.getPassword())
+                        && "USER".equals(u.getRole())
+                        && "ACTIVE".equals(u.getStatus())));
+    }
+
+    // ==================== POST /api/users/deleteById ====================
+
+    @Test
+    void deleteUser_shouldInvokeService() throws Exception {
+        mockMvc.perform(post("/api/users/deleteById")
+                        .param("id", "1")
+                        .with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+        verify(userService).delete(1L);
+    }
+
+    // ==================== POST /api/users/login (username login) ====================
+
+    @Test
+    void login_shouldReturnTokens_whenValidCredentials() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        LoginResponse loginResponse = new LoginResponse();
+        loginResponse.setId(1L);
+        loginResponse.setAccessToken("access-1");
+        loginResponse.setRefreshToken("refresh-1");
+        loginResponse.setUsername("testuser");
+
+        when(userService.findByUsername("testuser")).thenReturn(user);
+        when(userService.verifyPassword("testuser", "good-pass")).thenReturn(true);
+        when(userService.generateTokens(1L)).thenReturn(loginResponse);
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"testuser\",\"password\":\"good-pass\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("access-1"));
+        verify(userService).updateLoginTime(1L);
+    }
+
+    @Test
+    void login_shouldReturn401_whenUserNotFound() throws Exception {
+        when(userService.findByUsername("ghost")).thenReturn(null);
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"ghost\",\"password\":\"any\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid username or password"));
+    }
+
+    @Test
+    void login_shouldReturn401_whenWrongPassword() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        when(userService.findByUsername("testuser")).thenReturn(user);
+        when(userService.verifyPassword("testuser", "wrong")).thenReturn(false);
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"testuser\",\"password\":\"wrong\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401));
+    }
+
+    // ==================== POST /api/users/refresh-token ====================
+
+    @Test
+    void refreshToken_shouldDelegateToService() throws Exception {
+        com.ai.repo.dto.TokenRefreshResponse resp = new com.ai.repo.dto.TokenRefreshResponse();
+        resp.setAccessToken("new-access");
+        resp.setRefreshToken("new-refresh");
+        when(userService.refreshToken("old-refresh")).thenReturn(resp);
+
+        mockMvc.perform(post("/api/users/refresh-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"old-refresh\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("new-access"));
+    }
+
+    // ==================== POST /api/users/logout ====================
+
+    @Test
+    void logout_shouldClearTokens() throws Exception {
+        mockMvc.perform(post("/api/users/logout").with(withUserId(7L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+        verify(userService).clearTokens(7L);
+    }
+
+    // ==================== POST /api/users/auth-login (agent session flow) ====================
+
+    @Test
+    void authLogin_shouldStoreTokenInTempTokenService() throws Exception {
+        User user = new User();
+        user.setId(3L);
+        LoginResponse resp = new LoginResponse();
+        resp.setAccessToken("agent-access-xxx");
+        resp.setRefreshToken("agent-refresh-xxx");
+
+        when(userService.findByUsername("agent-bot")).thenReturn(user);
+        when(userService.verifyPassword("agent-bot", "secret")).thenReturn(true);
+        when(userService.generateTokens(3L)).thenReturn(resp);
+
+        mockMvc.perform(post("/api/users/auth-login")
+                        .param("sessionId", "sess-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"agent-bot\",\"password\":\"secret\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(tempTokenService).storeToken("sess-001", "agent-access-xxx");
+    }
+
+    @Test
+    void authLogin_shouldReturn401_whenInvalidCredentials() throws Exception {
+        when(userService.findByUsername("agent-bot")).thenReturn(null);
+
+        mockMvc.perform(post("/api/users/auth-login")
+                        .param("sessionId", "sess-002")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"agent-bot\",\"password\":\"bad\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401));
+    }
+
+    // ==================== GET /api/users/me ====================
+
+    @Test
+    void getCurrentUser_shouldReturnUser_whenBearerTokenValid() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEmail("test@example.com");
+        user.setPassword("secret");
+        user.setAccessToken("tok");
+        user.setRefreshToken("rtok");
+        when(jwtProvider.validateAccessToken("valid-token")).thenReturn(1L);
+        when(userService.findById(1L)).thenReturn(user);
+
+        mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer valid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.username").value("testuser"))
+                // sensitive fields must be cleared before responding
+                .andExpect(jsonPath("$.data.password").doesNotExist())
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void getCurrentUser_shouldReturn401_whenMissingAuthorizationHeader() throws Exception {
+        mockMvc.perform(get("/api/users/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Missing or invalid Authorization header"));
+    }
+
+    @Test
+    void getCurrentUser_shouldReturn401_whenTokenInvalid() throws Exception {
+        when(jwtProvider.validateAccessToken("bad-token")).thenReturn(null);
+
+        mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer bad-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid or expired token"));
+    }
+
+    @Test
+    void getCurrentUser_shouldReturn404_whenUserMissing() throws Exception {
+        when(jwtProvider.validateAccessToken("valid-token")).thenReturn(999L);
+        when(userService.findById(999L)).thenReturn(null);
+
+        mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer valid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("User not found"));
+    }
+
+    // ==================== Update with username ====================
+
+    @Test
+    void updateUser_shouldUpdateUsername_whenProvided() throws Exception {
+        User updatedUser = new User();
+        updatedUser.setId(1L);
+        updatedUser.setUsername("renamed-user");
+        updatedUser.setEmail("test@example.com");
+        updatedUser.setNickname("nick");
+
+        when(userService.update(any(User.class))).thenReturn(updatedUser);
+
+        mockMvc.perform(post("/api/users/update")
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"renamed-user\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("renamed-user"));
+    }
+
+    // ==================== Password update clears sensitive fields ====================
+
+    @Test
+    void updateUser_shouldStripSensitiveFieldsFromResponse() throws Exception {
+        User updatedUser = new User();
+        updatedUser.setId(1L);
+        updatedUser.setUsername("testuser");
+        updatedUser.setEmail("test@example.com");
+        updatedUser.setNickname("nick");
+        updatedUser.setPassword("ENCODED-FROM-SERVICE");
+        updatedUser.setAccessToken("leaked-access");
+        updatedUser.setRefreshToken("leaked-refresh");
+
+        when(userService.update(any(User.class))).thenReturn(updatedUser);
+
+        mockMvc.perform(post("/api/users/update")
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nickname\":\"new-nick\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.password").doesNotExist())
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    // ==================== Update with no body ====================
+
+    @Test
+    void updateUser_shouldReturn401_whenUserIdMissing() throws Exception {
+        mockMvc.perform(post("/api/users/update")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nickname\":\"x\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Unauthorized"));
     }
 }

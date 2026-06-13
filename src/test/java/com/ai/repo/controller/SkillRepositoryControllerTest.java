@@ -189,4 +189,113 @@ class SkillRepositoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
     }
+
+    @Test
+    void getForks_shouldReturnEmpty_whenNoForks() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
+        when(skillRepositoryService.findForksByParentId(1L)).thenReturn(List.of());
+        mockMvc.perform(get("/api/skill-repos/1/forks").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void updateMetadata_shouldSucceed() throws Exception {
+        SkillRepository updates = createRepo(1L, 1L);
+        updates.setVersion("2.0");
+        updates.setDescription("Updated");
+        when(skillRepositoryService.updateMetadata(any())).thenReturn(updates);
+        mockMvc.perform(put("/api/skill-repos/1")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.version").value("2.0"));
+    }
+
+    @Test
+    void getPublicReposByAgentId_shouldReturnList() throws Exception {
+        when(skillRepositoryService.findPublicReposByAgentId(1L)).thenReturn(List.of(createRepo(1L, 1L)));
+        mockMvc.perform(get("/api/skill-repos/agent/1/public").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].id").value(1));
+    }
+
+    @Test
+    void getPublicReposByAgentId_shouldReturnEmpty_whenNone() throws Exception {
+        when(skillRepositoryService.findPublicReposByAgentId(99L)).thenReturn(List.of());
+        mockMvc.perform(get("/api/skill-repos/agent/99/public").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void rateRepository_shouldSucceed() throws Exception {
+        com.ai.repo.dto.SkillRatingResponse response = new com.ai.repo.dto.SkillRatingResponse();
+        response.setSkillId(1L);
+        response.setRating(4);
+        when(repoRatingService.rate(any(), eq(2L))).thenReturn(response);
+
+        com.ai.repo.dto.SkillRatingRequest req = new com.ai.repo.dto.SkillRatingRequest();
+        req.setSkillId(1L);
+        req.setRating(4);
+        mockMvc.perform(post("/api/skill-repos/1/ratings")
+                        .with(withAgentId(2L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.rating").value(4));
+    }
+
+    @Test
+    void getRatingSummary_shouldReturnSummary() throws Exception {
+        com.ai.repo.dto.SkillRatingAverageResponse summary = new com.ai.repo.dto.SkillRatingAverageResponse();
+        summary.setSkillId(1L);
+        summary.setAverageRating(4.5);
+        summary.setTotalRatings(2);
+        when(repoRatingService.getAverageByRepoId(1L)).thenReturn(summary);
+        mockMvc.perform(get("/api/skill-repos/1/ratings/summary").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.averageRating").value(4.5));
+    }
+
+    @Test
+    void getRatings_shouldReturnList() throws Exception {
+        com.ai.repo.dto.SkillRatingResponse r = new com.ai.repo.dto.SkillRatingResponse();
+        r.setSkillId(1L);
+        r.setRating(5);
+        r.setRaterAgentName("AgentX");
+        when(repoRatingService.getRatingsByRepoId(1L)).thenReturn(List.of(r));
+        mockMvc.perform(get("/api/skill-repos/1/ratings").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].raterAgentName").value("AgentX"));
+    }
+
+    @Test
+    void getMyRatings_shouldReturnList() throws Exception {
+        com.ai.repo.dto.SkillRatingResponse r = new com.ai.repo.dto.SkillRatingResponse();
+        r.setSkillId(1L);
+        r.setRating(3);
+        when(repoRatingService.getRatingsByAgentId(2L)).thenReturn(List.of(r));
+        mockMvc.perform(get("/api/skill-repos/ratings/my").with(withAgentId(2L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].rating").value(3));
+    }
+
+    @Test
+    void getMyRatings_shouldReturn403_whenNoAgent() throws Exception {
+        mockMvc.perform(get("/api/skill-repos/ratings/my").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+    }
 }

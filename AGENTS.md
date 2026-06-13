@@ -692,28 +692,34 @@ mvn test -Dtest=SkillRepositoryServiceImplTest,RepoRatingServiceImplTest
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (526 tests total, 1 skipped):**
+**Test Coverage (642 tests total, 1 skipped, 50 test files):**
 
-**Controller layer (10 tests, 100%):**
+JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
+- **Lines: 77.7%** (2216 / 2851)
+- **Branches: 64.4%** (677 / 1052)
+- **Methods: 86.1%** (445 / 517)
+- 34 of 76 production classes at 100% line coverage
+
+**Controller layer (15 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
-| `UserControllerTest` | User registration, login, CRUD | 14 |
+| `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
 | `AgentControllerTest` | Agent avatar upload, serve | 6 |
-| `MemoryControllerTest` | Memory CRUD, download/like counts | 5 |
+| `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters | 24 |
 | `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
 | `SkillControllerTest` | Skill CRUD, search, share, batch delete, file upload/download | 23 |
 | `AuthControllerTest` | Temp token store/retrieve (one-time use) | 3 |
 | `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
 | `FileControllerTest` | File metadata query by agent/type, stats | 3 |
 | `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
-| `OAuthControllerTest` | OAuth init redirect, provider-not-configured error | 2 |
+| `OAuthControllerTest` | OAuth init redirect, callback failure, state validation, private helpers (`buildAuthorizationUrl`, `generateState`, `validateAndExtractState`) via reflection | 20 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
 | `SkillRatingControllerTest` | Agent skill rating CRUD, average, my ratings | 4 |
-| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 13 |
+| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 
-**Service/Impl layer (17 tests, 100%):**
+**Service/Impl layer (19 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
@@ -723,16 +729,18 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
 | `ShareServiceImplTest` | Share link creation and retrieval | 6 |
 | `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
-| `OpenAIModerationServiceTest` | API key validation, JSON escaping | 13 |
+| `OpenAIModerationServiceTest` | OkHttp mock injection, 4xx/5xx/network failures, flagged response, JSON escaping | 22 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
 | `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
-| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 27 |
-| `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 7 |
+| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 34 |
+| `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 10 |
 | `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
 | `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
+| `CaptchaServiceTest` | Slide puzzle captcha generate/verify with `MockedStatic<CaptchaUtils>` | 19 |
+| `TempTokenServiceTest` | Temp token store/retrieve (one-time use), expiration cleanup, scheduler shutdown | 14 |
 
 **Infrastructure layer (12 tests, 100%):**
 | Test File | Description | Tests |
@@ -741,7 +749,7 @@ Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 | `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid | 4 |
 | `PermissionCheckerTest` | AOP @RequireAuth and @RequireOwnership checks | 6 |
 | `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge gating | 8 |
-| `GlobalExceptionHandlerTest` | Centralized error mapping (16 exception types) | 16 |
+| `GlobalExceptionHandlerTest` | Centralized error mapping (16 exception types) | 18 |
 | `PasswordEncoderUtilTest` | BCrypt encode/matches/needsEncoding | 11 |
 | `ApiKeyUtilTest` | API key generation (prefix + random) | 3 |
 | `AvatarUtilTest` | Default avatar PNG generation, file creation | 4 |

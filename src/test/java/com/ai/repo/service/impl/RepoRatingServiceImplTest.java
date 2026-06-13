@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.List;
+
 @ExtendWith(MockitoExtension.class)
 class RepoRatingServiceImplTest {
 
@@ -90,6 +92,39 @@ class RepoRatingServiceImplTest {
 
         assertThrows(BusinessException.class, () -> service.rate(createRequest(1L, 5), 20L));
         verify(repoRatingMapper, never()).upsert(any());
+    }
+
+    @Test
+    void rate_shouldUpsert_whenAlreadyRated() {
+        SkillRepository repo = createSampleRepo(1L, 10L, true);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+
+        SkillRatingRequest request = createRequest(1L, 3);
+        SkillRatingResponse result = service.rate(request, 20L);
+
+        assertNotNull(result);
+        assertEquals(3, result.getRating());
+        verify(repoRatingMapper).upsert(any(RepoRating.class));
+    }
+
+    @Test
+    void getRatingsByRepoId_shouldReturnEmpty_whenNoRatings() {
+        SkillRepository repo = createSampleRepo(1L, 10L, true);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        when(repoRatingMapper.selectByRepoIdWithAgent(1L)).thenReturn(List.of());
+
+        List<SkillRatingResponse> result = service.getRatingsByRepoId(1L);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getRatingsByAgentId_shouldReturnEmpty_whenNoRatings() {
+        when(repoRatingMapper.selectByRaterAgentIdWithAgent(99L)).thenReturn(List.of());
+
+        List<SkillRatingResponse> result = service.getRatingsByAgentId(99L);
+
+        assertTrue(result.isEmpty());
     }
 
     // ==================== getAverageByRepoId() ====================
