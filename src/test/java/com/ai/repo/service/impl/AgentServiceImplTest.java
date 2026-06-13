@@ -10,7 +10,10 @@ import com.ai.repo.entity.Memory;
 import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
+import com.ai.repo.mapper.AgentSkillAssociationMapper;
+import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
+import com.ai.repo.mapper.NotificationMapper;
 import com.ai.repo.mapper.SkillMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +49,15 @@ class AgentServiceImplTest {
     @Mock
     private MemoryMapper memoryMapper;
 
+    @Mock
+    private AgentSkillAssociationMapper agentSkillAssociationMapper;
+
+    @Mock
+    private NotificationMapper notificationMapper;
+
+    @Mock
+    private CommentMapper commentMapper;
+
     private AgentServiceImpl agentService;
 
     private static final Path TEST_BASE_PATH = Paths.get("/tmp/test-agent-avatars");
@@ -65,6 +77,18 @@ class AgentServiceImplTest {
             java.lang.reflect.Field memoryField = AgentServiceImpl.class.getDeclaredField("memoryMapper");
             memoryField.setAccessible(true);
             memoryField.set(agentService, memoryMapper);
+
+            java.lang.reflect.Field assocField = AgentServiceImpl.class.getDeclaredField("agentSkillAssociationMapper");
+            assocField.setAccessible(true);
+            assocField.set(agentService, agentSkillAssociationMapper);
+
+            java.lang.reflect.Field notifField = AgentServiceImpl.class.getDeclaredField("notificationMapper");
+            notifField.setAccessible(true);
+            notifField.set(agentService, notificationMapper);
+
+            java.lang.reflect.Field commentField = AgentServiceImpl.class.getDeclaredField("commentMapper");
+            commentField.setAccessible(true);
+            commentField.set(agentService, commentMapper);
 
             java.lang.reflect.Field basePathField = AgentServiceImpl.class.getDeclaredField("basePath");
             basePathField.setAccessible(true);
@@ -189,6 +213,11 @@ class AgentServiceImplTest {
         agent.setId(1L);
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(agentSkillAssociationMapper.deleteByAgentId("1")).thenReturn(1);
+        when(skillMapper.deleteByAgentId(1L)).thenReturn(1);
+        when(memoryMapper.deleteByAgentId(1L)).thenReturn(1);
+        when(notificationMapper.deleteByAgentId(1L)).thenReturn(1);
+        when(commentMapper.deleteByAgentId(1L)).thenReturn(1);
         when(agentMapper.deleteById(1L)).thenReturn(1);
 
         // When
@@ -196,6 +225,11 @@ class AgentServiceImplTest {
 
         // Then
         assertTrue(result);
+        verify(agentSkillAssociationMapper).deleteByAgentId("1");
+        verify(skillMapper).deleteByAgentId(1L);
+        verify(memoryMapper).deleteByAgentId(1L);
+        verify(notificationMapper).deleteByAgentId(1L);
+        verify(commentMapper).deleteByAgentId(1L);
         verify(agentMapper).deleteById(1L);
     }
 

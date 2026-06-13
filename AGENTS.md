@@ -77,7 +77,7 @@ src/main/java/com/ai/repo/
 │   ├── SecurityConfig.java         # Spring Security filter chain
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
-│   └── WebConfig.java              # Interceptor registration (ApiKeyInterceptor)
+│   └── WebConfig.java              # CORS (restricted to FRONTEND_URL) + ApiKeyInterceptor
 ├── controller/                     # REST endpoints (16 total)
 │   ├── UserController.java         # /api/users  — auth, profile, avatar
 │   ├── AgentController.java        # /api/agents — CRUD, heartbeat, sync, MCP
@@ -567,7 +567,7 @@ OAUTH_GOOGLE_REDIRECT_URI=http://localhost:8080/api/oauth/google/callback
 ```
 
 **Security Features:**
-- CSRF protection via state parameter
+- CSRF protection via state parameter (HMAC-SHA256 signed with `oauth.state-secret`)
 - One user can link multiple social accounts
 - Same provider cannot be linked to multiple users
 - Access tokens are stored encrypted
@@ -780,9 +780,9 @@ Configuration in `src/main/resources/application.yml`:
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/logicoma_net
-    username: your_username
-    password: your_password
+    url: ${DB_URL:jdbc:mysql://localhost:3306/logicoma_net}
+    username: ${DB_USER:your_username}
+    password: ${DB_PASSWORD:your_password}
 ```
 
 ---

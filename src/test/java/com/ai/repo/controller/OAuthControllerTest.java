@@ -201,9 +201,9 @@ class OAuthControllerTest {
         String decoded = new String(Base64.getUrlDecoder().decode(state));
         assertTrue(decoded.startsWith("myapp-callback:"));
         String[] parts = decoded.split(":");
-        assertTrue(parts.length >= 3, "state should have at least 3 colon-separated parts");
-        assertTrue(parts[parts.length - 2].matches("\\d+"), "second-to-last part should be a numeric timestamp");
-        assertFalse(parts[parts.length - 1].isEmpty(), "last part should be a non-empty random uuid");
+        assertTrue(parts.length >= 4, "state should have payload (3 parts) + HMAC signature (1 part)");
+        assertTrue(parts[1].matches("\\d+"), "second part should be a numeric timestamp");
+        assertFalse(parts[parts.length - 1].isEmpty(), "last part should be a non-empty HMAC signature");
     }
 
     @Test
@@ -251,6 +251,17 @@ class OAuthControllerTest {
         String state = invokeGenerateState("");
         Object extracted = invokePrivate("validateAndExtractState", state);
         assertEquals("default", extracted);
+    }
+
+    @Test
+    void validateAndExtractState_shouldReturnNull_whenHmacTampered() throws Exception {
+        // Generate a valid state, then corrupt the HMAC signature
+        String validState = invokeGenerateState("myapp");
+        String decoded = new String(Base64.getUrlDecoder().decode(validState));
+        int lastColon = decoded.lastIndexOf(':');
+        String tampered = decoded.substring(0, lastColon + 1) + "tampered-signature";
+        String tamperedState = Base64.getUrlEncoder().withoutPadding().encodeToString(tampered.getBytes());
+        assertNull(invokePrivate("validateAndExtractState", tamperedState));
     }
 
     @Test

@@ -10,6 +10,7 @@ public interface CommentMapper {
     int insert(Comment comment);
     int update(Comment comment);
     int deleteById(Long id);
+    int deleteByAgentId(Long agentId);
     Comment selectById(Long id);
     List<Comment> selectAll();
     List<Comment> selectByAgentId(Long agentId);

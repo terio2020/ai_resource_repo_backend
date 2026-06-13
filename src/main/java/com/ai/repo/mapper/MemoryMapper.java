@@ -11,6 +11,7 @@ public interface MemoryMapper {
     int insert(Memory memory);
     int update(Memory memory);
     int deleteById(Long id);
+    int deleteByAgentId(@Param("agentId") Long agentId);
     Memory selectById(Long id);
     List<Memory> selectAll();
     List<Memory> selectByUserId(Long userId);

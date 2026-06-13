@@ -23,10 +23,14 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.view.RedirectView;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 @Slf4j
 @RestController
@@ -335,27 +339,53 @@ public class OAuthController {
     }
 
     private String generateState(String redirectUri) {
-        // Simple state: base64(redirectUri + ":" + timestamp + ":" + random)
-        // In production, use proper state management with Redis
         long timestamp = System.currentTimeMillis();
         String random = UUID.randomUUID().toString();
         String safeRedirectUri = (redirectUri != null && !redirectUri.isEmpty()) ? redirectUri : "default";
-        String rawState = safeRedirectUri + ":" + timestamp + ":" + random;
+        String payload = safeRedirectUri + ":" + timestamp + ":" + random;
+        String signature = hmacSha256(payload);
+        String rawState = payload + ":" + signature;
         return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(rawState.getBytes());
     }
 
     private String validateAndExtractState(String state) {
         try {
             String decoded = new String(java.util.Base64.getUrlDecoder().decode(state));
-            String[] parts = decoded.split(":");
+            int lastColon = decoded.lastIndexOf(':');
+            if (lastColon < 0) {
+                return null;
+            }
+            String payload = decoded.substring(0, lastColon);
+            String signature = decoded.substring(lastColon + 1);
+
+            // Verify HMAC signature
+            String expectedSignature = hmacSha256(payload);
+            if (!expectedSignature.equals(signature)) {
+                log.warn("State parameter HMAC signature mismatch");
+                return null;
+            }
+
+            String[] parts = payload.split(":");
             if (parts.length >= 2) {
-                // Return redirect URI if present
                 return parts[0].isEmpty() ? null : parts[0];
             }
             return null;
         } catch (Exception e) {
             log.warn("Invalid state parameter", e);
             return null;
+        }
+    }
+
+    private String hmacSha256(String data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec keySpec = new SecretKeySpec(stateSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(keySpec);
+            byte[] hmacBytes = mac.doFinal(data.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hmacBytes);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            log.error("HMAC-SHA256 not available", e);
+            throw new RuntimeException("HMAC-SHA256 not available", e);
         }
     }
 }

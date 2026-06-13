@@ -149,11 +149,11 @@ Key configuration sources (in priority order):
 2. **`application.yml`** — default values with `${ENV_VAR:default}` fallbacks, used for local development
 
 Required variables:
-- `DB_URL`, `DB_USER`, `DB_PASSWORD` — MySQL connection
-- `JWT_SECRET` — JWT signing key
+- `DB_URL`, `DB_USER`, `DB_PASSWORD` — MySQL connection (defaults in `application.yml` for local dev)
+- `JWT_SECRET` — JWT signing key (must be at least 256 bits in production)
 - OAuth credentials (Google, GitHub) — for social login
 - SMTP settings — for password reset emails
-- `FRONTEND_URL` — frontend base URL for password reset email links (default: `http://localhost:3000`)
+- `FRONTEND_URL` — frontend base URL for CORS and password reset email links (default: `http://localhost:3000`)
 
 ### Building the Project
 

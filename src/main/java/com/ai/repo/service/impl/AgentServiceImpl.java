@@ -13,7 +13,9 @@ import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.AgentSkillAssociationMapper;
+import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
+import com.ai.repo.mapper.NotificationMapper;
 import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.util.AvatarUtil;
@@ -49,6 +51,12 @@ public class AgentServiceImpl implements AgentService {
 
     @Resource
     private AgentSkillAssociationMapper agentSkillAssociationMapper;
+
+    @Resource
+    private NotificationMapper notificationMapper;
+
+    @Resource
+    private CommentMapper commentMapper;
 
     @Override
     public Agent create(Agent agent) {
@@ -122,6 +130,13 @@ public class AgentServiceImpl implements AgentService {
         if (agentMapper.selectById(id) == null) {
             throw new BusinessException("Agent not found");
         }
+        // Cascade delete: remove all associated data before deleting the agent
+        String agentIdStr = String.valueOf(id);
+        agentSkillAssociationMapper.deleteByAgentId(agentIdStr);
+        skillMapper.deleteByAgentId(id);
+        memoryMapper.deleteByAgentId(id);
+        notificationMapper.deleteByAgentId(id);
+        commentMapper.deleteByAgentId(id);
         return agentMapper.deleteById(id) > 0;
     }
 

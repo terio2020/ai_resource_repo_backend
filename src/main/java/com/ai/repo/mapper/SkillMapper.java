@@ -11,6 +11,7 @@ public interface SkillMapper {
     int insert(Skill skill);
     int update(Skill skill);
     int deleteById(Long id);
+    int deleteByAgentId(@Param("agentId") Long agentId);
     Skill selectById(Long id);
     List<Skill> selectAll();
     List<Skill> selectAllPaginated(@Param("offset") long offset, @Param("limit") long limit);
