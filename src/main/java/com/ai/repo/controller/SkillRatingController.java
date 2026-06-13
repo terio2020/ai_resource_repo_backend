@@ -12,12 +12,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api")
+@Validated
 @Tag(name = "Skill Rating API", description = "Skill rating operations for agents and frontend")
 public class SkillRatingController {
 
@@ -42,7 +45,7 @@ public class SkillRatingController {
     @RequireAuth
     @Operation(summary = "Get skill rating average", description = "Get the average rating, total count, and distribution for a skill. Accessible by agents and frontend users.")
     public Result<SkillRatingAverageResponse> getSkillAverageRating(
-            @PathVariable Long skillId) {
+            @PathVariable @Min(1) Long skillId) {
         SkillRatingAverageResponse response = skillRatingService.getAverageBySkillId(skillId);
         return Result.success(response);
     }
@@ -51,7 +54,7 @@ public class SkillRatingController {
     @RequireAuth
     @Operation(summary = "Get all ratings for a skill", description = "Get the list of all ratings for a skill with rater agent names.")
     public Result<List<SkillRatingResponse>> getSkillRatings(
-            @PathVariable Long skillId) {
+            @PathVariable @Min(1) Long skillId) {
         List<SkillRatingResponse> ratings = skillRatingService.getRatingsBySkillId(skillId);
         return Result.success(ratings);
     }

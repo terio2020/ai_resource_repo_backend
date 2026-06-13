@@ -19,10 +19,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,6 +44,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/agents")
+@Validated
 @Tag(name = "Agent API", description = "Agent management operations")
 public class AgentController {
 
@@ -76,7 +79,7 @@ public class AgentController {
     @ApiKeyAuth
     @Operation(summary = "Update an agent", description = "Update an existing agent's information")
     public Result<Agent> updateAgent(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody Agent agent) {
         agent.setId(id);
         Agent updatedAgent = agentService.update(agent);
@@ -87,7 +90,7 @@ public class AgentController {
     @RequireAuth
     @RequireOwnership(resourceType = "agent", idParam = "id")
     @Operation(summary = "Delete an agent", description = "Delete an agent by its ID")
-    public Result<Void> deleteAgent(@Parameter(description = "Agent ID") @PathVariable Long id) {
+    public Result<Void> deleteAgent(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long id) {
         agentService.delete(id);
         return Result.success();
     }
@@ -95,7 +98,7 @@ public class AgentController {
     @GetMapping("/{id}")
     @RequireAuth
     @Operation(summary = "Get agent by ID", description = "Retrieve a specific agent by its ID")
-    public Result<Agent> getAgentById(@PathVariable Long id) {
+    public Result<Agent> getAgentById(@PathVariable @Min(1) Long id) {
         Agent agent = agentService.findById(id);
         return Result.success(agent);
     }
@@ -119,7 +122,7 @@ public class AgentController {
     @GetMapping("/{id}/stats")
     @RequireAuth
     @Operation(summary = "Get agent statistics", description = "Retrieve statistics for a specific agent")
-    public Result<AgentStatsResponse> getAgentStats(@PathVariable Long id) {
+    public Result<AgentStatsResponse> getAgentStats(@PathVariable @Min(1) Long id) {
         AgentStatsResponse stats = agentService.getStats(id);
         return Result.success(stats);
     }
@@ -128,7 +131,7 @@ public class AgentController {
     @ApiKeyAuth
     @Operation(summary = "Send agent heartbeat", description = "Update agent heartbeat status")
     public Result<Void> heartbeat(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody HeartbeatRequest request) {
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         agentService.updateHeartbeat(id, request.getStatus(), now);
@@ -139,7 +142,7 @@ public class AgentController {
     @ApiKeyAuth
     @Operation(summary = "Update agent status", description = "Update the status of an agent")
     public Result<Void> updateStatus(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody StatusUpdateRequest request) {
         agentService.updateStatusOnly(id, request.getStatus());
         return Result.success();
@@ -149,7 +152,7 @@ public class AgentController {
     @ApiKeyAuth
     @Operation(summary = "Update agent config", description = "Update the configuration of an agent")
     public Result<Void> updateConfig(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody ConfigUpdateRequest request) {
         agentService.updateConfigOnly(id, request.getConfig());
         return Result.success();
@@ -168,7 +171,7 @@ public class AgentController {
     @ApiKeyAuth
     @Operation(summary = "Upload agent avatar", description = "Upload an avatar image for an agent")
     public Result<Map<String, String>> uploadAvatar(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "Avatar image file") @RequestParam("avatar") MultipartFile file,
             HttpServletRequest request) {
 
@@ -244,7 +247,7 @@ public class AgentController {
     @GetMapping("/{id}/avatar/{fileName}")
     @Operation(summary = "Get agent avatar image", description = "Retrieve an agent's avatar image by file name")
     public ResponseEntity<org.springframework.core.io.Resource> getAvatar(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "File name") @PathVariable String fileName) {
         try {
             Path filePath = Paths.get(basePath, "agents", String.valueOf(id), fileName).normalize();
@@ -267,7 +270,7 @@ public class AgentController {
     @ApiKeyAuth
     @Operation(summary = "Sync agent data", description = "Synchronize agent data since a specific timestamp")
     public Result<AgentSyncResponse> syncData(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "Since timestamp (ISO format)") @RequestParam(required = false) String since) {
         AgentSyncResponse response = agentService.syncData(id, since);
         return Result.success(response);
@@ -277,7 +280,7 @@ public class AgentController {
     @RequireAuth
     @Operation(summary = "Bind skill to agent", description = "Associate a skill with an agent")
     public Result<AgentSkillAssociation> bindSkill(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody SkillBindRequest request) {
         AgentSkillAssociation assoc = agentService.bindSkill(id, request.getSkillId(), request.getProficiency());
         return Result.success(assoc);
@@ -287,7 +290,7 @@ public class AgentController {
     @RequireAuth
     @Operation(summary = "List agent skills", description = "Get all skills bound to an agent")
     public Result<List<Skill>> getAgentSkills(
-            @Parameter(description = "Agent ID") @PathVariable Long id) {
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id) {
         List<Skill> skills = agentService.getAgentSkills(id);
         return Result.success(skills);
     }
@@ -296,8 +299,8 @@ public class AgentController {
     @RequireAuth
     @Operation(summary = "Unbind skill from agent", description = "Remove a skill association from an agent")
     public Result<Void> unbindSkill(
-            @Parameter(description = "Agent ID") @PathVariable Long id,
-            @Parameter(description = "Skill ID") @PathVariable Long skillId) {
+            @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
+            @Parameter(description = "Skill ID") @PathVariable @Min(1) Long skillId) {
         agentService.unbindSkill(id, skillId);
         return Result.success();
     }

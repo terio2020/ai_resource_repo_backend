@@ -20,9 +20,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,6 +32,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/memories")
+@Validated
 @Tag(name = "Memory API", description = "Memory management operations")
 public class MemoryController {
 
@@ -103,7 +106,7 @@ public class MemoryController {
     @ApiKeyAuth
     @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
     public Result<Memory> updateMemory(
-            @PathVariable Long id,
+            @PathVariable @Min(1) Long id,
             @RequestBody MemoryUpdateRequest request,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
@@ -137,7 +140,7 @@ public class MemoryController {
     @DeleteMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Delete a memory", description = "Delete a memory by its ID")
-    public Result<Void> deleteMemory(@PathVariable Long id) {
+    public Result<Void> deleteMemory(@PathVariable @Min(1) Long id) {
         memoryService.delete(id);
         return Result.success();
     }
@@ -145,7 +148,7 @@ public class MemoryController {
     @GetMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Get memory by ID", description = "Retrieve a specific memory by its ID")
-    public Result<Memory> getMemoryById(@PathVariable Long id) {
+    public Result<Memory> getMemoryById(@PathVariable @Min(1) Long id) {
         Memory memory = memoryService.findById(id);
         return Result.success(memory);
     }
@@ -153,7 +156,7 @@ public class MemoryController {
     @GetMapping("/user/{userId}")
     @RequireAuth
     @Operation(summary = "Get memories by user", description = "Retrieve all memories owned by a specific user")
-    public Result<List<Memory>> getMemoriesByUserId(@PathVariable Long userId) {
+    public Result<List<Memory>> getMemoriesByUserId(@PathVariable @Min(1) Long userId) {
         List<Memory> memories = memoryService.findByUserId(userId);
         return Result.success(memories);
     }
@@ -161,7 +164,7 @@ public class MemoryController {
     @GetMapping("/agent/{agentId}")
     @RequireAuth
     @Operation(summary = "Get memories by agent", description = "Retrieve all memories belonging to a specific agent")
-    public Result<List<Memory>> getMemoriesByAgentId(@PathVariable Long agentId) {
+    public Result<List<Memory>> getMemoriesByAgentId(@PathVariable @Min(1) Long agentId) {
         List<Memory> memories = memoryService.findByAgentId(agentId);
         return Result.success(memories);
     }
@@ -202,7 +205,7 @@ public class MemoryController {
     @ApiKeyAuth
     @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment download count", description = "Increment download count of a memory")
-    public Result<Void> incrementDownloadCount(@PathVariable Long id) {
+    public Result<Void> incrementDownloadCount(@PathVariable @Min(1) Long id) {
         memoryService.incrementDownloadCount(id);
         return Result.success();
     }
@@ -211,7 +214,7 @@ public class MemoryController {
     @ApiKeyAuth
     @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment like count", description = "Increment the like count of a memory")
-    public Result<Void> incrementLikeCount(@PathVariable Long id) {
+    public Result<Void> incrementLikeCount(@PathVariable @Min(1) Long id) {
         memoryService.incrementLikeCount(id);
         return Result.success();
     }
@@ -220,7 +223,7 @@ public class MemoryController {
     @ApiKeyAuth
     @Operation(summary = "Upload memory file", description = "Upload a file associated with a memory")
     public Result<FileUploadResponse> uploadMemoryFile(
-            @PathVariable Long agentId,
+            @PathVariable @Min(1) Long agentId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "description", required = false) String description,
             HttpServletRequest httpRequest) {
@@ -233,7 +236,7 @@ public class MemoryController {
     @ApiKeyAuth
     @Operation(summary = "Download memory file", description = "Download a memory file by its file ID")
     public ResponseEntity<org.springframework.core.io.Resource> downloadMemoryFile(
-            @PathVariable Long fileId,
+            @PathVariable @Min(1) Long fileId,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         org.springframework.core.io.Resource resource = fileStorageService.loadFileAsResource(fileId, userId);
@@ -250,7 +253,7 @@ public class MemoryController {
     @GetMapping("/{agentId}/files")
     @ApiKeyAuth
     @Operation(summary = "Get memory files", description = "Retrieve all memory files for an agent")
-    public Result<List<FileUploadLog>> getMemoryFiles(@PathVariable Long agentId) {
+    public Result<List<FileUploadLog>> getMemoryFiles(@PathVariable @Min(1) Long agentId) {
         List<FileUploadLog> files = fileStorageService.getFileList(agentId, "memory", null);
         return Result.success(files);
     }
@@ -259,7 +262,7 @@ public class MemoryController {
     @ApiKeyAuth
     @Operation(summary = "Delete memory file", description = "Delete a memory file by its file ID")
     public Result<Void> deleteMemoryFile(
-            @PathVariable Long fileId,
+            @PathVariable @Min(1) Long fileId,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         fileStorageService.deleteFile(fileId, userId);

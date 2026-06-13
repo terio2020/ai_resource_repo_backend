@@ -11,11 +11,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -35,6 +37,7 @@ import java.util.Set;
 
 @RestController
 @RequestMapping("/api/users")
+@Validated
 @Tag(name = "User API", description = "User authentication and management operations")
 public class UserController {
 
@@ -115,7 +118,7 @@ public class UserController {
     @PostMapping("/deleteById")
     @RequireAuth
     @Operation(summary = "Delete user", description = "Delete a user account")
-    public Result<Void> deleteUser(@Parameter(description = "User ID") @RequestParam Long id) {
+    public Result<Void> deleteUser(@Parameter(description = "User ID") @RequestParam @Min(1) Long id) {
         userService.delete(id);
         return Result.success();
     }
@@ -225,7 +228,7 @@ public class UserController {
     @RequireAuth
     @Operation(summary = "Upload avatar image")
     public Result<Map<String, String>> uploadAvatar(
-            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Parameter(description = "User ID") @PathVariable @Min(1) Long userId,
             @Parameter(description = "Avatar image file") @RequestParam("avatar") MultipartFile file,
             HttpServletRequest request) {
 
@@ -307,7 +310,7 @@ public class UserController {
     @GetMapping("/{userId}/avatar/{fileName}")
     @Operation(summary = "Get avatar image (legacy — kept for backward compatibility)")
     public ResponseEntity<org.springframework.core.io.Resource> getAvatar(
-            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Parameter(description = "User ID") @PathVariable @Min(1) Long userId,
             @Parameter(description = "File name") @PathVariable String fileName) {
         try {
             // First try the new storage path

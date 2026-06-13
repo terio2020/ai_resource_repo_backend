@@ -9,12 +9,15 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/notifications")
+@Validated
 @Tag(name = "Notification API", description = "Notification management operations")
 public class NotificationController {
 
@@ -25,7 +28,7 @@ public class NotificationController {
     @ApiKeyAuth
     @Operation(summary = "Get notification by ID", description = "Retrieve a specific notification by its ID")
     public Result<Notification> getNotificationById(
-            @Parameter(description = "Notification ID") @PathVariable Long id,
+            @Parameter(description = "Notification ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Notification notification = notificationService.findById(id);
@@ -72,7 +75,7 @@ public class NotificationController {
     @ApiKeyAuth
     @Operation(summary = "Mark notification as read", description = "Mark a specific notification as read")
     public Result<Void> markAsRead(
-            @Parameter(description = "Notification ID") @PathVariable Long id,
+            @Parameter(description = "Notification ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Notification notification = notificationService.findById(id);
@@ -102,7 +105,7 @@ public class NotificationController {
     @ApiKeyAuth
     @Operation(summary = "Delete notification", description = "Delete a specific notification")
     public Result<Void> deleteNotification(
-            @Parameter(description = "Notification ID") @PathVariable Long id,
+            @Parameter(description = "Notification ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Notification notification = notificationService.findById(id);

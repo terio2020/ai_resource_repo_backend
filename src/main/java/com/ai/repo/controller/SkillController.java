@@ -22,9 +22,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,6 +41,7 @@ import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/skills")
+@Validated
 @Tag(name = "Skill API", description = "Skill management operations")
 public class SkillController {
 
@@ -88,7 +91,7 @@ public class SkillController {
     @ApiKeyAuth
     @Operation(summary = "Update a skill", description = "Update an existing skill with new information")
     public Result<Skill> updateSkill(
-            @PathVariable Long id,
+            @PathVariable @Min(1) Long id,
             @RequestBody SkillUpdateRequest request,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
@@ -119,7 +122,7 @@ public class SkillController {
     @DeleteMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Delete a skill", description = "Delete a skill by its ID")
-    public Result<Void> deleteSkill(@PathVariable Long id) {
+    public Result<Void> deleteSkill(@PathVariable @Min(1) Long id) {
         skillService.delete(id);
         return Result.success();
     }
@@ -127,7 +130,7 @@ public class SkillController {
     @GetMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Get skill by ID", description = "Retrieve a specific skill by its ID")
-    public Result<Skill> getSkillById(@PathVariable Long id) {
+    public Result<Skill> getSkillById(@PathVariable @Min(1) Long id) {
         Skill skill = skillService.findById(id);
         return Result.success(skill);
     }
@@ -145,7 +148,7 @@ public class SkillController {
     @GetMapping("/user/{userId}")
     @RequireAuth
     @Operation(summary = "Get skills by user", description = "Retrieve all skills owned by a specific user")
-    public Result<List<Skill>> getSkillsByUserId(@PathVariable Long userId) {
+    public Result<List<Skill>> getSkillsByUserId(@PathVariable @Min(1) Long userId) {
         List<Skill> skills = skillService.findByUserId(userId);
         return Result.success(skills);
     }
@@ -153,7 +156,7 @@ public class SkillController {
     @GetMapping("/agent/{agentId}")
     @RequireAuth
     @Operation(summary = "Get skills by agent", description = "Retrieve all skills belonging to a specific agent (FK + association table)")
-    public Result<List<Skill>> getSkillsByAgentId(@PathVariable Long agentId) {
+    public Result<List<Skill>> getSkillsByAgentId(@PathVariable @Min(1) Long agentId) {
         List<Skill> directSkills = skillService.findByAgentId(agentId);
         List<Skill> boundSkills = agentService.getAgentSkills(agentId);
         Set<Long> seen = new HashSet<>();
@@ -194,7 +197,7 @@ public class SkillController {
     @ApiKeyAuth
     @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment download count", description = "Increment the download count of a skill. Agent-only.")
-    public Result<Void> incrementDownloadCount(@PathVariable Long id, HttpServletRequest httpRequest) {
+    public Result<Void> incrementDownloadCount(@PathVariable @Min(1) Long id, HttpServletRequest httpRequest) {
         requireAgent(httpRequest);
         skillService.incrementDownloadCount(id);
         return Result.success();
@@ -204,7 +207,7 @@ public class SkillController {
     @ApiKeyAuth
     @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment like count", description = "Increment the like count of a skill. Agent-only.")
-    public Result<Void> incrementLikeCount(@PathVariable Long id, HttpServletRequest httpRequest) {
+    public Result<Void> incrementLikeCount(@PathVariable @Min(1) Long id, HttpServletRequest httpRequest) {
         requireAgent(httpRequest);
         skillService.incrementLikeCount(id);
         return Result.success();
@@ -220,7 +223,7 @@ public class SkillController {
     @RequireAuth
     @Operation(summary = "Share a skill", description = "Generate a share link for a public skill. Human users only.")
     public Result<Map<String, String>> shareSkill(
-            @Parameter(description = "Skill ID") @PathVariable Long id,
+            @Parameter(description = "Skill ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         String token = shareService.createShareLink(id, userId);
@@ -248,7 +251,7 @@ public class SkillController {
     @ApiKeyAuth
     @Operation(summary = "Upload skill file", description = "Upload a file associated with a skill")
     public Result<FileUploadResponse> uploadSkillFile(
-            @PathVariable Long agentId,
+            @PathVariable @Min(1) Long agentId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "description", required = false) String description,
             HttpServletRequest httpRequest) {
@@ -261,7 +264,7 @@ public class SkillController {
     @ApiKeyAuth
     @Operation(summary = "Download skill file", description = "Download a skill file by its file ID")
     public ResponseEntity<org.springframework.core.io.Resource> downloadSkillFile(
-            @PathVariable Long fileId,
+            @PathVariable @Min(1) Long fileId,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         org.springframework.core.io.Resource resource = fileStorageService.loadFileAsResource(fileId, userId);
@@ -278,7 +281,7 @@ public class SkillController {
     @GetMapping("/{agentId}/files")
     @ApiKeyAuth
     @Operation(summary = "Get skill files", description = "Retrieve all skill files for an agent")
-    public Result<List<FileUploadLog>> getSkillFiles(@PathVariable Long agentId) {
+    public Result<List<FileUploadLog>> getSkillFiles(@PathVariable @Min(1) Long agentId) {
         List<FileUploadLog> files = fileStorageService.getFileList(agentId, "skill", null);
         return Result.success(files);
     }
@@ -287,7 +290,7 @@ public class SkillController {
     @ApiKeyAuth
     @Operation(summary = "Delete skill file", description = "Delete a skill file by its file ID")
     public Result<Void> deleteSkillFile(
-            @PathVariable Long fileId,
+            @PathVariable @Min(1) Long fileId,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         fileStorageService.deleteFile(fileId, userId);

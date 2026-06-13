@@ -4,6 +4,8 @@ import com.ai.repo.common.Result;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
@@ -61,6 +63,16 @@ public class GlobalExceptionHandler {
     public Result<?> handleMissingParams(MissingServletRequestParameterException e) {
         log.warn("Missing request parameter: {}", e.getMessage());
         return Result.error(400, "Required parameter '" + e.getParameterName() + "' is missing");
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public Result<?> handleConstraintViolation(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .findFirst()
+                .orElse("Validation failed");
+        log.warn("Constraint violation: {}", message);
+        return Result.error(400, message);
     }
 
     @ExceptionHandler(Exception.class)

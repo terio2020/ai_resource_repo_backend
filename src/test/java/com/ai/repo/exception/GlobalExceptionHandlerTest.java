@@ -1,6 +1,8 @@
 package com.ai.repo.exception;
 
 import com.ai.repo.common.Result;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
@@ -10,8 +12,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
 
@@ -151,5 +158,27 @@ class GlobalExceptionHandlerTest {
         Result<?> result = handler.handleException(e);
         assertEquals(500, result.getCode());
         assertEquals("System error, please contact administrator", result.getMessage());
+    }
+
+    @Test
+    void handleConstraintViolationException() {
+        @SuppressWarnings("unchecked")
+        ConstraintViolation<Object> violation = mock(ConstraintViolation.class);
+        when(violation.getMessage()).thenReturn("must be greater than or equal to 1");
+        Set<ConstraintViolation<?>> violations = new HashSet<>();
+        violations.add(violation);
+
+        ConstraintViolationException e = new ConstraintViolationException("pathVariable.id", violations);
+        Result<?> result = handler.handleConstraintViolation(e);
+        assertEquals(400, result.getCode());
+        assertEquals("must be greater than or equal to 1", result.getMessage());
+    }
+
+    @Test
+    void handleConstraintViolationExceptionWithEmptyViolations() {
+        ConstraintViolationException e = new ConstraintViolationException("no violations", Collections.emptySet());
+        Result<?> result = handler.handleConstraintViolation(e);
+        assertEquals(400, result.getCode());
+        assertEquals("Validation failed", result.getMessage());
     }
 }
