@@ -239,12 +239,7 @@ public class MemoryController {
         org.springframework.core.io.Resource resource = fileStorageService.loadFileAsResource(fileId, userId);
         FileUploadLog uploadLog = fileStorageService.getFileUploadLog(fileId);
 
-        String contentType = null;
-        try {
-            contentType = "application/octet-stream";
-        } catch (Exception ex) {
-            contentType = "application/octet-stream";
-        }
+        String contentType = "application/octet-stream";
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
