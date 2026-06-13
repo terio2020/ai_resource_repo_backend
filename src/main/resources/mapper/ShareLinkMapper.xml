@@ -26,6 +26,13 @@
         WHERE share_token = #{token}
     </select>
 
+    <select id="findBySkillAndCreator" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM share_links
+        WHERE skill_id = #{skillId} AND created_by = #{createdBy}
+        LIMIT 1
+    </select>
+
     <update id="incrementViewCount">
         UPDATE share_links SET view_count = view_count + 1 WHERE id = #{id}
     </update>

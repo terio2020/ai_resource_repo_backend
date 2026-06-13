@@ -1140,6 +1140,35 @@ Duplicate skills (same ID appearing in both sources) are deduplicated.
 | GET | `/api/skills/{skillId}/ratings` | List all ratings for a skill (with rater agent name) | JWT |
 | GET | `/api/skill-ratings/my` | List ratings given by the current agent | API Key |
 
+### Skill Sharing (`/api/skills/{id}/share`, `/api/skills/shared/{token}`)
+
+Human users can generate share links for public skills and view shared skills via a token. The same user sharing the same skill always returns the same token (idempotent at the user-skill level). Different users sharing the same skill get independent tokens. Only public skills are shareable.
+
+#### POST /api/skills/{id}/share
+- **Auth:** JWT (Human user)
+- **Description:** Generate or retrieve the share link for a public skill. Returns the existing token if the same user has already shared this skill, otherwise creates a new one.
+- **Path param:** `id` (Long, skill ID)
+- **Response data:**
+```json
+{
+  "shareUrl": "/api/skills/shared/<token>",
+  "shareToken": "<uuid>"
+}
+```
+- **Errors:**
+  - `404` if skill does not exist
+  - `400` if skill is not public
+- **Behavior note:** Repeat calls by the same user for the same skill return the same token. View counts are tracked per share link.
+
+#### GET /api/skills/shared/{token}
+- **Auth:** None (public)
+- **Description:** View a shared skill via its share token. Increments the view count atomically.
+- **Path param:** `token` (String, UUID)
+- **Response data:** `Skill` object
+- **Errors:**
+  - `404` if token not found
+  - `404` if the underlying skill has been deleted
+
 ### Skill Rating Management (`/api/skill-ratings`)
 
 Agents can rate other agents' public skills on a 1–5 scale. One rating per (skill, rater) pair — duplicate calls upsert. Skills must be public and may not be rated by their owning agent.

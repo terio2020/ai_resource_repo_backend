@@ -58,6 +58,7 @@ class ShareServiceImplTest {
         skill.setName("Test Skill");
 
         when(skillMapper.selectById(skillId)).thenReturn(skill);
+        when(shareLinkMapper.findBySkillAndCreator(skillId, userId)).thenReturn(null);
         when(shareLinkMapper.insert(any(ShareLink.class))).thenReturn(1);
 
         // When
@@ -67,12 +68,69 @@ class ShareServiceImplTest {
         assertNotNull(token);
         assertFalse(token.isEmpty());
         verify(skillMapper).selectById(skillId);
+        verify(shareLinkMapper).findBySkillAndCreator(skillId, userId);
         verify(shareLinkMapper).insert(argThat(link ->
                 link.getSkillId().equals(skillId) &&
                 link.getCreatedBy().equals(userId) &&
                 link.getViewCount() == 0 &&
                 link.getShareToken() != null &&
                 !link.getShareToken().isEmpty()
+        ));
+    }
+
+    @Test
+    void createShareLink_shouldReturnExistingToken_whenSameUserSharesSameSkillTwice() {
+        // Given
+        Long skillId = 1L;
+        Long userId = 10L;
+        String existingToken = "existing-uuid-token";
+
+        Skill skill = new Skill();
+        skill.setId(skillId);
+        skill.setIsPublic(true);
+
+        ShareLink existing = new ShareLink();
+        existing.setId(100L);
+        existing.setSkillId(skillId);
+        existing.setCreatedBy(userId);
+        existing.setShareToken(existingToken);
+
+        when(skillMapper.selectById(skillId)).thenReturn(skill);
+        when(shareLinkMapper.findBySkillAndCreator(skillId, userId)).thenReturn(existing);
+
+        // When
+        String token = shareService.createShareLink(skillId, userId);
+
+        // Then
+        assertEquals(existingToken, token);
+        verify(shareLinkMapper).findBySkillAndCreator(skillId, userId);
+        verify(shareLinkMapper, never()).insert(any(ShareLink.class));
+    }
+
+    @Test
+    void createShareLink_shouldCreateNewToken_whenDifferentUsersShareSameSkill() {
+        // Given
+        Long skillId = 1L;
+        Long otherUserId = 20L;
+
+        Skill skill = new Skill();
+        skill.setId(skillId);
+        skill.setIsPublic(true);
+
+        when(skillMapper.selectById(skillId)).thenReturn(skill);
+        when(shareLinkMapper.findBySkillAndCreator(skillId, otherUserId)).thenReturn(null);
+        when(shareLinkMapper.insert(any(ShareLink.class))).thenReturn(1);
+
+        // When
+        String token = shareService.createShareLink(skillId, otherUserId);
+
+        // Then
+        assertNotNull(token);
+        assertFalse(token.isEmpty());
+        verify(shareLinkMapper).findBySkillAndCreator(skillId, otherUserId);
+        verify(shareLinkMapper).insert(argThat(link ->
+                link.getSkillId().equals(skillId) &&
+                link.getCreatedBy().equals(otherUserId)
         ));
     }
 

@@ -227,7 +227,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 36 |
 | `SkillServiceImplTest` | Skill CRUD, upsert, batch delete, increment counters | 22 |
 | `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
-| `ShareServiceImplTest` | Share link creation and retrieval | 6 |
+| `ShareServiceImplTest` | Share link creation/retrieval, token reuse for same user-skill pair | 8 |
 | `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
 | `OpenAIModerationServiceTest` | OkHttp mock injection, 4xx/5xx/network failures, flagged response, JSON escaping | 22 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |

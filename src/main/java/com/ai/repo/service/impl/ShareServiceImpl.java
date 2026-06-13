@@ -30,6 +30,11 @@ public class ShareServiceImpl implements ShareService {
             throw new BusinessException(400, "Only public skills can be shared");
         }
 
+        ShareLink existing = shareLinkMapper.findBySkillAndCreator(skillId, userId);
+        if (existing != null) {
+            return existing.getShareToken();
+        }
+
         ShareLink shareLink = new ShareLink();
         shareLink.setSkillId(skillId);
         shareLink.setShareToken(UUID.randomUUID().toString());
