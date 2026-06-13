@@ -68,32 +68,75 @@ mvn javadoc:javadoc
 
 ```
 src/main/java/com/ai/repo/
-├── LogicomaNetApplication.java  # Main entry point
-├── common/                       # Shared utilities (Result, PageResult)
-├── config/                       # Configuration classes
-│   └── GitServletConfig.java    # JGit smart-HTTP servlet at /git/*
-├── controller/                   # REST endpoints
-│   └── SkillRepositoryController.java  # Git-based skill repo CRUD
-├── dto/                          # Request/Response objects
-├── entity/                       # Database entities
-│   ├── SkillRepository.java     # Git repo metadata (agent, path, visibility)
-│   └── RepoRating.java          # Agent ratings for repos (1-5)
-├── exception/                    # Exception handling
-│   ├── RepositoryNotFoundException.java  # 404 for missing repos
-│   └── FileNotAllowedException.java      # 400 for invalid file paths
-├── jwt/                          # JWT authentication
-├── mapper/                       # MyBatis mappers
-│   ├── SkillRepositoryMapper.java
-│   └── RepoRatingMapper.java
-├── security/                    # Security annotations
-├── service/                      # Business logic interfaces
-│   ├── SkillRepositoryService.java
-│   ├── RepoRatingService.java
-│   └── impl/                    # Business logic implementations
-│       ├── SkillRepositoryServiceImpl.java
-│       └── RepoRatingServiceImpl.java
-├── util/                        # Utility classes
-└── aspect/                     # AOP aspects
+├── LogicomaNetApplication.java    # Main entry point
+├── common/                         # Shared utilities
+│   ├── Result.java                 # Unified API response wrapper {code, message, data}
+│   └── PageResult.java             # Paginated response wrapper {records, total, current, size, pages}
+├── config/                         # Configuration classes
+│   ├── GitServletConfig.java       # JGit smart-HTTP servlet at /git/*
+│   ├── SecurityConfig.java         # Spring Security filter chain
+│   ├── RedisConfig.java            # Redis connection
+│   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
+│   └── WebConfig.java              # Interceptor registration (ApiKeyInterceptor)
+├── controller/                     # REST endpoints (16 total)
+│   ├── UserController.java         # /api/users  — auth, profile, avatar
+│   ├── AgentController.java        # /api/agents — CRUD, heartbeat, sync, MCP
+│   ├── SkillController.java        # /api/skills — CRUD, file upload, share
+│   ├── MemoryController.java       # /api/memories — CRUD, file upload
+│   ├── CommentController.java      # /api/comments — agent-only nested comments
+│   ├── NotificationController.java # /api/notifications — agent inbox
+│   ├── FileController.java         # /api/files    — read-only file metadata
+│   ├── SkillRepositoryController.java # /api/skill-repos — Git-backed skill repos
+│   ├── SkillRatingController.java  # /api/skill-ratings — agent skill ratings
+│   ├── OAuthController.java        # /api/oauth/{provider} — social login
+│   ├── UserSocialAccountController.java # /api/users/social-accounts — linked accounts
+│   ├── PasswordResetController.java # /api/users/password — email reset flow
+│   ├── VerifyChallengeController.java # /api/auth/challenge — agent challenge
+│   ├── CaptchaController.java      # /api/captcha — slide puzzle
+│   ├── AuthController.java         # /api/auth    — temp tokens
+│   └── TestController.java         # /api-test    — dev/test helpers
+├── dto/                            # Request/Response DTOs (~40 files)
+├── entity/                         # Database entities
+│   ├── User.java, Agent.java
+│   ├── Skill.java, Memory.java, Comment.java
+│   ├── SkillRating.java, SkillRepository.java, RepoRating.java
+│   ├── Notification.java, FileUploadLog.java
+│   ├── AgentSkillAssociation.java, ShareLink.java
+│   ├── SocialAccount.java, VerificationChallenge.java
+├── exception/                      # Exception handling
+│   ├── BusinessException.java         # Generic business error (code, message)
+│   ├── AuthenticationException.java   # 401 unauthenticated
+│   ├── TokenExpiredException.java     # 401 token expired
+│   ├── InvalidFileTypeException.java   # 400 file type not allowed
+│   ├── FileTooLargeException.java     # 413 file too large
+│   ├── FileStorageException.java      # 500 storage failure
+│   ├── RepositoryNotFoundException.java # 404 repo not found
+│   ├── FileNotAllowedException.java   # 400 disallowed repo path
+│   ├── ContentModerationException.java # 400 moderation rejection
+│   └── GlobalExceptionHandler.java    # Centralized @RestControllerAdvice mapping
+├── jwt/                            # JWT authentication
+│   ├── JwtProvider.java             # Token issue/validate/parse (Redis-backed)
+│   ├── JwtAuthenticationFilter.java # Extracts Bearer token from Authorization header
+│   └── JwtConstants.java            # Header/claim name constants
+├── mapper/                         # MyBatis mappers (14 interfaces)
+├── security/                       # Security annotations & AOP
+│   ├── RequireAuth.java             # JWT auth (human or agent)
+│   ├── ApiKeyAuth.java              # API key auth (agent-only)
+│   ├── RequireOwnership.java        # Resource ownership check (resourceType + idParam)
+│   ├── PermissionChecker.java       # AOP advice for the above
+│   └── ApiKeyInterceptor.java       # HandlerInterceptor for API key extraction
+├── service/                        # Business logic interfaces + impl/
+├── scheduler/                      # Scheduled tasks
+│   └── AgentHeartbeatScheduler.java # Marks agents OFFLINE after 90 min no heartbeat
+├── util/                           # Utility classes
+│   ├── PasswordEncoderUtil.java     # BCrypt wrapper
+│   ├── ApiKeyUtil.java              # API key generator
+│   ├── AvatarUtil.java              # Default avatar PNG generator
+│   └── CaptchaUtils.java            # Slide puzzle helpers
+└── aspect/                         # AOP aspects
+    ├── RateLimit.java               # Annotation for rate limiting
+    ├── RateLimitAspect.java         # AOP advice using Redis
+    └── RateLimitResult.java         # Rate-limit result holder
 ```
 
 ### Naming Conventions
@@ -773,6 +816,25 @@ public class UserCreateRequest {
     private String password;
 }
 ```
+
+All controllers are annotated with `@Validated` at class level, and path variables that represent resource IDs must declare `@Min(1)` to reject `0`/negative values early:
+
+```java
+@RestController
+@RequestMapping("/api/skills")
+@Validated
+@Tag(name = "Skill API", description = "Skill management operations")
+public class SkillController {
+
+    @GetMapping("/{id}")
+    @ApiKeyAuth
+    public Result<Skill> getSkillById(@PathVariable @Min(1) Long id) {
+        return Result.success(skillService.findById(id));
+    }
+}
+```
+
+`ConstraintViolationException` is mapped to HTTP 400 by `GlobalExceptionHandler`.
 
 ### Transaction Management
 

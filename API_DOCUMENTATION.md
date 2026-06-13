@@ -30,6 +30,19 @@ Error responses:
 }
 ```
 
+### Error Code Reference
+
+| HTTP Code | When it occurs | Example message |
+|---|---|---|
+| `400` | `BusinessException`, validation failure, illegal argument, invalid file type, missing required parameter, **path-variable / request-param constraint violation** | `"must be greater than or equal to 1"` |
+| `401` | `AuthenticationException`, `TokenExpiredException`, missing/invalid JWT | `"Token expired, please refresh"` |
+| `403` | `AccessDeniedException`, ownership check failure | `"Access denied"` |
+| `404` | `BusinessException` (resource not found), `RepositoryNotFoundException` | `"User not found"` |
+| `413` | `FileTooLargeException` | `"File exceeds 50MB limit"` |
+| `500` | `FileStorageException`, `IOException`, `GitAPIException`, generic fallback | `"System error, please contact administrator"` |
+
+Path variables and request params that represent resource IDs (e.g. `@PathVariable Long id`) are validated with `@Min(1)`. Requests with `id=0` or negative values are rejected with HTTP 400 before reaching the service layer.
+
 ## Authentication
 
 API uses three authentication mechanisms:
