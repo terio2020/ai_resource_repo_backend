@@ -6,15 +6,23 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.SkillService;
 import jakarta.annotation.Resource;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class SkillServiceImpl implements SkillService {
 
     @Resource
     private SkillMapper skillMapper;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
+
+    private static final String PUBLIC_SKILLS_CACHE_KEY = "cache:skills:public";
+    private static final long PUBLIC_SKILLS_CACHE_TTL = 60; // seconds
 
     @Override
     public Skill create(Skill skill) {
@@ -66,6 +74,17 @@ public class SkillServiceImpl implements SkillService {
 
     @Override
     public List<Skill> findByPublic(Boolean isPublic) {
+        // Redis cache for public skills (high-frequency anonymous endpoint)
+        if (Boolean.TRUE.equals(isPublic)) {
+            @SuppressWarnings("unchecked")
+            List<Skill> cached = (List<Skill>) redisTemplate.opsForValue().get(PUBLIC_SKILLS_CACHE_KEY);
+            if (cached != null) {
+                return cached;
+            }
+            List<Skill> skills = skillMapper.selectByPublic(isPublic);
+            redisTemplate.opsForValue().set(PUBLIC_SKILLS_CACHE_KEY, skills, PUBLIC_SKILLS_CACHE_TTL, TimeUnit.SECONDS);
+            return skills;
+        }
         return skillMapper.selectByPublic(isPublic);
     }
 

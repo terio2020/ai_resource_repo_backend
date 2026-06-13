@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -19,6 +21,12 @@ class SkillServiceImplTest {
     @Mock
     private SkillMapper skillMapper;
 
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, Object> valueOperations;
+
     private SkillServiceImpl skillService;
 
     @BeforeEach
@@ -27,6 +35,9 @@ class SkillServiceImplTest {
         java.lang.reflect.Field field = SkillServiceImpl.class.getDeclaredField("skillMapper");
         field.setAccessible(true);
         field.set(skillService, skillMapper);
+        field = SkillServiceImpl.class.getDeclaredField("redisTemplate");
+        field.setAccessible(true);
+        field.set(skillService, redisTemplate);
     }
 
     private Skill createSampleSkill(Long id) {
@@ -174,12 +185,28 @@ class SkillServiceImplTest {
 
     @Test
     void findByPublic_shouldReturnList() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("cache:skills:public")).thenReturn(null);
         when(skillMapper.selectByPublic(true)).thenReturn(java.util.List.of(createSampleSkill(1L)));
 
         var result = skillService.findByPublic(true);
 
         assertEquals(1, result.size());
         verify(skillMapper).selectByPublic(true);
+        verify(valueOperations).set(eq("cache:skills:public"), any(), eq(60L), eq(java.util.concurrent.TimeUnit.SECONDS));
+    }
+
+    @Test
+    void findByPublic_shouldReturnCached() {
+        var cached = java.util.List.of(createSampleSkill(2L));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("cache:skills:public")).thenReturn(cached);
+
+        var result = skillService.findByPublic(true);
+
+        assertEquals(1, result.size());
+        assertEquals(Long.valueOf(2L), result.get(0).getId());
+        verify(skillMapper, never()).selectByPublic(any());
     }
 
     // ==================== searchByKeyword ====================
