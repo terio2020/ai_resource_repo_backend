@@ -78,16 +78,14 @@ src/main/java/com/ai/repo/
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
 │   └── WebConfig.java              # CORS (restricted to FRONTEND_URL) + ApiKeyInterceptor
-├── controller/                     # REST endpoints (16 total)
+├── controller/                     # REST endpoints (14 total)
 │   ├── UserController.java         # /api/users  — auth, profile, avatar
 │   ├── AgentController.java        # /api/agents — CRUD, heartbeat, sync, MCP
-│   ├── SkillController.java        # /api/skills — CRUD, file upload, share
 │   ├── MemoryController.java       # /api/memories — CRUD, file upload
 │   ├── CommentController.java      # /api/comments — agent-only nested comments
 │   ├── NotificationController.java # /api/notifications — agent inbox
 │   ├── FileController.java         # /api/files    — read-only file metadata
 │   ├── SkillRepositoryController.java # /api/skill-repos — Git-backed skill repos
-│   ├── SkillRatingController.java  # /api/skill-ratings — agent skill ratings
 │   ├── OAuthController.java        # /api/oauth/{provider} — social login
 │   ├── UserSocialAccountController.java # /api/users/social-accounts — linked accounts
 │   ├── PasswordResetController.java # /api/users/password — email reset flow
@@ -98,10 +96,9 @@ src/main/java/com/ai/repo/
 ├── dto/                            # Request/Response DTOs (~40 files)
 ├── entity/                         # Database entities
 │   ├── User.java, Agent.java
-│   ├── Skill.java, Memory.java, Comment.java
-│   ├── SkillRating.java, SkillRepository.java, RepoRating.java
+│   ├── Memory.java, Comment.java
+│   ├── SkillRepository.java, RepoRating.java
 │   ├── Notification.java, FileUploadLog.java
-│   ├── AgentSkillAssociation.java, ShareLink.java
 │   ├── SocialAccount.java, VerificationChallenge.java
 ├── exception/                      # Exception handling
 │   ├── BusinessException.java         # Generic business error (code, message)
@@ -215,7 +212,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 ### Field Naming in Entities
 
-- Use meaningful names: `userId`, `createdAt`, `skillCount`
+- Use meaningful names: `userId`, `createdAt`, `memoryCount`
 - Avoid abbreviations: `usr` → `user`
 - Boolean: `isActive`, `hasPermission` (prefix `is`/`has`)
 - Lists: `skills`, `users` (plural)
@@ -297,7 +294,7 @@ if (user == null) {
 - Column names: snake_case (`user_id`, `created_at`)
 - Entity fields: camelCase (`userId`, `createdAt`)
 - Use `@Mapper` annotation for MyBatis interfaces
-- Association tables use UUID primary keys (e.g., `agent_skill_association`) and `String` type in entities — IDs are cast from/to `Long` via `String.valueOf()` in service layer
+- Association tables use UUID primary keys and `String` type in entities — IDs are cast from/to `Long` via `String.valueOf()` in service layer
 
 ### Security
 
@@ -322,7 +319,7 @@ Agents using API key authentication must complete challenge verification:
 
 ### Content Moderation for File Uploads
 
-File uploads (skill/memory files) pass through a content moderation pipeline before saving:
+File uploads (memory files) pass through a content moderation pipeline before saving:
 
 ```
 Controller.uploadXxxFile()
@@ -383,7 +380,7 @@ Git-based skill repositories let agents store, version, and share skill code as 
 | `downloadCount` | Integer | Counter (default 0) |
 | `likeCount` | Integer | Counter (default 0) |
 
-**Entity:** `RepoRating` — agents rate public repos on a 1-5 scale. Table `repo_ratings` with `UNIQUE (repo_id, rater_agent_id)`. Same upsert pattern as `skill_ratings`.
+**Entity:** `RepoRating` — agents rate public repos on a 1-5 scale. Table `repo_ratings` with `UNIQUE (repo_id, rater_agent_id)`. Same upsert pattern as `repo_ratings`.
 
 **Fork flow:**
 
@@ -575,7 +572,7 @@ OAUTH_GOOGLE_REDIRECT_URI=http://localhost:8080/api/oauth/google/callback
 
 ### Batch Resource Counts (`getResourceCounts`)
 
-The service method `getResourceCounts(List<Long> agentIds)` returns a `Map<Long, AgentResourceCounts>` mapping agent IDs to their skill and memory counts.
+The service method `getResourceCounts(List<Long> agentIds)` returns a `Map<Long, AgentResourceCounts>` mapping agent IDs to their memory counts.
 
 ```java
 // Service interface
@@ -583,15 +580,13 @@ Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);
 
 // Response DTO
 public class AgentResourceCounts {
-    private Integer skillCount;  // default 0
     private Integer memoryCount; // default 0
 }
 ```
 
 **Implementation:**
-- `AgentServiceImpl.getResourceCounts()` — merges results from two parallel GROUP BY queries
-- `SkillMapper.selectCountByAgentIds()` — `SELECT agent_id, COUNT(*) FROM skills WHERE agent_id IN (...) GROUP BY agent_id`
-- `MemoryMapper.selectCountByAgentIds()` — same pattern on `memories` table
+- `AgentServiceImpl.getResourceCounts()` — runs a GROUP BY query on `memories` table
+- `MemoryMapper.selectCountByAgentIds()` — `SELECT agent_id, COUNT(*) FROM memories WHERE agent_id IN (...) GROUP BY agent_id`
 - `AgentIdCount` DTO — intermediate result with `agentId` and `count` fields
 
 **Controller:**
@@ -607,56 +602,8 @@ public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
 
 **Edge cases:**
 - Empty/null input → returns empty map
-- Agent ID with no skills or memories → returns zero counts (no DB row, defaulted in Java)
-- Agents not found → still returns `{skillCount: 0, memoryCount: 0}` for every requested ID
-
-### Skill Rating (`skill_ratings`)
-
-Agents can rate other agents' public skills on a 1–5 scale. Frontend can query a skill's average rating and per-star distribution.
-
-```java
-// Service interface
-SkillRatingResponse rate(SkillRatingRequest request, Long raterAgentId);           // upsert
-SkillRatingAverageResponse getAverageBySkillId(Long skillId);                       // average + distribution
-List<SkillRatingResponse> getRatingsBySkillId(Long skillId);                        // all ratings for a skill
-List<SkillRatingResponse> getRatingsByAgentId(Long raterAgentId);                   // ratings given by an agent
-
-// Request DTO
-public class SkillRatingRequest {
-    @NotNull private Long skillId;
-    @NotNull @Min(1) @Max(5) private Integer rating;
-}
-
-// Response DTO
-public class SkillRatingAverageResponse {
-    private Long skillId;
-    private Double averageRating;       // 2-decimal, 0.0 when no ratings
-    private Integer totalRatings;
-    private Map<Integer, Integer> distribution;   // 1..5 -> count, zero-filled
-}
-```
-
-**Table:** `skill_ratings` with `UNIQUE (skill_id, rater_agent_id)` — one rating per agent per skill. Upsert implemented as `INSERT ... ON DUPLICATE KEY UPDATE`.
-
-**Controller:**
-```java
-@PostMapping("/skill-ratings")           @ApiKeyAuth   // agent rates a public skill (upsert)
-@GetMapping("/skills/{id}/rating")       @RequireAuth  // average + distribution (agent or human)
-@GetMapping("/skills/{id}/ratings")      @RequireAuth  // list of ratings (with rater agent name)
-@GetMapping("/skill-ratings/my")         @ApiKeyAuth   // current agent's ratings
-```
-
-**Validation rules in `rate()`:**
-- Skill must exist (else 404)
-- Skill must be `isPublic = true` (else 400)
-- Rater agent must differ from the skill's owning agent (no self-rating, else 400)
-- Rater agent must exist (else 404)
-- Rating value is 1–5 (DTO-level `@Min/@Max` validation)
-
-**Edge cases:**
-- Skill with no ratings → `averageRating: 0.0`, `totalRatings: 0`, all distribution keys present with value 0
-- Re-rating by the same agent → existing row updated, `updated_at` refreshed
-- Skill with `agentId = null` (user-uploaded, not agent-owned) → still rateable, owner check is skipped
+- Agent ID with no memories → returns zero counts (no DB row, defaulted in Java)
+- Agents not found → still returns `{memoryCount: 0}` for every requested ID
 
 ### Documentation
 
@@ -683,16 +630,13 @@ mvn test -Dtest=UserServiceImplTest#testCreateUser
 # Run moderation-related tests only
 mvn test -Dtest=MarkdownSecurityServiceTest,OpenAIModerationServiceTest,ContentModerationServiceImplTest
 
-# Run skill layer tests only
-mvn test -Dtest=SkillControllerTest,SkillServiceImplTest,SkillRatingServiceImplTest,FileStorageServiceImplTest
-
 # Run skill repository tests only
 mvn test -Dtest=SkillRepositoryServiceImplTest,RepoRatingServiceImplTest
 ```
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (642 tests total, 1 skipped, 50 test files):**
+**Test Coverage (572 tests total, 1 skipped, 46 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -700,7 +644,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (15 test files):**
+**Controller layer (12 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
@@ -712,28 +656,24 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
 | `FileControllerTest` | File metadata query by agent/type, stats | 3 |
 | `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
-| `OAuthControllerTest` | OAuth init redirect, callback failure, state validation, private helpers (`buildAuthorizationUrl`, `generateState`, `validateAndExtractState`) via reflection | 20 |
+| `OAuthControllerTest` | OAuth init redirect, callback failure, state validation, private helpers via reflection | 20 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
-| `SkillRatingControllerTest` | Agent skill rating CRUD, average, my ratings | 4 |
 | `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 
-**Service/Impl layer (19 test files):**
+**Service/Impl layer (15 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
 | `CommentServiceImplTest` | Comment service logic | 17 |
 | `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 36 |
-| `SkillServiceImplTest` | Skill CRUD, upsert, batch delete, increment counters | 22 |
 | `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
-| `ShareServiceImplTest` | Share link creation/retrieval, token reuse for same user-skill pair | 8 |
 | `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
 | `OpenAIModerationServiceTest` | OkHttp mock injection, 4xx/5xx/network failures, flagged response, JSON escaping | 22 |
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
-| `SkillRatingServiceImplTest` | Skill rating (rate, upsert, average, distribution, validation) | 16 |
 | `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 34 |
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 10 |
 | `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
@@ -829,15 +769,15 @@ All controllers are annotated with `@Validated` at class level, and path variabl
 
 ```java
 @RestController
-@RequestMapping("/api/skills")
+@RequestMapping("/api/users")
 @Validated
-@Tag(name = "Skill API", description = "Skill management operations")
-public class SkillController {
+@Tag(name = "User API", description = "User management operations")
+public class UserController {
 
     @GetMapping("/{id}")
-    @ApiKeyAuth
-    public Result<Skill> getSkillById(@PathVariable @Min(1) Long id) {
-        return Result.success(skillService.findById(id));
+    @RequireAuth
+    public Result<User> getUserById(@PathVariable @Min(1) Long id) {
+        return Result.success(userService.findById(id));
     }
 }
 ```

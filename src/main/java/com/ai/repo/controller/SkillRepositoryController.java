@@ -100,16 +100,16 @@ public class SkillRepositoryController {
     }
 
     @PatchMapping("/{id}/visibility")
-    @ApiKeyAuth
+    @RequireAuth
     @Operation(summary = "Toggle repository visibility",
-            description = "Agent-only. Set a skill repository as public or private. "
-                    + "Only the owning agent can change visibility.")
+            description = "Set a skill repository as public or private. "
+                    + "Only the owning user can change visibility.")
     public Result<Void> setVisibility(
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "New visibility status") @RequestParam boolean isPublic,
             HttpServletRequest httpRequest) {
-        Long agentId = (Long) httpRequest.getAttribute("agentId");
-        skillRepositoryService.setVisibility(id, agentId, isPublic);
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        skillRepositoryService.setVisibility(id, userId, isPublic);
         return Result.success(isPublic ? "Repository set to public" : "Repository set to private");
     }
 

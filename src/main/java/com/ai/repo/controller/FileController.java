@@ -22,7 +22,6 @@ import java.util.List;
  * NOTE: This controller provides unified READ-ONLY query endpoints for file metadata.
  * <p>
  * File UPLOAD is intentionally NOT implemented here. Uploads are handled per-resource in
- * {@link SkillController} (POST /api/skills/{agentId}/upload) and
  * {@link MemoryController} (POST /api/memories/{agentId}/upload).
  * Do NOT add a POST /api/files/upload endpoint here.
  */
@@ -43,8 +42,8 @@ public class FileController {
             @Parameter(description = "File type (skill or memory)") @PathVariable String fileType,
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long agentId) {
 
-        if (!"skill".equals(fileType) && !"memory".equals(fileType)) {
-            return Result.error(400, "Invalid file type. Must be 'skill' or 'memory'");
+        if (!"memory".equals(fileType)) {
+            return Result.error(400, "Invalid file type. Must be 'memory'");
         }
 
         List<FileUploadLog> files = fileUploadLogMapper.selectByAgentIdAndFileType(agentId, fileType);
@@ -56,13 +55,11 @@ public class FileController {
     @RequireOwnership(resourceType = "agent", idParam = "agentId")
     @Operation(summary = "Get file statistics", description = "Get file statistics for an agent")
     public Result<java.util.Map<String, Object>> getFileStats(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long agentId) {
-        Long skillCount = fileUploadLogMapper.countByAgentId(agentId, "skill");
         Long memoryCount = fileUploadLogMapper.countByAgentId(agentId, "memory");
 
         java.util.Map<String, Object> stats = new java.util.HashMap<>();
-        stats.put("skillFileCount", skillCount);
         stats.put("memoryFileCount", memoryCount);
-        stats.put("totalFileCount", skillCount + memoryCount);
+        stats.put("totalFileCount", memoryCount);
 
         return Result.success(stats);
     }

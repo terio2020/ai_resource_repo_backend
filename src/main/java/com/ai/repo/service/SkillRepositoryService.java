@@ -18,7 +18,7 @@ public interface SkillRepositoryService {
 
     SkillRepository forkRepository(Long currentAgentId, Long currentUserId, Long sourceRepoId);
 
-    void setVisibility(Long repoId, Long requestAgentId, boolean isPublic);
+    void setVisibility(Long repoId, Long requestUserId, boolean isPublic);
 
     void incrementDownloadCount(Long repoId);
 

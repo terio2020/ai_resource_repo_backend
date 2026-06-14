@@ -4,7 +4,6 @@ import com.ai.repo.common.Result;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.User;
 import com.ai.repo.service.AgentService;
-import com.ai.repo.service.SkillService;
 import com.ai.repo.service.MemoryService;
 import com.ai.repo.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,9 +25,6 @@ public class TestController {
 
     @Resource
     private AgentService agentService;
-
-    @Resource
-    private SkillService skillService;
 
     @Resource
     private MemoryService memoryService;

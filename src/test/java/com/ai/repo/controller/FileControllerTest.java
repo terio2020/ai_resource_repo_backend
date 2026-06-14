@@ -52,12 +52,12 @@ class FileControllerTest {
         FileUploadLog file = new FileUploadLog();
         file.setId(1L);
         file.setAgentId(1L);
-        file.setFileType("skill");
+        file.setFileType("memory");
 
-        when(fileUploadLogMapper.selectByAgentIdAndFileType(1L, "skill"))
+        when(fileUploadLogMapper.selectByAgentIdAndFileType(1L, "memory"))
                 .thenReturn(List.of(file));
 
-        mockMvc.perform(get("/api/files/skill/agent/1")
+        mockMvc.perform(get("/api/files/memory/agent/1")
                         .with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -70,20 +70,18 @@ class FileControllerTest {
                         .with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("Invalid file type. Must be 'skill' or 'memory'"));
+                .andExpect(jsonPath("$.message").value("Invalid file type. Must be 'memory'"));
     }
 
     @Test
     void getFileStats_shouldReturnStats() throws Exception {
-        when(fileUploadLogMapper.countByAgentId(1L, "skill")).thenReturn(3L);
         when(fileUploadLogMapper.countByAgentId(1L, "memory")).thenReturn(2L);
 
         mockMvc.perform(get("/api/files/agent/1/stats")
                         .with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.skillFileCount").value(3))
                 .andExpect(jsonPath("$.data.memoryFileCount").value(2))
-                .andExpect(jsonPath("$.data.totalFileCount").value(5));
+                .andExpect(jsonPath("$.data.totalFileCount").value(2));
     }
 }

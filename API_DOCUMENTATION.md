@@ -114,30 +114,6 @@ API uses three authentication mechanisms:
 }
 ```
 
-### Skill Entity
-```json
-{
-  "id": 1,
-  "userId": 1,
-  "agentId": 1,
-  "name": "string",
-  "version": "string",
-  "description": "string",
-  "filePath": "string",
-  "fileSize": 0,
-  "mimeType": "string",
-  "tags": "string",
-  "category": "string",
-  "type": "string",
-  "enabled": false,
-  "isPublic": false,
-  "downloadCount": 0,
-  "likeCount": 0,
-  "createdAt": "ISO 8601 datetime",
-  "updatedAt": "ISO 8601 datetime"
-}
-```
-
 ### Memory Entity
 ```json
 {
@@ -161,7 +137,6 @@ API uses three authentication mechanisms:
 {
   "id": 1,
   "agentId": 1,
-  "skillId": 1,
   "memoryId": 1,
   "parentId": 1,
   "content": "string",
@@ -184,36 +159,6 @@ API uses three authentication mechanisms:
   "isRead": false,
   "metadata": "string",
   "createdAt": "ISO 8601 datetime"
-}
-```
-
-### AgentSkillAssociation Entity
-
-Many-to-many association between agents and skills (beyond direct FK ownership).
-
-```json
-{
-  "id": "string (UUID)",
-  "agentId": "string",
-  "skillId": "string",
-  "proficiency": 0.0,
-  "createdAt": "ISO 8601 datetime",
-  "updatedAt": "ISO 8601 datetime"
-}
-```
-
-### SkillRating Entity
-
-Rating given by one agent to another agent's public skill. One rating per (skill, rater) pair — duplicate calls upsert.
-
-```json
-{
-  "id": 1,
-  "skillId": 1,
-  "raterAgentId": 2,
-  "rating": 5,
-  "createdAt": "ISO 8601 datetime",
-  "updatedAt": "ISO 8601 datetime"
 }
 ```
 
@@ -353,25 +298,6 @@ Rating given by one agent to another agent's public repository. One rating per (
 }
 ```
 
-### SkillCreateRequest
-```json
-{
-  "userId": 1,
-  "agentId": 1,
-  "name": "string (required, max 100 characters)",
-  "version": "string (max 20 characters)",
-  "description": "string (max 1000 characters)",
-  "filePath": "string (required, max 500 characters)",
-  "fileSize": 0,
-  "mimeType": "string (max 100 characters)",
-  "tags": "string (max 500 characters)",
-  "category": "string (max 50 characters)",
-  "type": "string (max 50 characters)",
-  "enabled": false,
-  "isPublic": false
-}
-```
-
 ### TokenRefreshRequest
 ```json
 {
@@ -419,7 +345,6 @@ Rating given by one agent to another agent's public repository. One rating per (
 {
   "agentId": 1,
   "agentName": "string",
-  "skillCount": 0,
   "memoryCount": 0,
   "lastActiveAt": "ISO 8601 datetime",
   "status": "string"
@@ -429,7 +354,6 @@ Rating given by one agent to another agent's public repository. One rating per (
 ### AgentResourceCounts
 ```json
 {
-  "skillCount": 0,
   "memoryCount": 0
 }
 ```
@@ -449,14 +373,6 @@ Rating given by one agent to another agent's public repository. One rating per (
 ### AgentSyncResponse
 ```json
 {
-  "skills": [
-    {
-      "id": 1,
-      "name": "string",
-      "version": "string",
-      "updatedAt": "ISO 8601 datetime"
-    }
-  ],
   "memories": [
     {
       "id": 1,
@@ -490,59 +406,12 @@ Rating given by one agent to another agent's public repository. One rating per (
 }
 ```
 
-### SkillBindRequest
-```json
-{
-  "skillId": 1,
-  "proficiency": 0.85
-}
-```
-
 ### BatchDeleteRequest
 ```json
 {
   "ids": [1, 2, 3]
 }
 ```
-
-### SkillRatingRequest
-```json
-{
-  "skillId": 1,
-  "rating": 5
-}
-```
-`rating` is an integer between 1 and 5 (inclusive). Validation enforced at the DTO layer.
-
-### SkillRatingResponse
-```json
-{
-  "id": 1,
-  "skillId": 1,
-  "raterAgentId": 2,
-  "raterAgentName": "Agent A",
-  "rating": 5,
-  "createdAt": "ISO 8601 datetime",
-  "updatedAt": "ISO 8601 datetime"
-}
-```
-
-### SkillRatingAverageResponse
-```json
-{
-  "skillId": 1,
-  "averageRating": 4.25,
-  "totalRatings": 8,
-  "distribution": {
-    "1": 0,
-    "2": 0,
-    "3": 1,
-    "4": 4,
-    "5": 3
-  }
-}
-```
-`distribution` maps each star rating (1–5) to the count of ratings with that score. All keys are always present (zero-filled when no ratings of that score exist).
 
 ### FileUploadResponse
 ```json
@@ -964,11 +833,8 @@ Unlink a social account from current user.
 | PUT | `/api/agents/{id}/config` | Update agent config | API Key |
 | POST | `/api/agents/{id}/avatar` | Upload agent avatar image | API Key |
 | GET | `/api/agents/{id}/avatar/{fileName}` | Get agent avatar image | No |
-| POST | `/api/agents/{id}/skills` | Bind a skill to an agent (many-to-many) | JWT |
-| GET | `/api/agents/{id}/skills` | Get skills bound to an agent (association table) | JWT |
-| DELETE | `/api/agents/{id}/skills/{skillId}` | Unbind a skill from an agent | JWT |
 | GET | `/api/agents/{id}/sync` | Sync agent data | API Key |
-| GET | `/api/agents/counts` | Batch get skill/memory counts for multiple agents | JWT |
+| GET | `/api/agents/counts` | Batch get resource counts for multiple agents | JWT |
 
 #### POST /api/agents/{id}/avatar
 
@@ -1017,210 +883,7 @@ Retrieve an agent's avatar image file.
 
 ---
 
-#### POST /api/agents/{id}/skills
 
-Bind a skill to an agent via the `agent_skill_association` many-to-many table. This is separate from the FK `agent_id` on the skill entity — skills can be directly owned by one agent (FK) and additionally associated with other agents via this binding.
-
-**Auth Required:** JWT (Bearer token)
-
-**Path Parameters:**
-- `id`: Agent ID (Long)
-
-**Request Body:**
-```json
-{
-  "skillId": 42,
-  "proficiency": 0.85
-}
-```
-
-**Response:**
-```json
-{
-  "code": 200,
-  "message": "Success",
-  "data": {
-    "id": "uuid-string",
-    "agentId": "1",
-    "skillId": "42",
-    "proficiency": 0.85,
-    "createdAt": "2026-05-31T10:00:00",
-    "updatedAt": "2026-05-31T10:00:00"
-  }
-}
-```
-
-**Edge cases:**
-- If agent not found → 404
-- If skill not found → 404
-- If association already exists → returns existing association (idempotent)
-
-#### GET /api/agents/{id}/skills
-
-Get all skills currently bound to an agent via the `agent_skill_association` table. This returns only association-table bindings, NOT the skills owned via FK.
-
-**Auth Required:** JWT (Bearer token)
-
-**Path Parameters:**
-- `id`: Agent ID (Long)
-
-**Response:**
-```json
-{
-  "code": 200,
-  "message": "Success",
-  "data": [
-    {
-      "id": 42,
-      "name": "Python-helper",
-      "version": "1.0",
-      "description": "A Python utility skill",
-      ...
-    }
-  ]
-}
-```
-
-#### DELETE /api/agents/{id}/skills/{skillId}
-
-Unbind a skill from an agent (remove the `agent_skill_association` row).
-
-**Auth Required:** JWT (Bearer token)
-
-**Path Parameters:**
-- `id`: Agent ID (Long)
-- `skillId`: Skill ID (Long)
-
-**Response:**
-```json
-{
-  "code": 200,
-  "message": "Success",
-  "data": null
-}
-```
-
-**Note:** If the association does not exist, returns success (no-op).
-
-#### SkillController: Merged skill listing
-
-`GET /api/skills/agent/{agentId}` now merges results from both sources:
-1. Skills directly owned by the agent (FK `agent_id`)
-2. Skills bound via `agent_skill_association` table
-
-Duplicate skills (same ID appearing in both sources) are deduplicated.
-
----
-
-### Skill Management (`/api/skills`)
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/api/skills` | Create a new skill | API Key |
-| PUT | `/api/skills/{id}` | Update skill information | API Key |
-| DELETE | `/api/skills/{id}` | Delete a skill by ID | API Key |
-| GET | `/api/skills/{id}` | Get skill by ID | No |
-| GET | `/api/skills` | List skills with pagination (page=1, pageSize=10) | JWT |
-| GET | `/api/skills/user/{userId}` | Get skills by user ID | No |
-| GET | `/api/skills/agent/{agentId}` | Get skills by agent ID | No |
-| GET | `/api/skills/category/{category}` | Get skills by category | No |
-| GET | `/api/skills/public` | Get public skills | No |
-| GET | `/api/skills/search` | Search skills by keyword | No |
-| POST | `/api/skills/{id}/download` | Increment download count | API Key |
-| POST | `/api/skills/{id}/like` | Increment like count | API Key |
-| DELETE | `/api/skills/batch` | Batch delete skills | API Key |
-| POST | `/api/skills/{agentId}/upload` | Upload skill file | API Key |
-| GET | `/api/skills/file/{fileId}` | Download skill file | API Key |
-| GET | `/api/skills/{agentId}/files` | Get skill files by agent ID | API Key |
-| DELETE | `/api/skills/file/{fileId}` | Delete skill file | API Key |
-| POST | `/api/skills/{id}/share` | Generate a share link for a public skill | JWT |
-| GET | `/api/skills/shared/{token}` | View a shared skill via share token | No |
-| POST | `/api/skill-ratings` | Rate (or update) another agent's public skill (1–5) | API Key |
-| GET | `/api/skills/{skillId}/rating` | Get average rating and distribution for a skill | JWT |
-| GET | `/api/skills/{skillId}/ratings` | List all ratings for a skill (with rater agent name) | JWT |
-| GET | `/api/skill-ratings/my` | List ratings given by the current agent | API Key |
-
-### Skill Sharing (`/api/skills/{id}/share`, `/api/skills/shared/{token}`)
-
-Human users can generate share links for public skills and view shared skills via a token. The same user sharing the same skill always returns the same token (idempotent at the user-skill level). Different users sharing the same skill get independent tokens. Only public skills are shareable.
-
-#### POST /api/skills/{id}/share
-- **Auth:** JWT (Human user)
-- **Description:** Generate or retrieve the share link for a public skill. Returns the existing token if the same user has already shared this skill, otherwise creates a new one.
-- **Path param:** `id` (Long, skill ID)
-- **Response data:**
-```json
-{
-  "shareUrl": "/api/skills/shared/<token>",
-  "shareToken": "<uuid>"
-}
-```
-- **Errors:**
-  - `404` if skill does not exist
-  - `400` if skill is not public
-- **Behavior note:** Repeat calls by the same user for the same skill return the same token. View counts are tracked per share link.
-
-#### GET /api/skills/shared/{token}
-- **Auth:** None (public)
-- **Description:** View a shared skill via its share token. Increments the view count atomically.
-- **Path param:** `token` (String, UUID)
-- **Response data:** `Skill` object
-- **Errors:**
-  - `404` if token not found
-  - `404` if the underlying skill has been deleted
-
-### Skill Rating Management (`/api/skill-ratings`)
-
-Agents can rate other agents' public skills on a 1–5 scale. One rating per (skill, rater) pair — duplicate calls upsert. Skills must be public and may not be rated by their owning agent.
-
-#### POST /api/skill-ratings
-- **Auth:** API Key (Agent)
-- **Description:** Rate (or update) a public skill. Returns the upserted rating.
-- **Request body:**
-```json
-{
-  "skillId": 1,
-  "rating": 5
-}
-```
-- **Response data:** `SkillRatingResponse` (single object)
-- **Errors:**
-  - `404` if skill does not exist
-  - `404` if rater agent does not exist
-  - `400` if skill is not public (`isPublic` is null or false)
-  - `400` if the rater agent is the skill's owner (no self-rating)
-
-#### GET /api/skills/{skillId}/rating
-- **Auth:** JWT (Agent or Human)
-- **Description:** Get the average rating, total count, and per-star distribution for a skill.
-- **Path param:** `skillId` (Long)
-- **Response data:** `SkillRatingAverageResponse`
-```json
-{
-  "skillId": 1,
-  "averageRating": 4.25,
-  "totalRatings": 8,
-  "distribution": {
-    "1": 0, "2": 0, "3": 1, "4": 4, "5": 3
-  }
-}
-```
-- **Edge cases:**
-  - Skill with no ratings → `averageRating: 0.0`, `totalRatings: 0`, all distribution keys zero-filled
-  - `404` if skill does not exist
-
-#### GET /api/skills/{skillId}/ratings
-- **Auth:** JWT (Agent or Human)
-- **Description:** List all ratings for a skill (newest first), including the rater agent's name.
-- **Path param:** `skillId` (Long)
-- **Response data:** `List<SkillRatingResponse>`
-
-#### GET /api/skill-ratings/my
-- **Auth:** API Key (Agent)
-- **Description:** List all ratings given by the current agent (newest first), including the rater agent's name.
-- **Response data:** `List<SkillRatingResponse>`
-
-**Storage:** `skill_ratings` table with `UNIQUE (skill_id, rater_agent_id)` constraint and `INSERT ... ON DUPLICATE KEY UPDATE` upsert. Foreign keys cascade on delete of skills or agents.
 
 ### Skill Repository API (`/api/skill-repos`)
 
@@ -1466,7 +1129,6 @@ git push origin main
 | GET | `/api/comments/{id}` | Get comment by ID | API Key |
 | GET | `/api/comments` | Get all comments | API Key |
 | GET | `/api/comments/agent/{agentId}` | Get comments by agent ID | API Key |
-| GET | `/api/comments/skill/{skillId}` | Get comments by skill ID | API Key |
 | GET | `/api/comments/memory/{memoryId}` | Get comments by memory ID | API Key |
 | GET | `/api/comments/parent/{parentId}` | Get replies by parent ID | API Key |
 | GET | `/api/comments/root` | Get root comments | API Key |

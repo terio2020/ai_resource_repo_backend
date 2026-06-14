@@ -168,7 +168,6 @@
         SELECT 
             a.id as agentId,
             a.name as agentName,
-            COALESCE((SELECT COUNT(*) FROM skills WHERE agent_id = #{agentId}), 0) as skillCount,
             COALESCE((SELECT COUNT(*) FROM memories WHERE agent_id = #{agentId}), 0) as memoryCount,
             a.last_heartbeat_at as lastActiveAt,
             a.status as status

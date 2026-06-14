@@ -7,16 +7,12 @@ import com.ai.repo.dto.AgentResourceCounts;
 import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
-import com.ai.repo.entity.AgentSkillAssociation;
 import com.ai.repo.entity.Memory;
-import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
-import com.ai.repo.mapper.AgentSkillAssociationMapper;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
-import com.ai.repo.mapper.SkillMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.util.AvatarUtil;
 import jakarta.annotation.Resource;
@@ -44,13 +40,7 @@ public class AgentServiceImpl implements AgentService {
     private AgentMapper agentMapper;
 
     @Resource
-    private SkillMapper skillMapper;
-
-    @Resource
     private MemoryMapper memoryMapper;
-
-    @Resource
-    private AgentSkillAssociationMapper agentSkillAssociationMapper;
 
     @Resource
     private NotificationMapper notificationMapper;
@@ -131,9 +121,6 @@ public class AgentServiceImpl implements AgentService {
             throw new BusinessException("Agent not found");
         }
         // Cascade delete: remove all associated data before deleting the agent
-        String agentIdStr = String.valueOf(id);
-        agentSkillAssociationMapper.deleteByAgentId(agentIdStr);
-        skillMapper.deleteByAgentId(id);
         memoryMapper.deleteByAgentId(id);
         notificationMapper.deleteByAgentId(id);
         commentMapper.deleteByAgentId(id);
@@ -266,26 +253,6 @@ public class AgentServiceImpl implements AgentService {
         
         DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
         
-        List<Skill> allSkills = skillMapper.selectByAgentId(agentId);
-        if (since != null && !since.isEmpty()) {
-            LocalDateTime sinceDateTime = LocalDateTime.parse(since, formatter);
-            allSkills = allSkills.stream()
-                .filter(skill -> skill.getUpdatedAt() != null && skill.getUpdatedAt().isAfter(sinceDateTime))
-                .collect(Collectors.toList());
-        }
-        
-        List<AgentSyncResponse.SkillSyncInfo> skillInfos = allSkills.stream()
-            .map(skill -> {
-                AgentSyncResponse.SkillSyncInfo info = new AgentSyncResponse.SkillSyncInfo();
-                info.setId(skill.getId());
-                info.setName(skill.getName());
-                info.setVersion(skill.getVersion());
-                info.setUpdatedAt(skill.getUpdatedAt());
-                return info;
-            })
-            .collect(Collectors.toList());
-        response.setSkills(skillInfos);
-        
         List<Memory> allMemories = memoryMapper.selectByAgentId(agentId);
         if (since != null && !since.isEmpty()) {
             LocalDateTime sinceDateTime = LocalDateTime.parse(since, formatter);
@@ -335,64 +302,15 @@ public class AgentServiceImpl implements AgentService {
             return Collections.emptyMap();
         }
 
-        List<AgentIdCount> skillCounts = skillMapper.selectCountByAgentIds(agentIds);
         List<AgentIdCount> memoryCounts = memoryMapper.selectCountByAgentIds(agentIds);
 
         Map<Long, AgentResourceCounts> result = new HashMap<>();
         for (Long id : agentIds) {
-            result.put(id, new AgentResourceCounts(0, 0));
-        }
-        for (AgentIdCount sc : skillCounts) {
-            result.get(sc.getAgentId()).setSkillCount(sc.getCount());
+            result.put(id, new AgentResourceCounts(0));
         }
         for (AgentIdCount mc : memoryCounts) {
             result.get(mc.getAgentId()).setMemoryCount(mc.getCount());
         }
         return result;
-    }
-
-    @Override
-    public AgentSkillAssociation bindSkill(Long agentId, Long skillId, Double proficiency) {
-        if (agentMapper.selectById(agentId) == null) {
-            throw new BusinessException("Agent not found");
-        }
-        if (skillMapper.selectById(skillId) == null) {
-            throw new BusinessException("Skill not found");
-        }
-
-        AgentSkillAssociation existing = agentSkillAssociationMapper
-                .findByAgentAndSkill(String.valueOf(agentId), String.valueOf(skillId));
-        if (existing != null) {
-            return existing;
-        }
-
-        AgentSkillAssociation assoc = new AgentSkillAssociation();
-        assoc.setId(UUID.randomUUID().toString());
-        assoc.setAgentId(String.valueOf(agentId));
-        assoc.setSkillId(String.valueOf(skillId));
-        assoc.setProficiency(proficiency);
-        agentSkillAssociationMapper.insert(assoc);
-        return assoc;
-    }
-
-    @Override
-    public boolean unbindSkill(Long agentId, Long skillId) {
-        AgentSkillAssociation existing = agentSkillAssociationMapper
-                .findByAgentAndSkill(String.valueOf(agentId), String.valueOf(skillId));
-        if (existing == null) {
-            return false;
-        }
-        agentSkillAssociationMapper.deleteById(existing.getId());
-        return true;
-    }
-
-    @Override
-    public List<Skill> getAgentSkills(Long agentId) {
-        List<AgentSkillAssociation> associations = agentSkillAssociationMapper
-                .findByAgentId(String.valueOf(agentId));
-        return associations.stream()
-                .map(a -> skillMapper.selectById(Long.valueOf(a.getSkillId())))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
     }
 }

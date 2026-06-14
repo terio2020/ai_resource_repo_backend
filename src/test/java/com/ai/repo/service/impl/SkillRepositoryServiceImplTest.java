@@ -238,7 +238,7 @@ class SkillRepositoryServiceImplTest {
         SkillRepository repo = createSampleRepo(1L, 10L, "weather");
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
-        service.setVisibility(1L, 10L, true);
+        service.setVisibility(1L, 1L, true);
 
         verify(skillRepositoryMapper).updateVisibility(1L, true);
     }

@@ -7,14 +7,11 @@ import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Memory;
-import com.ai.repo.entity.Skill;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
-import com.ai.repo.mapper.AgentSkillAssociationMapper;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
-import com.ai.repo.mapper.SkillMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,13 +41,7 @@ class AgentServiceImplTest {
     private AgentMapper agentMapper;
 
     @Mock
-    private SkillMapper skillMapper;
-
-    @Mock
     private MemoryMapper memoryMapper;
-
-    @Mock
-    private AgentSkillAssociationMapper agentSkillAssociationMapper;
 
     @Mock
     private NotificationMapper notificationMapper;
@@ -70,17 +61,9 @@ class AgentServiceImplTest {
             agentField.setAccessible(true);
             agentField.set(agentService, agentMapper);
 
-            java.lang.reflect.Field skillField = AgentServiceImpl.class.getDeclaredField("skillMapper");
-            skillField.setAccessible(true);
-            skillField.set(agentService, skillMapper);
-
             java.lang.reflect.Field memoryField = AgentServiceImpl.class.getDeclaredField("memoryMapper");
             memoryField.setAccessible(true);
             memoryField.set(agentService, memoryMapper);
-
-            java.lang.reflect.Field assocField = AgentServiceImpl.class.getDeclaredField("agentSkillAssociationMapper");
-            assocField.setAccessible(true);
-            assocField.set(agentService, agentSkillAssociationMapper);
 
             java.lang.reflect.Field notifField = AgentServiceImpl.class.getDeclaredField("notificationMapper");
             notifField.setAccessible(true);
@@ -213,8 +196,6 @@ class AgentServiceImplTest {
         agent.setId(1L);
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
-        when(agentSkillAssociationMapper.deleteByAgentId("1")).thenReturn(1);
-        when(skillMapper.deleteByAgentId(1L)).thenReturn(1);
         when(memoryMapper.deleteByAgentId(1L)).thenReturn(1);
         when(notificationMapper.deleteByAgentId(1L)).thenReturn(1);
         when(commentMapper.deleteByAgentId(1L)).thenReturn(1);
@@ -225,8 +206,6 @@ class AgentServiceImplTest {
 
         // Then
         assertTrue(result);
-        verify(agentSkillAssociationMapper).deleteByAgentId("1");
-        verify(skillMapper).deleteByAgentId(1L);
         verify(memoryMapper).deleteByAgentId(1L);
         verify(notificationMapper).deleteByAgentId(1L);
         verify(commentMapper).deleteByAgentId(1L);
@@ -391,7 +370,6 @@ class AgentServiceImplTest {
         agent.setId(1L);
 
         AgentStatsResponse stats = new AgentStatsResponse();
-        stats.setSkillCount(5L);
         stats.setMemoryCount(10L);
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
@@ -402,7 +380,7 @@ class AgentServiceImplTest {
 
         // Then
         assertNotNull(result);
-        assertEquals(5L, result.getSkillCount());
+        assertEquals(10L, result.getMemoryCount());
     }
 
     @Test
@@ -474,19 +452,12 @@ class AgentServiceImplTest {
         Agent agent = new Agent();
         agent.setId(1L);
 
-        Skill skill = new Skill();
-        skill.setId(1L);
-        skill.setName("Test Skill");
-        skill.setVersion("1.0");
-        skill.setUpdatedAt(LocalDateTime.now());
-
         Memory memory = new Memory();
         memory.setId(1L);
         memory.setTitle("Test Memory");
         memory.setUpdatedAt(LocalDateTime.now());
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
-        when(skillMapper.selectByAgentId(1L)).thenReturn(Arrays.asList(skill));
         when(memoryMapper.selectByAgentId(1L)).thenReturn(Arrays.asList(memory));
 
         // When
@@ -494,7 +465,6 @@ class AgentServiceImplTest {
 
         // Then
         assertNotNull(result);
-        assertEquals(1, result.getSkills().size());
         assertEquals(1, result.getMemories().size());
     }
 
@@ -507,29 +477,26 @@ class AgentServiceImplTest {
         Agent agent = new Agent();
         agent.setId(1L);
 
-        Skill oldSkill = new Skill();
-        oldSkill.setId(1L);
-        oldSkill.setName("Old Skill");
-        oldSkill.setVersion("1.0");
-        oldSkill.setUpdatedAt(now.minusDays(1));
+        Memory oldMemory = new Memory();
+        oldMemory.setId(1L);
+        oldMemory.setTitle("Old Memory");
+        oldMemory.setUpdatedAt(now.minusDays(1));
 
-        Skill newSkill = new Skill();
-        newSkill.setId(2L);
-        newSkill.setName("New Skill");
-        newSkill.setVersion("1.0");
-        newSkill.setUpdatedAt(now.plusHours(1));
+        Memory newMemory = new Memory();
+        newMemory.setId(2L);
+        newMemory.setTitle("New Memory");
+        newMemory.setUpdatedAt(now.plusHours(1));
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
-        when(skillMapper.selectByAgentId(1L)).thenReturn(Arrays.asList(oldSkill, newSkill));
-        when(memoryMapper.selectByAgentId(1L)).thenReturn(Collections.emptyList());
+        when(memoryMapper.selectByAgentId(1L)).thenReturn(Arrays.asList(oldMemory, newMemory));
 
         // When
         AgentSyncResponse result = agentService.syncData(1L, since.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
         // Then
         assertNotNull(result);
-        assertEquals(1, result.getSkills().size());
-        assertEquals("New Skill", result.getSkills().get(0).getName());
+        assertEquals(1, result.getMemories().size());
+        assertEquals("New Memory", result.getMemories().get(0).getTitle());
     }
 
     @Test
@@ -654,13 +621,6 @@ class AgentServiceImplTest {
         // Given
         List<Long> agentIds = Arrays.asList(1L, 2L, 3L);
 
-        AgentIdCount sc1 = new AgentIdCount();
-        sc1.setAgentId(1L);
-        sc1.setCount(5);
-        AgentIdCount sc2 = new AgentIdCount();
-        sc2.setAgentId(2L);
-        sc2.setCount(3);
-
         AgentIdCount mc2 = new AgentIdCount();
         mc2.setAgentId(2L);
         mc2.setCount(7);
@@ -668,7 +628,6 @@ class AgentServiceImplTest {
         mc3.setAgentId(3L);
         mc3.setCount(2);
 
-        when(skillMapper.selectCountByAgentIds(agentIds)).thenReturn(Arrays.asList(sc1, sc2));
         when(memoryMapper.selectCountByAgentIds(agentIds)).thenReturn(Arrays.asList(mc2, mc3));
 
         // When
@@ -676,11 +635,8 @@ class AgentServiceImplTest {
 
         // Then
         assertEquals(3, result.size());
-        assertEquals(5, result.get(1L).getSkillCount().intValue());
         assertEquals(0, result.get(1L).getMemoryCount().intValue());
-        assertEquals(3, result.get(2L).getSkillCount().intValue());
         assertEquals(7, result.get(2L).getMemoryCount().intValue());
-        assertEquals(0, result.get(3L).getSkillCount().intValue());
         assertEquals(2, result.get(3L).getMemoryCount().intValue());
     }
 
@@ -691,7 +647,6 @@ class AgentServiceImplTest {
 
         // Then
         assertTrue(result.isEmpty());
-        verify(skillMapper, never()).selectCountByAgentIds(any());
         verify(memoryMapper, never()).selectCountByAgentIds(any());
     }
 
@@ -700,7 +655,6 @@ class AgentServiceImplTest {
         // Given
         List<Long> agentIds = Arrays.asList(1L, 2L);
 
-        when(skillMapper.selectCountByAgentIds(agentIds)).thenReturn(Collections.emptyList());
         when(memoryMapper.selectCountByAgentIds(agentIds)).thenReturn(Collections.emptyList());
 
         // When
@@ -708,9 +662,7 @@ class AgentServiceImplTest {
 
         // Then
         assertEquals(2, result.size());
-        assertEquals(0, result.get(1L).getSkillCount().intValue());
         assertEquals(0, result.get(1L).getMemoryCount().intValue());
-        assertEquals(0, result.get(2L).getSkillCount().intValue());
         assertEquals(0, result.get(2L).getMemoryCount().intValue());
     }
 

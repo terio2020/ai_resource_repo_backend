@@ -8,6 +8,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AgentResourceCounts {
-    private Integer skillCount;
     private Integer memoryCount;
 }

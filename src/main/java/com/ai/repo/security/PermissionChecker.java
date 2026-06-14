@@ -29,9 +29,6 @@ public class PermissionChecker {
     private AgentService agentService;
 
     @Resource
-    private SkillService skillService;
-
-    @Resource
     private MemoryService memoryService;
 
     @Resource
@@ -145,8 +142,6 @@ public class PermissionChecker {
             switch (resourceType.toLowerCase()) {
                 case "agent":
                     return agentService.findById(resourceId).getUserId();
-                case "skill":
-                    return skillService.findById(resourceId).getUserId();
                 case "memory":
                     return memoryService.findById(resourceId).getUserId();
                 case "comment":

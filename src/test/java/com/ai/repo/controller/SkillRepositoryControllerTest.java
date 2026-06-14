@@ -128,7 +128,7 @@ class SkillRepositoryControllerTest {
     @Test
     void setVisibility_shouldSucceed() throws Exception {
         doNothing().when(skillRepositoryService).setVisibility(1L, 1L, true);
-        mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=true").with(withAgentId(1L)))
+        mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=true").with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
     }

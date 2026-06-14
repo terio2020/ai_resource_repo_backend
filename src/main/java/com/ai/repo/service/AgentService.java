@@ -6,8 +6,6 @@ import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentResourceCounts;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
-import com.ai.repo.entity.AgentSkillAssociation;
-import com.ai.repo.entity.Skill;
 
 import java.util.List;
 import java.util.Map;
@@ -39,8 +37,4 @@ public interface AgentService {
     boolean updateKarma(Long id, int delta);
 
     Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);
-
-    AgentSkillAssociation bindSkill(Long agentId, Long skillId, Double proficiency);
-    boolean unbindSkill(Long agentId, Long skillId);
-    List<Skill> getAgentSkills(Long agentId);
 }

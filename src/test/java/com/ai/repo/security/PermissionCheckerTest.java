@@ -3,14 +3,12 @@ package com.ai.repo.security;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Comment;
 import com.ai.repo.entity.Memory;
-import com.ai.repo.entity.Skill;
 import com.ai.repo.entity.User;
 import com.ai.repo.exception.AuthenticationException;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.CommentService;
 import com.ai.repo.service.MemoryService;
-import com.ai.repo.service.SkillService;
 import com.ai.repo.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
@@ -42,9 +40,6 @@ class PermissionCheckerTest {
     private AgentService agentService;
 
     @Mock
-    private SkillService skillService;
-
-    @Mock
     private MemoryService memoryService;
 
     @Mock
@@ -71,9 +66,6 @@ class PermissionCheckerTest {
         field = PermissionChecker.class.getDeclaredField("agentService");
         field.setAccessible(true);
         field.set(permissionChecker, agentService);
-        field = PermissionChecker.class.getDeclaredField("skillService");
-        field.setAccessible(true);
-        field.set(permissionChecker, skillService);
         field = PermissionChecker.class.getDeclaredField("memoryService");
         field.setAccessible(true);
         field.set(permissionChecker, memoryService);
@@ -116,8 +108,8 @@ class PermissionCheckerTest {
     @Test
     void checkOwnership_shouldPass_whenUserIdMatches() throws Exception {
         RequireOwnership requireOwnership = mock(RequireOwnership.class);
-        when(requireOwnership.resourceType()).thenReturn("skill");
-        when(requireOwnership.idParam()).thenReturn("skillId");
+        when(requireOwnership.resourceType()).thenReturn("memory");
+        when(requireOwnership.idParam()).thenReturn("memoryId");
 
         Method testMethod = PermissionCheckerTest.class.getDeclaredMethod("dummyMethod", Long.class);
         when(joinPoint.getSignature()).thenReturn(methodSignature);
@@ -130,9 +122,9 @@ class PermissionCheckerTest {
             when(request.getAttribute("userId")).thenReturn(1L);
             when(request.getAttribute("agentId")).thenReturn(null);
 
-            Skill skill = new Skill();
-            skill.setUserId(1L);
-            when(skillService.findById(1L)).thenReturn(skill);
+            Memory memory = new Memory();
+            memory.setUserId(1L);
+            when(memoryService.findById(1L)).thenReturn(memory);
 
             assertDoesNotThrow(() -> permissionChecker.checkOwnership(joinPoint, requireOwnership));
         }
@@ -141,8 +133,8 @@ class PermissionCheckerTest {
     @Test
     void checkOwnership_shouldThrow403_whenUserIdMismatch() throws Exception {
         RequireOwnership requireOwnership = mock(RequireOwnership.class);
-        when(requireOwnership.resourceType()).thenReturn("skill");
-        when(requireOwnership.idParam()).thenReturn("skillId");
+        when(requireOwnership.resourceType()).thenReturn("memory");
+        when(requireOwnership.idParam()).thenReturn("memoryId");
 
         Method testMethod = PermissionCheckerTest.class.getDeclaredMethod("dummyMethod", Long.class);
         when(joinPoint.getSignature()).thenReturn(methodSignature);
@@ -155,9 +147,9 @@ class PermissionCheckerTest {
             when(request.getAttribute("userId")).thenReturn(1L);
             when(request.getAttribute("agentId")).thenReturn(null);
 
-            Skill skill = new Skill();
-            skill.setUserId(2L);
-            when(skillService.findById(1L)).thenReturn(skill);
+            Memory memory = new Memory();
+            memory.setUserId(2L);
+            when(memoryService.findById(1L)).thenReturn(memory);
 
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> permissionChecker.checkOwnership(joinPoint, requireOwnership));
@@ -181,5 +173,5 @@ class PermissionCheckerTest {
     }
 
     @SuppressWarnings("unused")
-    public void dummyMethod(Long skillId) {}
+    public void dummyMethod(Long memoryId) {}
 }

@@ -120,13 +120,13 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
 
     @Override
     @Transactional
-    public void setVisibility(Long repoId, Long requestAgentId, boolean isPublic) {
+    public void setVisibility(Long repoId, Long requestUserId, boolean isPublic) {
         SkillRepository repo = findById(repoId);
-        if (!repo.getAgentId().equals(requestAgentId)) {
-            throw new BusinessException(403, "Only the owning agent can change visibility");
+        if (!repo.getUserId().equals(requestUserId)) {
+            throw new BusinessException(403, "Only the owning user can change visibility");
         }
         skillRepositoryMapper.updateVisibility(repoId, isPublic);
-        log.info("Repository {} visibility set to {} by agent {}", repoId, isPublic, requestAgentId);
+        log.info("Repository {} visibility set to {} by user {}", repoId, isPublic, requestUserId);
     }
 
     @Override
