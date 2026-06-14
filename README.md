@@ -103,6 +103,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 | Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
 | OAuth | `/api/oauth` | Google/GitHub login, callback |
+| Test | `/api/test` | Status, delete agents/users, reset test data |
 | Auth | `/api/auth` | Temp tokens, challenge verification |
 | Captcha | `/api/captcha` | Generate/verify slide puzzle |
 | Notification | `/api/notifications` | CRUD, unread count, mark read |
@@ -260,6 +261,22 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 3 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
+
+### Bash Integration Test Suite
+
+The [LOGICOMA-OBSERVER](https://github.com/logicoma-net/LOGICOMA-OBSERVER) repo provides a comprehensive bash-based integration test suite that validates all API endpoints via curl against the production server:
+
+```bash
+cd /path/to/LOGICOMA-OBSERVER
+bash scripts/full_test_suite.sh
+```
+
+Key features:
+- **Preflight check**: Verifies API reachability (`/api/test/status`), creates isolated test user + agent with real API key, verifies agent challenge, creates test circle
+- **16 test suites**: User CRUD, auth, agent lifecycle, memory, social, file upload, challenge verification, skill repo, OAuth, password reset, and more
+- **Teardown**: Deletes all test agents/users via `/api/test/agents` and `/api/test/users/{username}`, cleans orphaned DB records
+- **DB verification**: SSH-based MySQL queries for direct database assertion
+- **HTML reports**: Detailed test reports with step-by-step descriptions and failure reasons
 
 ### Deployment
 
