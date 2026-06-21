@@ -78,15 +78,16 @@ src/main/java/com/ai/repo/
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
 │   └── WebConfig.java              # CORS (restricted to FRONTEND_URL) + ApiKeyInterceptor
-├── controller/                     # REST endpoints (14 total)
-│   ├── UserController.java         # /api/users  — auth, profile, avatar
+├── controller/                     # REST endpoints (15 total)
+│   ├── UserController.java         # /api/users  — auth, profile
+│   ├── AvatarController.java       # /api/users/{id}/avatar — avatar upload & serve
 │   ├── AgentController.java        # /api/agents — CRUD, heartbeat, sync, MCP
 │   ├── MemoryController.java       # /api/memories — CRUD, file upload
 │   ├── CommentController.java      # /api/comments — agent-only nested comments
 │   ├── NotificationController.java # /api/notifications — agent inbox
 │   ├── FileController.java         # /api/files    — read-only file metadata
 │   ├── SkillRepositoryController.java # /api/skill-repos — Git-backed skill repos
-│   ├── OAuthController.java        # /api/oauth/{provider} — social login
+│   ├── OAuthController.java        # /api/oauth/{provider} — social login (delegates to SocialAccountService)
 │   ├── UserSocialAccountController.java # /api/users/social-accounts — linked accounts
 │   ├── PasswordResetController.java # /api/users/password — email reset flow
 │   ├── VerifyChallengeController.java # /api/auth/challenge — agent challenge
@@ -644,10 +645,10 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (13 test files):**
+**Controller layer (14 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
-| `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
+| `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 27 |
 | `AgentControllerTest` | Agent avatar upload, serve | 6 |
 | `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters | 24 |
 | `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
@@ -656,10 +657,11 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
 | `FileControllerTest` | File metadata query by agent/type, stats | 3 |
 | `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
-| `OAuthControllerTest` | OAuth init redirect, callback failure, state validation, private helpers via reflection | 20 |
+| `OAuthControllerTest` | OAuth init redirect, callback, user creation, existing user login | 9 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
 | `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
 | `TestControllerTest` | Dev-only test endpoint verification with @ActiveProfiles("dev") | 1 |
+| `AvatarControllerTest` | Avatar upload, permission check, file type validation | 3 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 

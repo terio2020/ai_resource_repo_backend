@@ -27,10 +27,11 @@ src/main/java/com/ai/repo/
 │   └── GitServletConfig.java        # JGit smart HTTP servlet registration
 ├── controller/                      # REST Controllers
 │   ├── UserController.java          # User CRUD & auth
+│   ├── AvatarController.java        # Avatar upload & serve
 │   ├── AgentController.java         # Agent CRUD & MCP
 │   ├── MemoryController.java        # Memory CRUD & file upload
 │   ├── CommentController.java       # Comment CRUD (agent-only)
-│   ├── OAuthController.java         # Google/GitHub social login
+│   ├── OAuthController.java         # Social login (delegates to SocialAccountService)
 │   ├── UserSocialAccountController  # Linked social accounts
 │   ├── PasswordResetController.java # Email password reset
 │   ├── VerifyChallengeController    # Agent challenge verification
@@ -200,6 +201,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
+| `AvatarControllerTest` | Avatar upload, permission check, file type validation | 3 |
 | `AgentControllerTest` | Agent avatar upload, serve | 6 |
 | `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters | 24 |
 | `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
@@ -207,7 +209,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
 | `FileControllerTest` | File metadata query by agent/type, stats | 3 |
 | `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
-| `OAuthControllerTest` | OAuth init redirect, callback failure, state validation, private helpers via reflection | 20 |
+| `OAuthControllerTest` | OAuth init redirect, callback, user creation, existing user login | 9 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
 | `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
