@@ -6,7 +6,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -50,16 +52,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     log.debug("User authenticated: {}", userId);
                 } else {
                     log.warn("Invalid token provided");
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.getWriter().write("{\"code\":401,\"message\":\"Invalid token\",\"data\":null}");
-                    return;
+                    throw new BadCredentialsException("Invalid token");
                 }
             }
+        } catch (AuthenticationException e) {
+            log.error("Authentication error: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Authentication error: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("{\"code\":401,\"message\":\"Authentication failed\",\"data\":null}");
-            return;
+            throw new BadCredentialsException("Authentication failed", e);
         }
 
         filterChain.doFilter(request, response);

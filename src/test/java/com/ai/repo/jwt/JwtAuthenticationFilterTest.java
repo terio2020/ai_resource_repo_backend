@@ -8,12 +8,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import org.springframework.security.authentication.BadCredentialsException;
 
 import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(MockitoExtension.class)
 class JwtAuthenticationFilterTest {
@@ -56,13 +54,9 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization")).thenReturn("Bearer invalid-token");
         when(jwtProvider.validateAccessToken("invalid-token")).thenReturn(null);
 
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
-        when(response.getWriter()).thenReturn(printWriter);
+        assertThrows(BadCredentialsException.class, () ->
+            filter.doFilterInternal(request, response, filterChain));
 
-        filter.doFilterInternal(request, response, filterChain);
-
-        verify(response).setStatus(401);
         verify(filterChain, never()).doFilter(request, response);
     }
 
@@ -81,13 +75,9 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization")).thenReturn("Bearer some-token");
         when(jwtProvider.validateAccessToken("some-token")).thenThrow(new RuntimeException("Unexpected error"));
 
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
-        when(response.getWriter()).thenReturn(printWriter);
+        assertThrows(BadCredentialsException.class, () ->
+            filter.doFilterInternal(request, response, filterChain));
 
-        filter.doFilterInternal(request, response, filterChain);
-
-        verify(response).setStatus(401);
         verify(filterChain, never()).doFilter(request, response);
     }
 }

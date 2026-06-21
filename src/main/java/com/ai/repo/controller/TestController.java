@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+@Profile("dev")
 @RestController
 @RequestMapping("/api/test")
 @Tag(name = "Test API", description = "Testing辅助接口 - 仅用于开发和测试")
