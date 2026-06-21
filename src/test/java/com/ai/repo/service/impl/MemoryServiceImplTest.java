@@ -68,7 +68,27 @@ class MemoryServiceImplTest {
         Memory result = memoryService.update(memory);
 
         assertNotNull(result);
+        assertEquals(1L, result.getId());
+        verify(memoryMapper, times(2)).selectById(1L);
         verify(memoryMapper).update(memory);
+    }
+
+    @Test
+    void update_shouldReturnRefreshedMemory_afterUpdate() {
+        Memory input = createSampleMemory(1L);
+        input.setTitle("stale-title");
+        Memory refreshed = createSampleMemory(1L);
+        refreshed.setTitle("persisted-title");
+        refreshed.setUpdatedAt(java.time.LocalDateTime.now());
+
+        when(memoryMapper.selectById(1L)).thenReturn(input, refreshed);
+        when(memoryMapper.update(input)).thenReturn(1);
+
+        Memory result = memoryService.update(input);
+
+        assertEquals("persisted-title", result.getTitle());
+        assertNotNull(result.getUpdatedAt());
+        verify(memoryMapper, times(2)).selectById(1L);
     }
 
     @Test

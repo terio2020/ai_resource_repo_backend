@@ -27,7 +27,8 @@ public class MemoryServiceImpl implements MemoryService {
             throw new BusinessException("Memory not found");
         }
         memoryMapper.update(memory);
-        return memory;
+        Memory refreshed = memoryMapper.selectById(memory.getId());
+        return refreshed != null ? refreshed : memory;
     }
 
     @Override
@@ -88,10 +89,12 @@ public class MemoryServiceImpl implements MemoryService {
         if (existingMemory != null) {
             memory.setId(existingMemory.getId());
             memoryMapper.updateByCompositeKey(memory);
-            return memory;
+            Memory refreshed = memoryMapper.selectById(memory.getId());
+            return refreshed != null ? refreshed : memory;
         } else {
             memoryMapper.insert(memory);
-            return memory;
+            Memory refreshed = memoryMapper.selectById(memory.getId());
+            return refreshed != null ? refreshed : memory;
         }
     }
 
