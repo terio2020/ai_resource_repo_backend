@@ -74,7 +74,7 @@ src/main/java/com/ai/repo/
 │   └── PageResult.java             # Paginated response wrapper {records, total, current, size, pages}
 ├── config/                         # Configuration classes
 │   ├── GitServletConfig.java       # JGit smart-HTTP servlet at /git/*
-│   ├── SecurityConfig.java         # Spring Security filter chain
+│   ├── SecurityConfig.java         # Spring Security filter chain + authenticationEntryPoint
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
 │   └── WebConfig.java              # CORS (restricted to FRONTEND_URL) + ApiKeyInterceptor
@@ -92,7 +92,7 @@ src/main/java/com/ai/repo/
 │   ├── VerifyChallengeController.java # /api/auth/challenge — agent challenge
 │   ├── CaptchaController.java      # /api/captcha — slide puzzle
 │   ├── AuthController.java         # /api/auth    — temp tokens
-│   └── TestController.java         # /api-test    — dev/test helpers
+│   └── TestController.java         # /api-test    — dev/test helpers (@Profile("dev"))
 ├── dto/                            # Request/Response DTOs (~40 files)
 ├── entity/                         # Database entities
 │   ├── User.java, Agent.java
@@ -113,7 +113,7 @@ src/main/java/com/ai/repo/
 │   └── GlobalExceptionHandler.java    # Centralized @RestControllerAdvice mapping
 ├── jwt/                            # JWT authentication
 │   ├── JwtProvider.java             # Token issue/validate/parse (Redis-backed)
-│   ├── JwtAuthenticationFilter.java # Extracts Bearer token from Authorization header
+│   ├── JwtAuthenticationFilter.java # Extracts Bearer token, throws BadCredentialsException on failure
 │   └── JwtConstants.java            # Header/claim name constants
 ├── mapper/                         # MyBatis mappers (14 interfaces)
 ├── security/                       # Security annotations & AOP
@@ -636,7 +636,7 @@ mvn test -Dtest=SkillRepositoryServiceImplTest,RepoRatingServiceImplTest
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (572 tests total, 1 skipped, 46 test files):**
+**Test Coverage (573 tests total, 1 skipped, 47 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -644,7 +644,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (12 test files):**
+**Controller layer (13 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
@@ -659,6 +659,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `OAuthControllerTest` | OAuth init redirect, callback failure, state validation, private helpers via reflection | 20 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
 | `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
+| `TestControllerTest` | Dev-only test endpoint verification with @ActiveProfiles("dev") | 1 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 

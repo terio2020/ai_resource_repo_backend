@@ -1264,7 +1264,7 @@ Check if the agent is currently locked out.
 
 ### Test Management (`/api/test`)
 
-**Note:** These endpoints are registered in all profiles (not gated by `@Profile("dev")`). They are intended for testing and cleanup use; deployments should restrict access via reverse-proxy / network policy rather than relying on Spring profile gating.
+**Note:** These endpoints are gated by `@Profile("dev")` and are only available when the `dev` Spring profile is active. They return 404 in production. They are intended for testing and cleanup use.
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
