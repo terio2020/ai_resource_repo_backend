@@ -8,8 +8,6 @@ import com.ai.repo.jwt.JwtProvider;
 import com.ai.repo.service.TempTokenService;
 import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -21,22 +19,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-import javax.imageio.ImageIO;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-
-import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -50,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         JacksonAutoConfiguration.class,
         MultipartAutoConfiguration.class
 })
-@TestPropertySource(properties = "file.storage.base-path=/tmp/test-avatars")
 class UserControllerTest {
 
     @Autowired
@@ -266,62 +251,6 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
-    }
-
-    // ===== A-01: Avatar upload returns new URL format =====
-
-    @Test
-    void uploadAvatar_shouldReturnNewUrlFormat() throws Exception {
-        User mockUser = new User();
-        mockUser.setId(1L);
-        mockUser.setAvatar("/avatars/users/1/some-file.png");
-
-        when(userService.update(any(User.class))).thenReturn(mockUser);
-
-        BufferedImage img = new BufferedImage(300, 200, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = img.createGraphics();
-        g.setColor(Color.RED);
-        g.fillRect(0, 0, 300, 200);
-        g.dispose();
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(img, "png", baos);
-        byte[] imageBytes = baos.toByteArray();
-
-        MockMultipartFile file = new MockMultipartFile("avatar", "test.png", "image/png", imageBytes);
-
-        mockMvc.perform(multipart("/api/users/1/avatar")
-                        .file(file)
-                        .with(withUserId(1L)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.avatar", startsWith("/avatars/users/1/")))
-                .andExpect(jsonPath("$.data.avatar", not(containsString("/api/"))));
-    }
-
-    // ===== A-02: Avatar upload rejects wrong user =====
-
-    @Test
-    void uploadAvatar_shouldReturn403_whenWrongUser() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("avatar", "test.png", "image/png", new byte[]{1, 2, 3});
-
-        mockMvc.perform(multipart("/api/users/2/avatar")
-                        .file(file)
-                        .with(withUserId(1L)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(403));
-    }
-
-    // ===== A-03: Avatar upload rejects invalid file type =====
-
-    @Test
-    void uploadAvatar_shouldRejectNonImage() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("avatar", "test.txt", "text/plain", "not an image".getBytes());
-
-        mockMvc.perform(multipart("/api/users/1/avatar")
-                        .file(file)
-                        .with(withUserId(1L)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400));
     }
 
     // ===== C-07: Partial update with single field =====

@@ -4,6 +4,7 @@ import com.ai.repo.entity.SocialAccount;
 import com.ai.repo.entity.User;
 
 import java.util.List;
+import java.util.Map;
 
 public interface SocialAccountService {
 
@@ -57,4 +58,24 @@ public interface SocialAccountService {
      * Check if provider is configured
      */
     boolean isProviderConfigured(String provider);
+
+    /**
+     * Build OAuth authorization URL for the given provider
+     */
+    String buildAuthorizationUrl(String provider, String state);
+
+    /**
+     * Generate OAuth state parameter with HMAC signature
+     */
+    String generateState(String redirectUri);
+
+    /**
+     * Validate and extract redirect URI from state parameter
+     */
+    String validateAndExtractState(String state);
+
+    /**
+     * Exchange authorization code for user info from the provider
+     */
+    Map<String, Object> exchangeCodeForUserInfo(String provider, String code);
 }
