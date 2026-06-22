@@ -6,6 +6,10 @@ import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
+/**
+ * @deprecated Replaced by AgentPackageMapper, PackageVersionMapper, PackageFileMapper.
+ */
+@Deprecated
 @Mapper
 public interface FileUploadLogMapper {
     int insert(FileUploadLog fileUploadLog);

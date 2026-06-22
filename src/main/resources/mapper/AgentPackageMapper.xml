@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.AgentPackageMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.AgentPackage">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="package_type" property="packageType" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="LONGVARCHAR"/>
+        <result column="tags" property="tags" jdbcType="VARCHAR"/>
+        <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
+        <result column="current_version_id" property="currentVersionId" jdbcType="BIGINT"/>
+        <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, agent_id, package_type, name, description, tags, is_public,
+        current_version_id, download_count, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.AgentPackage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO agent_packages (user_id, agent_id, package_type, name, description, tags, is_public,
+                                    current_version_id, download_count, created_at)
+        VALUES (#{userId}, #{agentId}, #{packageType}, #{name}, #{description}, #{tags}, #{isPublic},
+                #{currentVersionId}, #{downloadCount}, #{createdAt})
+    </insert>
+
+    <update id="update" parameterType="com.ai.repo.entity.AgentPackage">
+        UPDATE agent_packages
+        <set>
+            <if test="description != null">description = #{description},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="isPublic != null">is_public = #{isPublic},</if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM agent_packages WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages WHERE id = #{id}
+    </select>
+
+    <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages WHERE agent_id = #{agentId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectPublic" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages WHERE is_public = TRUE
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="searchByKeyword" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages
+        WHERE (name LIKE CONCAT('%', #{keyword}, '%')
+           OR description LIKE CONCAT('%', #{keyword}, '%')
+           OR tags LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByPackageType" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages WHERE package_type = #{packageType}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByAgentIdAndTypeAndName" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages
+        WHERE agent_id = #{agentId} AND package_type = #{packageType} AND name = #{name}
+    </select>
+
+    <update id="updateVisibility">
+        UPDATE agent_packages
+        SET is_public = #{isPublic}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementDownloadCount">
+        UPDATE agent_packages
+        SET download_count = download_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateCurrentVersion">
+        UPDATE agent_packages
+        SET current_version_id = #{versionId}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

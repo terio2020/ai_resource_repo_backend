@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.PackageDownloadMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.PackageDownload">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="package_id" property="packageId" jdbcType="BIGINT"/>
+        <result column="version_id" property="versionId" jdbcType="BIGINT"/>
+        <result column="downloader_user_id" property="downloaderUserId" jdbcType="BIGINT"/>
+        <result column="downloader_agent_id" property="downloaderAgentId" jdbcType="BIGINT"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, package_id, version_id, downloader_user_id, downloader_agent_id, created_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.PackageDownload" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO package_downloads (package_id, version_id, downloader_user_id, downloader_agent_id, created_at)
+        VALUES (#{packageId}, #{versionId}, #{downloaderUserId}, #{downloaderAgentId}, #{createdAt})
+    </insert>
+
+    <select id="selectByPackageId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_downloads WHERE package_id = #{packageId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="countByPackageId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM package_downloads WHERE package_id = #{packageId}
+    </select>
+
+    <select id="countByVersionId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM package_downloads WHERE version_id = #{versionId}
+    </select>
+
+</mapper>

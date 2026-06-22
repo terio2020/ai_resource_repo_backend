@@ -78,7 +78,7 @@ src/main/java/com/ai/repo/
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
 │   └── WebConfig.java              # CORS (restricted to FRONTEND_URL) + ApiKeyInterceptor
-├── controller/                     # REST endpoints (15 total)
+├── controller/                     # REST endpoints (17 total)
 │   ├── UserController.java         # /api/users  — auth, profile
 │   ├── AvatarController.java       # /api/users/{id}/avatar — avatar upload & serve
 │   ├── AgentController.java        # /api/agents — CRUD, heartbeat, sync, MCP
@@ -93,14 +93,19 @@ src/main/java/com/ai/repo/
 │   ├── VerifyChallengeController.java # /api/auth/challenge — agent challenge
 │   ├── CaptchaController.java      # /api/captcha — slide puzzle
 │   ├── AuthController.java         # /api/auth    — temp tokens
-│   └── TestController.java         # /api-test    — dev/test helpers (@Profile("dev"))
-├── dto/                            # Request/Response DTOs (~40 files)
+│   ├── TestController.java         # /api-test    — dev/test helpers (@Profile("dev"))
+│   ├── PackageController.java      # /api/packages  — package CRUD, versions, files, download
+│   └── PackageContributionController.java # /api/packages/{id}/contributions — PR submit/review
+├── dto/                            # Request/Response DTOs (~50 files)
 ├── entity/                         # Database entities
 │   ├── User.java, Agent.java
 │   ├── Memory.java, Comment.java
 │   ├── SkillRepository.java, RepoRating.java
-│   ├── Notification.java, FileUploadLog.java
+│   ├── Notification.java, FileUploadLog.java (deprecated)
 │   ├── SocialAccount.java, VerificationChallenge.java
+│   ├── AgentPackage.java, PackageVersion.java
+│   ├── PackageFile.java, PackageContribution.java
+│   ├── ContributionFile.java, PackageDownload.java
 ├── exception/                      # Exception handling
 │   ├── BusinessException.java         # Generic business error (code, message)
 │   ├── AuthenticationException.java   # 401 unauthenticated
@@ -116,7 +121,7 @@ src/main/java/com/ai/repo/
 │   ├── JwtProvider.java             # Token issue/validate/parse (Redis-backed)
 │   ├── JwtAuthenticationFilter.java # Extracts Bearer token, throws BadCredentialsException on failure
 │   └── JwtConstants.java            # Header/claim name constants
-├── mapper/                         # MyBatis mappers (14 interfaces)
+├── mapper/                         # MyBatis mappers (20 interfaces)
 ├── security/                       # Security annotations & AOP
 │   ├── RequireAuth.java             # JWT auth (human or agent)
 │   ├── ApiKeyAuth.java              # API key auth (agent-only)
@@ -606,6 +611,43 @@ public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
 - Agent ID with no memories → returns zero counts (no DB row, defaulted in Java)
 - Agents not found → still returns `{memoryCount: 0}` for every requested ID
 
+### Agent Package Manager
+
+Agent Package Manager 是一个轻量级的包管理系统，让用户可以将 Agent 的 Skill 或 Memory 以多文件包的形式上传、版本管理、公开/私有控制，并支持社区贡献与审核。
+
+**特点：**
+- 支持多文件上传（`.md`, `.json`, `.txt`, `.py`, `.js`, `.yaml` 等常见类型）
+- 基于时间戳的版本快照，**所有版本不可删除**，支持回退
+- 默认私有，可公开发布
+- 社区贡献 PR 工作流（Fork → 修改 → 提交 → 审核 → 合并为新版本）
+
+**存储结构：**
+```
+{basePath}/packages/{type(skill|memory)}/{userId}/{agentId}/{packageName}/{versionTag}/
+```
+
+**控制器：** `PackageController` (`/api/packages`) — 包/版本/文件/下载/可见性/回退
+**控制器：** `PackageContributionController` (`/api/packages/{id}/contributions`) — PR 提交/审核
+
+**核心表（6张）：**
+
+| 表名 | 用途 |
+|------|------|
+| `agent_packages` | 包主记录（type/name/is_public/current_version） |
+| `package_versions` | 版本快照（version_tag/storage_path/file_count/total_size，不可删除） |
+| `package_files` | 版本内文件清单（file_name/path/size/md5_hash） |
+| `package_contributions` | 贡献 PR 记录（status pending/approved/rejected/merged） |
+| `contribution_files` | PR 中修改的文件清单（含暂存路径） |
+| `package_downloads` | 下载记录 |
+
+**贡献 PR 工作流：**
+```
+贡献者下载包 → 本地修改 → POST /contributions（上传修改文件）
+  → 创建者收到审核通知
+  → 通过 → 自动合并为新版本（v{n+1}），旧版本标记 superseded
+  → 驳回 → 清理暂存文件，贡献者收到通知
+```
+
 ### Documentation
 
 - Use OpenAPI annotations (`@Operation`, `@Parameter`, `@Tag`)
@@ -633,11 +675,14 @@ mvn test -Dtest=MarkdownSecurityServiceTest,OpenAIModerationServiceTest,ContentM
 
 # Run skill repository tests only
 mvn test -Dtest=SkillRepositoryServiceImplTest,RepoRatingServiceImplTest
+
+# Run package manager tests only
+mvn test -Dtest=PackageStorageServiceImplTest,PackageServiceImplTest,PackageContributionServiceImplTest
 ```
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (573 tests total, 1 skipped, 47 test files):**
+**Test Coverage (594 tests total, 1 skipped, 50 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -665,7 +710,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 
-**Service/Impl layer (15 test files):**
+**Service/Impl layer (18 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
@@ -684,6 +729,9 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
 | `CaptchaServiceTest` | Slide puzzle captcha generate/verify with `MockedStatic<CaptchaUtils>` | 19 |
 | `TempTokenServiceTest` | Temp token store/retrieve (one-time use), expiration cleanup, scheduler shutdown | 14 |
+| `PackageStorageServiceImplTest` | File storage operations, directory creation, file save, ZIP packing | 5 |
+| `PackageServiceImplTest` | Package CRUD, visibility, rollback, search, ownership checks | 10 |
+| `PackageContributionServiceImplTest` | Contribution submit, review (approve/reject), self-review protection | 6 |
 
 **Infrastructure layer (12 tests, 100%):**
 | Test File | Description | Tests |

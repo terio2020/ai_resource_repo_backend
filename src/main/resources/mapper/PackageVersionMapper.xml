@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.PackageVersionMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.PackageVersion">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="package_id" property="packageId" jdbcType="BIGINT"/>
+        <result column="version_tag" property="versionTag" jdbcType="VARCHAR"/>
+        <result column="storage_path" property="storagePath" jdbcType="VARCHAR"/>
+        <result column="file_count" property="fileCount" jdbcType="INTEGER"/>
+        <result column="total_size" property="totalSize" jdbcType="BIGINT"/>
+        <result column="commit_message" property="commitMessage" jdbcType="LONGVARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="source_contribution_id" property="sourceContributionId" jdbcType="BIGINT"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, package_id, version_tag, storage_path, file_count, total_size,
+        commit_message, status, source_contribution_id, created_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.PackageVersion" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO package_versions (package_id, version_tag, storage_path, file_count, total_size,
+                                      commit_message, status, source_contribution_id, created_at)
+        VALUES (#{packageId}, #{versionTag}, #{storagePath}, #{fileCount}, #{totalSize},
+                #{commitMessage}, #{status}, #{sourceContributionId}, #{createdAt})
+    </insert>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_versions WHERE id = #{id}
+    </select>
+
+    <select id="selectByPackageId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_versions WHERE package_id = #{packageId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectLatestByPackageId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_versions WHERE package_id = #{packageId}
+        ORDER BY created_at DESC LIMIT 1
+    </select>
+
+    <select id="selectMaxVersionNum" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM package_versions WHERE package_id = #{packageId}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE package_versions SET status = #{status} WHERE id = #{id}
+    </update>
+
+</mapper>

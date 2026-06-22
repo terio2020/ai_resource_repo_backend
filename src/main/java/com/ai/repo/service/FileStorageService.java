@@ -7,6 +7,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+/**
+ * @deprecated Replaced by {@link com.ai.repo.service.PackageService} and
+ * {@link com.ai.repo.service.PackageStorageService}. Use /api/packages/* endpoints.
+ */
+@Deprecated
 public interface FileStorageService {
     FileUploadResponse saveFile(MultipartFile file, Long userId, Long agentId, String fileType, String description);
     Resource loadFileAsResource(Long fileId, Long userId);

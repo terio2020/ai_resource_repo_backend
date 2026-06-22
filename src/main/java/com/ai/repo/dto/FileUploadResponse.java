@@ -4,6 +4,10 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * @deprecated Replaced by package-based file management. See PackageFileResponse.
+ */
+@Deprecated
 @Data
 public class FileUploadResponse {
     private Long fileId;

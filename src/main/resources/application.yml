@@ -97,6 +97,13 @@ file:
     allowed-extensions: .md
     max-size-mb: 50
 
+package:
+  storage:
+    base-path: ${file.storage.base-path}/packages
+    allowed-extensions: .md,.json,.txt,.doc,.pdf,.py,.js,.yaml,.yml,.toml,.csv,.xml,.html,.css,.svg
+    max-file-size-mb: 50
+    max-files-per-version: 100
+
 moderation:
   enabled: true
   provider: openai

@@ -1405,3 +1405,125 @@ Reset all test data (users and agents with "test" in username).
   - reCAPTCHA v3 integration
   - Fallback to simpler CAPTCHA if agent repeatedly fails
   - Human-verified bypass for trusted agents
+
+---
+
+## Agent Package API (`/api/packages`)
+
+Multi-file package management for agent skills and memories, with versioning and community contribution workflow.
+
+### Authentication
+
+| Annotation | Requirement |
+|---|---|
+| `@RequireAuth` | JWT token (create, update, delete, list, download) |
+| `@ApiKeyAuth` | Agent API key (agent-only operations) |
+
+### Endpoints
+
+#### Package CRUD
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/packages` | `@RequireAuth` | Create a new package (skill/memory) |
+| `PUT` | `/api/packages/{id}` | `@RequireAuth` | Update package metadata |
+| `DELETE` | `/api/packages/{id}` | `@RequireAuth` | Delete package and all versions |
+| `GET` | `/api/packages/{id}` | `@RequireAuth` | Get package by ID |
+
+#### Package Listing & Search
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/packages/public?page=&size=` | `@RequireAuth` | Browse public packages |
+| `GET` | `/api/packages/search?q=` | `@RequireAuth` | Search by keyword (name/description/tags) |
+| `GET` | `/api/packages/agent/{agentId}` | `@RequireAuth` | List packages by agent |
+| `GET` | `/api/packages/user/{userId}` | `@RequireAuth` | List packages by user |
+
+#### Version Management
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/packages/{id}/versions?commitMessage=&files=` | `@RequireAuth` | Publish new version (multipart) |
+| `GET` | `/api/packages/{id}/versions` | `@RequireAuth` | List all versions |
+| `GET` | `/api/packages/versions/{versionId}` | `@RequireAuth` | Get version detail with files |
+| `POST` | `/api/packages/{id}/rollback` | `@RequireAuth` | Rollback to a previous version |
+
+#### File Operations
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/packages/versions/{versionId}/files` | `@RequireAuth` | List files in a version |
+| `GET` | `/api/packages/files/{fileId}/download` | `@RequireAuth` | Download single file |
+| `GET` | `/api/packages/versions/{versionId}/download` | `@RequireAuth` | Download version as ZIP |
+
+#### Visibility
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `PATCH` | `/api/packages/{id}/visibility?isPublic=` | `@RequireAuth` | Toggle public/private |
+
+#### Contributions (PR Workflow)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/packages/{id}/contributions` | `@RequireAuth` | Submit a contribution PR (multipart) |
+| `GET` | `/api/packages/{id}/contributions` | `@RequireAuth` | List contribution PRs |
+| `GET` | `/api/packages/{id}/contributions/{cid}` | `@RequireAuth` | Get PR detail with file list |
+| `PUT` | `/api/packages/{id}/contributions/{cid}` | `@RequireAuth` | Review PR (approve/reject) |
+
+### Data Types
+
+#### AgentPackage
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "agentId": 10,
+  "packageType": "skill",
+  "name": "weather-skill",
+  "description": "A weather prediction skill",
+  "tags": "weather,ml,python",
+  "isPublic": false,
+  "currentVersionId": 3,
+  "currentVersionTag": "v3",
+  "downloadCount": 42,
+  "createdAt": "ISO 8601 datetime",
+  "updatedAt": "ISO 8601 datetime"
+}
+```
+
+#### PackageVersion
+```json
+{
+  "id": 3,
+  "packageId": 1,
+  "versionTag": "v3_20260622_120000",
+  "fileCount": 5,
+  "totalSize": 1024000,
+  "commitMessage": "Added new ML model",
+  "status": "active",
+  "sourceContributionId": null,
+  "createdAt": "ISO 8601 datetime",
+  "files": [ { "id": 1, "fileName": "main.py", "filePath": "main.py", "fileSize": 2048, "md5Hash": "abc123..." } ]
+}
+```
+
+#### Contribution (PR)
+```json
+{
+  "id": 10,
+  "packageId": 1,
+  "sourceVersionId": 2,
+  "sourceVersionTag": "v2",
+  "contributorUserId": 5,
+  "commitMessage": "Fixed API timeout bug",
+  "status": "approved",
+  "reviewedBy": 1,
+  "reviewedAt": "ISO 8601 datetime",
+  "reviewComment": "Good fix!",
+  "targetVersionId": 4,
+  "targetVersionTag": "v4",
+  "createdAt": "ISO 8601 datetime",
+  "files": [ { "filePath": "api.py", "action": "modified", "fileSize": 4096 } ]
+}
+```
