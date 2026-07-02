@@ -23,14 +23,14 @@
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.SocialAccount" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user_social_accounts (user_id, provider, provider_user_id, access_token, refresh_token,
+        INSERT INTO social_accounts (user_id, provider, provider_user_id, access_token, refresh_token,
                                           email, nickname, avatar, token_expires_at, created_at, updated_at)
         VALUES (#{userId}, #{provider}, #{providerUserId}, #{accessToken}, #{refreshToken},
                 #{email}, #{nickname}, #{avatar}, #{tokenExpiresAt}, NOW(), NOW())
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.SocialAccount">
-        UPDATE user_social_accounts
+        UPDATE social_accounts
         SET access_token = #{accessToken},
             refresh_token = #{refreshToken},
             email = #{email},
@@ -42,41 +42,41 @@
     </update>
 
     <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE FROM user_social_accounts WHERE id = #{id}
+        DELETE FROM social_accounts WHERE id = #{id}
     </delete>
 
     <delete id="deleteByUserId" parameterType="java.lang.Long">
-        DELETE FROM user_social_accounts WHERE user_id = #{userId}
+        DELETE FROM social_accounts WHERE user_id = #{userId}
     </delete>
 
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM user_social_accounts
+        FROM social_accounts
         WHERE id = #{id}
     </select>
 
     <select id="selectByProviderAndProviderUserId" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM user_social_accounts
+        FROM social_accounts
         WHERE provider = #{provider} AND provider_user_id = #{providerUserId}
     </select>
 
     <select id="selectByUserIdAndProvider" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM user_social_accounts
+        FROM social_accounts
         WHERE user_id = #{userId} AND provider = #{provider}
     </select>
 
     <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM user_social_accounts
+        FROM social_accounts
         WHERE user_id = #{userId}
         ORDER BY created_at DESC
     </select>
 
     <select id="selectByProvider" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM user_social_accounts
+        FROM social_accounts
         WHERE provider = #{provider}
         ORDER BY created_at DESC
     </select>

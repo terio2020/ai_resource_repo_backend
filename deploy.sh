@@ -4,33 +4,68 @@
 # Logicoma 后端自动化本地编译 -> 远程部署脚本
 # 特性：使用 SSH 密钥认证，全程无需输入密码
 # 支持 .env 文件配置敏感信息
+# 支持多服务器部署：./deploy.sh [server1|aws]
 # ==========================================
 
-# 1. 远程服务器配置
-SERVER_IP="111.231.58.28"
-USER="root"
-REMOTE_DIR="/DE_PKGS/de_version/de_code/de_server/ai_resource"
-CONTAINER_NAME="ai_resource_app"
+# 1. 多服务器配置
+select_server() {
+    local target="${1:-server1}"
+    case "$target" in
+        server1)
+            SERVER_IP="111.231.58.28"
+            USER="root"
+            REMOTE_DIR="/DE_PKGS/de_version/de_code/de_server/ai_resource"
+            CONTAINER_NAME="ai_resource_app"
+            SSH_KEY="$HOME/.ssh/id_ed25519_logicoma"
+            ENV_FILE=".env"
+            ;;
+        aws)
+            SERVER_IP="44.199.91.157"
+            USER="ubuntu"
+            REMOTE_DIR="/opt/logicomanet-be"
+            CONTAINER_NAME="logicomanet-be"
+            SSH_KEY="$HOME/.ssh/aws-logicomanet.pem"
+            ENV_FILE=".env.aws"
+            ;;
+        *)
+            echo "❌ 未知的目标服务器: $target"
+            echo "可用选项: server1, aws"
+            exit 1
+            ;;
+    esac
+}
+
+# 解析命令行参数
+TARGET_SERVER="${1:-server1}"
+select_server "$TARGET_SERVER"
+
 APP_JAR="app.jar"
-ENV_FILE=".env"
 
 # 2. 本地项目配置
 LOCAL_JAR="target/logicoma-net-2.0.0.jar"
-SSH_KEY="$HOME/.ssh/id_ed25519_logicoma"
 
 # ==========================================
 # 从 .env 文件加载环境变量
 # ==========================================
 load_env_file() {
     if [ -f "$ENV_FILE" ]; then
-        echo "📁 发现 .env 文件，加载配置..."
-        set -a  # 自动导出
+        echo "📁 发现 $ENV_FILE 文件，加载配置..."
+        set -a
         source "$ENV_FILE"
+        set +a
+    elif [ -f ".env" ]; then
+        echo "📁 未找到 $ENV_FILE，回退加载 .env 文件..."
+        set -a
+        source ".env"
         set +a
     else
         echo "⚠️  未找到 .env 文件，使用环境变量或默认值"
     fi
 }
+
+echo "=========================================="
+echo " 目标服务器: ${TARGET_SERVER} (${SERVER_IP})"
+echo "=========================================="
 
 echo "=========================================="
 echo " 1. 加载配置..."
@@ -66,8 +101,16 @@ if [ ! -f "$LOCAL_JAR" ]; then
 fi
 
 echo "=========================================="
-echo " 3. 上传文件至服务器..."
+echo " 3. 上传文件至服务器 ${SERVER_IP}..."
 echo "=========================================="
+
+# 确保远程部署目录存在
+ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} "mkdir -p ${REMOTE_DIR}"
+
+if [ $? -ne 0 ]; then
+    echo "❌ 创建远程目录失败！"
+    exit 1
+fi
 
 # 上传 JAR 包
 scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$LOCAL_JAR" ${USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.jar
@@ -81,7 +124,7 @@ fi
 if [ -f "$ENV_FILE" ]; then
     scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$ENV_FILE" ${USER}@${SERVER_IP}:${REMOTE_DIR}/.env
     if [ $? -eq 0 ]; then
-        echo "✅ .env 文件已上传"
+        echo "✅ $ENV_FILE 文件已上传"
     fi
 fi
 
@@ -113,7 +156,7 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         --name ${CONTAINER_NAME} \
         --restart=always \
         --network=host \
-        -v /DE_PKGS/de_version/de_code/de_server/ai_resource:/DE_PKGS/de_version/de_code/de_server/ai_resource \
+        -v ${REMOTE_DIR}:${REMOTE_DIR} \
         -e MAIL_HOST=${MAIL_HOST} \
         -e MAIL_PORT=${MAIL_PORT} \
         -e MAIL_USERNAME=${MAIL_USERNAME} \
@@ -133,8 +176,8 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e OAUTH_APPLE_PRIVATE_KEY=${OAUTH_APPLE_PRIVATE_KEY:-} \
         -e OAUTH_APPLE_REDIRECT_URI=${OAUTH_APPLE_REDIRECT_URI:-} \
         -e OPENAI_API_KEY=${OPENAI_API_KEY:-} \
-        -w /DE_PKGS/de_version/de_code/de_server/ai_resource \
-        openjdk:17-jdk-alpine \
+        -w ${REMOTE_DIR} \
+        eclipse-temurin:17-jdk-alpine \
         java -jar app.jar
 
     echo "✅ 部署已完成！"
