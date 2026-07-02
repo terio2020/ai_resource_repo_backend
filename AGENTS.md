@@ -528,9 +528,9 @@ Human users can register/login via social accounts:
 - `OAuthController` - handles OAuth flow
 - `UserSocialAccountController` - manages linked accounts
 
-**Database Table:** `user_social_accounts`
+**Database Table:** `social_accounts`
 ```sql
-CREATE TABLE user_social_accounts (
+CREATE TABLE social_accounts (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     provider VARCHAR(20) NOT NULL,

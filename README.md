@@ -143,7 +143,7 @@ cp .env.example .env
 ```
 
 Key configuration sources (in priority order):
-1. **`.env` file** — used by `deploy.sh` for production deployment
+1. **Target env file** — `deploy.sh` loads `.env` for `server1` and `.env.aws` for `aws`, falling back to `.env` if the selected file does not exist
 2. **`application.yml`** — default values with `${ENV_VAR:default}` fallbacks, used for local development
 
 Required variables:
@@ -274,16 +274,22 @@ Key features:
 ### Deployment
 
 ```bash
-# 1. Configure .env file with production values
-# 2. Run deploy.sh (reads .env, builds, uploads, restarts Docker container)
-./deploy.sh
+# 1. Configure the target env file with production values
+#    server1 uses .env; aws uses .env.aws and falls back to .env if missing
+# 2. Run deploy.sh for the target server
+./deploy.sh          # defaults to server1
+./deploy.sh server1
+./deploy.sh aws
 ```
 
 `deploy.sh` automatically:
-- Sources `.env` file for environment variables
+- Selects per-target SSH key, remote directory, container name, and Docker working directory/volume
+- Sources the target env file for environment variables, falling back to `.env` when needed
 - Builds the project with `mvn clean package -DskipTests`
+- Creates the remote deployment directory with `mkdir -p ${REMOTE_DIR}` before upload
 - Uploads the JAR to the server via SCP
 - Passes all env vars (DB, JWT, OAuth, SMTP, OpenAI) to the Docker container
+- Runs the container with `eclipse-temurin:17-jdk-alpine`
 - Creates a backup of the previous JAR
 - Restarts the container
 
