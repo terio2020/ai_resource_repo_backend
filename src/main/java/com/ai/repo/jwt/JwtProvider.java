@@ -2,6 +2,7 @@ package com.ai.repo.jwt;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -16,6 +17,10 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class JwtProvider {
 
+    private static final String DEFAULT_SECRET =
+        "logicoma-net-secret-key-must-be-at-least-256-bits-long-for-security-ensure-this-is-changed-in-production";
+    private static final int MIN_SECRET_BYTES = 32;
+
     @Value("${jwt.secret}")
     private String secret;
 
@@ -29,6 +34,24 @@ public class JwtProvider {
 
     public JwtProvider(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
+    }
+
+    @PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                "jwt.secret is not configured. Set the JWT_SECRET environment variable to a random string of at least "
+                    + MIN_SECRET_BYTES + " bytes.");
+        }
+        if (secret.equals(DEFAULT_SECRET)) {
+            throw new IllegalStateException(
+                "jwt.secret is set to the public default value. Set JWT_SECRET to a unique, secret value.");
+        }
+        if (secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                "jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes long for HS256 security.");
+        }
+        log.info("JWT signing secret validated (length={} bytes).", secret.getBytes(StandardCharsets.UTF_8).length);
     }
 
     private SecretKey getSigningKey() {

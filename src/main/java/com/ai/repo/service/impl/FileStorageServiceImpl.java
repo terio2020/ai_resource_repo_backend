@@ -96,7 +96,9 @@ public class FileStorageServiceImpl implements FileStorageService {
         String originalFilename = file.getOriginalFilename();
         String extension = FilenameUtils.getExtension(originalFilename);
 
-        assert extension != null;
+        if (extension == null || extension.isBlank()) {
+            throw new InvalidFileTypeException("File has no extension");
+        }
         if (!allowedExtensions.contains(extension.toLowerCase())) {
             throw new InvalidFileTypeException("Only .md files are allowed. Got: " + extension);
         }
@@ -104,10 +106,10 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public void validateFileSize(MultipartFile file) {
-        long fileSizeMB = file.getSize() / (1024 * 1024);
-        
-        if (fileSizeMB > maxFileSizeMB) {
-            throw new FileTooLargeException("File size exceeds maximum limit of " + maxFileSizeMB + "MB", maxFileSizeMB);
+        long maxFileSizeBytes = maxFileSizeMB * 1024L * 1024L;
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new FileTooLargeException(
+                "File size exceeds maximum limit of " + maxFileSizeMB + "MB", maxFileSizeMB);
         }
     }
 
@@ -115,8 +117,9 @@ public class FileStorageServiceImpl implements FileStorageService {
     public String generateUniqueFileName(String originalFileName, Long agentId, String fileType) {
         String baseName = FilenameUtils.getBaseName(originalFileName);
         String extension = FilenameUtils.getExtension(originalFileName);
+        String suffix = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
-        return baseName + "." + extension;
+        return baseName + "_" + suffix + "." + extension;
     }
 
     @Override

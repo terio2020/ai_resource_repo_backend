@@ -1,5 +1,6 @@
 package com.ai.repo.security;
 
+import com.ai.repo.entity.User;
 import com.ai.repo.exception.AuthenticationException;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.service.*;
@@ -58,7 +59,7 @@ public class PermissionChecker {
 
         Long resourceOwnerId = getResourceOwnerId(requireOwnership.resourceType(), resourceId);
         if (resourceOwnerId == null) {
-            throw new IllegalArgumentException("Resource not found");
+            throw new BusinessException(404, "Resource not found");
         }
 
         boolean authorized;
@@ -146,6 +147,9 @@ public class PermissionChecker {
                     return memoryService.findById(resourceId).getUserId();
                 case "comment":
                     return commentService.findById(resourceId).getAgentId();
+                case "user":
+                    User user = userService.findById(resourceId);
+                    return user != null ? user.getId() : null;
                 default:
                     log.error("Unknown resource type: {}", resourceType);
                     return null;

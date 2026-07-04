@@ -33,7 +33,8 @@ public class AuthController {
     }
 
     @GetMapping("/temp-token/{sessionId}")
-    @Operation(summary = "Get temporary token", description = "Retrieve and remove a temporary token by session ID (one-time use)")
+    @RequireAuth
+    @Operation(summary = "Get temporary token", description = "Retrieve and remove a temporary token by session ID (one-time use, requires authentication)")
     public Result<TempTokenGetResponse> getTempToken(
             @Parameter(description = "Session ID") @PathVariable String sessionId) {
         String accessToken = tempTokenService.getAndRemoveToken(sessionId);

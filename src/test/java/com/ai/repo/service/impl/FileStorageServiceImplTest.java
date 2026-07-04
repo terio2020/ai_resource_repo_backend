@@ -84,9 +84,20 @@ class FileStorageServiceImplTest {
     // ==================== generateUniqueFileName ====================
 
     @Test
-    void generateUniqueFileName_shouldReturnBasenameWithExtension() {
+    void generateUniqueFileName_shouldReturnUniqueSuffixBasenameWithExtension() {
         String result = fileStorageService.generateUniqueFileName("my-skill.md", 1L, "skill");
-        assertEquals("my-skill.md", result);
+        assertTrue(result.startsWith("my-skill_"), "filename should include uniqueness suffix");
+        assertTrue(result.endsWith(".md"), "filename should preserve extension");
+        String suffix = result.substring("my-skill_".length(), result.length() - ".md".length());
+        assertTrue(suffix.length() >= 8 && suffix.matches("[0-9a-f]+"),
+            "suffix should be a hex string of at least 8 chars, got: " + suffix);
+    }
+
+    @Test
+    void generateUniqueFileName_shouldProduceDifferentNamesOnRepeatedCalls() {
+        String a = fileStorageService.generateUniqueFileName("skill.md", 1L, "skill");
+        String b = fileStorageService.generateUniqueFileName("skill.md", 1L, "skill");
+        assertNotEquals(a, b, "two consecutive calls must produce distinct names");
     }
 
     // ==================== saveFile ====================

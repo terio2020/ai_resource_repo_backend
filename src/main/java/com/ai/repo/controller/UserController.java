@@ -4,6 +4,7 @@ import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
 import com.ai.repo.entity.User;
 import com.ai.repo.security.RequireAuth;
+import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.TempTokenService;
 import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
@@ -97,7 +98,8 @@ public class UserController {
 
     @PostMapping("/deleteById")
     @RequireAuth
-    @Operation(summary = "Delete user", description = "Delete a user account")
+    @RequireOwnership(resourceType = "user", idParam = "id")
+    @Operation(summary = "Delete user", description = "Delete a user account (owner-only)")
     public Result<Void> deleteUser(@Parameter(description = "User ID") @RequestParam @Min(1) Long id) {
         userService.delete(id);
         return Result.success();

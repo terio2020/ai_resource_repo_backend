@@ -50,3 +50,4 @@ files/
 
 ### OpenCode working files ###
 .omo/
+.env.aws

@@ -1,6 +1,5 @@
 package com.ai.repo.controller;
 
-import com.ai.repo.common.Result;
 import com.ai.repo.dto.LoginResponse;
 import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
@@ -43,7 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "oauth.github.client-secret=github-secret",
         "oauth.github.redirect-uri=http://localhost:8080/api/oauth/github/callback",
         "oauth.state-secret=test-state-secret",
-        "app.base-url=http://localhost:8080"
+        "app.base-url=http://localhost:8080",
+        "app.frontend-url=http://localhost:3000"
 })
 class OAuthControllerTest {
 
@@ -141,7 +141,7 @@ class OAuthControllerTest {
     }
 
     @Test
-    void handleOAuthCallback_shouldCreateNewUser_whenFirstTime() throws Exception {
+    void handleOAuthCallback_shouldRedirectToFrontend_whenNewUser() throws Exception {
         User newUser = new User();
         newUser.setId(1L);
         newUser.setUsername("google_12345");
@@ -150,6 +150,10 @@ class OAuthControllerTest {
         loginResponse.setId(1L);
         loginResponse.setAccessToken("access-token");
         loginResponse.setRefreshToken("refresh-token");
+        loginResponse.setUsername("google_12345");
+        loginResponse.setNickname("Test User");
+        loginResponse.setEmail("user@gmail.com");
+        loginResponse.setAvatar("https://example.com/avatar.png");
 
         Map<String, Object> userInfo = Map.of(
                 "id", "12345",
@@ -172,13 +176,20 @@ class OAuthControllerTest {
         mockMvc.perform(get("/api/oauth/google/callback")
                         .param("code", "code-123")
                         .param("state", "valid-state"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.startsWith("http://localhost:3000/oauth/google/callback"),
+                        org.hamcrest.Matchers.containsString("accessToken=access-token"),
+                        org.hamcrest.Matchers.containsString("refreshToken=refresh-token"),
+                        org.hamcrest.Matchers.containsString("userId=1"),
+                        org.hamcrest.Matchers.containsString("username=google_12345"),
+                        org.hamcrest.Matchers.containsString("nickname=Test+User"),
+                        org.hamcrest.Matchers.containsString("email=user%40gmail.com")
+                )));
     }
 
     @Test
-    void handleOAuthCallback_shouldLoginExistingUser() throws Exception {
+    void handleOAuthCallback_shouldRedirectToFrontend_whenExistingUser() throws Exception {
         User existingUser = new User();
         existingUser.setId(2L);
         existingUser.setUsername("existing_user");
@@ -187,6 +198,10 @@ class OAuthControllerTest {
         loginResponse.setId(2L);
         loginResponse.setAccessToken("access-token");
         loginResponse.setRefreshToken("refresh-token");
+        loginResponse.setUsername("existing_user");
+        loginResponse.setNickname("Existing User");
+        loginResponse.setEmail("existing@gmail.com");
+        loginResponse.setAvatar("https://example.com/avatar.png");
 
         Map<String, Object> userInfo = new java.util.HashMap<>();
         userInfo.put("id", "67890");
@@ -210,8 +225,11 @@ class OAuthControllerTest {
         mockMvc.perform(get("/api/oauth/github/callback")
                         .param("code", "code-456")
                         .param("state", "valid-state"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.startsWith("http://localhost:3000/oauth/github/callback"),
+                        org.hamcrest.Matchers.containsString("accessToken=access-token"),
+                        org.hamcrest.Matchers.containsString("userId=2")
+                )));
     }
 }

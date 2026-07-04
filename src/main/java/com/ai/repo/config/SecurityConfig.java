@@ -6,6 +6,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -35,8 +36,22 @@ public class SecurityConfig {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
-                .anyRequest().permitAll()
+                .requestMatchers(
+                    "/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**",
+                    "/swagger-resources/**", "/webjars/**"
+                ).permitAll()
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(
+                    "/api/users/login", "/api/users/login/email",
+                    "/api/users", "/api/users/refresh-token", "/api/users/auth-login",
+                    "/api/users/password/reset-request", "/api/users/password/validate",
+                    "/api/oauth/**",
+                    "/api/captcha/**",
+                    "/api/auth/challenge", "/api/auth/challenge/verify", "/api/auth/challenge/status",
+                    "/git/**"
+                ).permitAll()
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();

@@ -95,6 +95,14 @@ class MarkdownSecurityServiceTest {
         String content = "<img src=\"vbscript:msgbox('XSS')\">";
         ContentModerationException exception = assertThrows(ContentModerationException.class,
                 () -> markdownSecurityService.moderateContent(content, "xss-vbscript.html"));
+        assertEquals(ModerationErrorType.IMAGE_NOT_ALLOWED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenVbscriptProtocolInAnchor() {
+        String content = "<a href=\"vbscript:msgbox('XSS')\">Click</a>";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-vbscript-anchor.html"));
         assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
     }
 
@@ -119,6 +127,14 @@ class MarkdownSecurityServiceTest {
         String content = "<img src=\"x.jpg\" onload=\"alert('XSS')\">";
         ContentModerationException exception = assertThrows(ContentModerationException.class,
                 () -> markdownSecurityService.moderateContent(content, "xss-onload.html"));
+        assertEquals(ModerationErrorType.IMAGE_NOT_ALLOWED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenEventHandlerOnLoadInDiv() {
+        String content = "<div onload=\"alert('XSS')\">test</div>";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-onload-div.html"));
         assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
     }
 
@@ -144,6 +160,62 @@ class MarkdownSecurityServiceTest {
         ContentModerationException exception = assertThrows(ContentModerationException.class,
                 () -> markdownSecurityService.moderateContent(content, "xss-script.html"));
         assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenScriptTagAlone() {
+        String content = "<script>alert(1)</script>";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-script-only.html"));
+        assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenIframeTag() {
+        String content = "<iframe src=\"//evil.example.com\"></iframe>";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-iframe.html"));
+        assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenObjectTag() {
+        String content = "<object data=\"evil.swf\"></object>";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-object.html"));
+        assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenFormTag() {
+        String content = "<form action=\"//evil.com\"><button>Go</button></form>";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-form.html"));
+        assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenMetaRefreshTag() {
+        String content = "<meta http-equiv=\"refresh\" content=\"0;url=//evil.com\">";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "xss-meta.html"));
+        assertEquals(ModerationErrorType.XSS_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenBareLocalhost() {
+        String content = "Internal API: http://localhost:8080/admin";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "ssrf-localhost-bare.md"));
+        assertEquals(ModerationErrorType.SSRF_DETECTED, exception.getErrorType());
+    }
+
+    @Test
+    void moderateContent_shouldThrow_whenIPv6Loopback() {
+        String content = "Loopback v6: http://[::1]/admin";
+        ContentModerationException exception = assertThrows(ContentModerationException.class,
+                () -> markdownSecurityService.moderateContent(content, "ssrf-ipv6.md"));
+        assertEquals(ModerationErrorType.SSRF_DETECTED, exception.getErrorType());
     }
 
     // ===== SSRF 检测测试 =====

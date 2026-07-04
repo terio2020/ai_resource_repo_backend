@@ -6,6 +6,7 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SocialAccountMapper;
 import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.SocialAccountService;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,6 +70,28 @@ public class SocialAccountServiceImpl implements SocialAccountService {
 
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
+
+    private static final String DEFAULT_STATE_SECRET = "default-state-secret-change-in-production";
+    private static final int MIN_STATE_SECRET_BYTES = 32;
+
+    @PostConstruct
+    public void validateStateSecret() {
+        if (stateSecret == null || stateSecret.isBlank()) {
+            throw new IllegalStateException(
+                "oauth.state-secret is not configured. Set the APP_OAUTH_STATE_SECRET environment variable.");
+        }
+        if (stateSecret.equals(DEFAULT_STATE_SECRET)) {
+            throw new IllegalStateException(
+                "oauth.state-secret is set to the public default value. Set APP_OAUTH_STATE_SECRET to a unique, "
+                    + "secret value of at least " + MIN_STATE_SECRET_BYTES + " bytes.");
+        }
+        if (stateSecret.getBytes().length < MIN_STATE_SECRET_BYTES) {
+            throw new IllegalStateException(
+                "oauth.state-secret must be at least " + MIN_STATE_SECRET_BYTES
+                    + " bytes long to prevent OAuth state forgery.");
+        }
+        log.info("OAuth state secret validated (length={} bytes).", stateSecret.getBytes().length);
+    }
 
     @Override
     public SocialAccount findByProviderAndProviderUserId(String provider, String providerUserId) {

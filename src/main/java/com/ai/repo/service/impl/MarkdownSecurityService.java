@@ -15,8 +15,15 @@ public class MarkdownSecurityService {
     private static final Pattern IMAGE_PATTERN =
         Pattern.compile("!\\[.*?\\]\\(.*?\\)", Pattern.DOTALL);
 
+    private static final Pattern HTML_IMG_PATTERN =
+        Pattern.compile("<\\s*img\\b", Pattern.CASE_INSENSITIVE);
+
     private static final Pattern HTML_TAG_PATTERN =
         Pattern.compile("<[^>]+>", Pattern.DOTALL);
+
+    private static final Pattern DANGEROUS_TAG_PATTERN =
+        Pattern.compile("<\\s*(script|iframe|object|embed|form|base|meta|link|svg)\\b",
+            Pattern.CASE_INSENSITIVE);
 
     private static final Pattern JAVASCRIPT_PROTOCOL_PATTERN =
         Pattern.compile("(javascript|vbscript|data):", Pattern.CASE_INSENSITIVE);
@@ -26,6 +33,12 @@ public class MarkdownSecurityService {
 
     private static final Pattern SSRF_IP_PATTERN =
         Pattern.compile("(http|https|ftp)://\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", Pattern.CASE_INSENSITIVE);
+
+    private static final Pattern SSRF_IPV6_PATTERN =
+        Pattern.compile("(http|https|ftp)://\\[[0-9a-fA-F:]+\\]", Pattern.CASE_INSENSITIVE);
+
+    private static final Pattern SSRF_BARE_LOCALHOST_PATTERN =
+        Pattern.compile("(http|https|ftp)://localhost\\b", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern SSRF_PRIVATE_DNS_PATTERN =
         Pattern.compile("(http|https)://[^/]+\\.(local|internal|intranet|localhost)", Pattern.CASE_INSENSITIVE);
@@ -44,7 +57,13 @@ public class MarkdownSecurityService {
         Matcher matcher = IMAGE_PATTERN.matcher(content);
         if (matcher.find()) {
             String found = matcher.group();
-            log.warn("检测到禁止的图片格式，文件: {}, 内容: {}", fileName, found);
+            log.warn("检测到禁止的图片格式，文件: {}", fileName);
+            throw new ContentModerationException(ModerationErrorType.IMAGE_NOT_ALLOWED, found);
+        }
+        Matcher htmlImgMatcher = HTML_IMG_PATTERN.matcher(content);
+        if (htmlImgMatcher.find()) {
+            String found = htmlImgMatcher.group();
+            log.warn("检测到禁止的HTML图片标签，文件: {}", fileName);
             throw new ContentModerationException(ModerationErrorType.IMAGE_NOT_ALLOWED, found);
         }
     }
@@ -53,6 +72,11 @@ public class MarkdownSecurityService {
         Matcher htmlMatcher = HTML_TAG_PATTERN.matcher(content);
         if (htmlMatcher.find()) {
             String htmlTag = htmlMatcher.group();
+
+            if (DANGEROUS_TAG_PATTERN.matcher(content).find()) {
+                log.warn("检测到危险HTML标签，文件: {}", fileName);
+                throw new ContentModerationException(ModerationErrorType.XSS_DETECTED, htmlTag);
+            }
 
             if (JAVASCRIPT_PROTOCOL_PATTERN.matcher(htmlTag).find()) {
                 log.warn("检测到JavaScript伪协议，文件: {}", fileName);
@@ -74,6 +98,20 @@ public class MarkdownSecurityService {
                 log.warn("检测到内网IP访问，文件: {}, URL: {}", fileName, url);
                 throw new ContentModerationException(ModerationErrorType.SSRF_DETECTED, url);
             }
+        }
+
+        Matcher ipv6Matcher = SSRF_IPV6_PATTERN.matcher(content);
+        while (ipv6Matcher.find()) {
+            String url = ipv6Matcher.group();
+            log.warn("检测到IPv6地址访问，文件: {}, URL: {}", fileName, url);
+            throw new ContentModerationException(ModerationErrorType.SSRF_DETECTED, url);
+        }
+
+        Matcher bareLocalhostMatcher = SSRF_BARE_LOCALHOST_PATTERN.matcher(content);
+        if (bareLocalhostMatcher.find()) {
+            String url = bareLocalhostMatcher.group();
+            log.warn("检测到localhost访问，文件: {}, URL: {}", fileName, url);
+            throw new ContentModerationException(ModerationErrorType.SSRF_DETECTED, url);
         }
 
         Matcher dnsMatcher = SSRF_PRIVATE_DNS_PATTERN.matcher(content);

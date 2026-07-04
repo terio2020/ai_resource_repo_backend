@@ -1,5 +1,6 @@
 package com.ai.repo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -23,12 +24,16 @@ public class Agent {
     private String description;
     private String avatar;
     private String avatarPrompt;
+    @JsonIgnore
     private String apiKey;
     private Boolean isClaimed;
+    @JsonIgnore
     private String claimUrl;
+    @JsonIgnore
     private String verificationCode;
     private Boolean challengeVerified;
     private String xiaZhengStatus;
+    @JsonIgnore
     private String xiaZhengUrl;
     private Integer karma;
 }

@@ -9,12 +9,14 @@ import com.ai.repo.service.PackageStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,6 +28,9 @@ import org.mockito.stubbing.Answer;
 
 @ExtendWith(MockitoExtension.class)
 class PackageContributionServiceImplTest {
+
+    @TempDir
+    static Path tempRoot;
 
     @Mock
     private AgentPackageMapper agentPackageMapper;
@@ -45,7 +50,7 @@ class PackageContributionServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new PackageContributionServiceImpl();
-        ReflectionTestUtils.setField(service, "basePath", "/data/packages/");
+        ReflectionTestUtils.setField(service, "basePath", tempRoot.toString() + "/packages/");
         ReflectionTestUtils.setField(service, "agentPackageMapper", agentPackageMapper);
         ReflectionTestUtils.setField(service, "packageVersionMapper", packageVersionMapper);
         ReflectionTestUtils.setField(service, "packageFileMapper", packageFileMapper);
@@ -200,7 +205,7 @@ class PackageContributionServiceImplTest {
 
         assertEquals("rejected", response.getStatus());
         assertEquals("Not needed", response.getReviewComment());
-        verify(packageStorageService).deleteDirectory("/data/packages//contributions/tmp_10");
+        verify(packageStorageService).deleteDirectory(tempRoot.toString() + "/packages//contributions/tmp_10");
     }
 
     // ==================== review (not owner) ====================

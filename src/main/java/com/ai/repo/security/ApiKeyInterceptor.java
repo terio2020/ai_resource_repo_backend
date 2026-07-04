@@ -34,10 +34,31 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         }
 
         Object userId = request.getAttribute("userId");
+        Object agentId = request.getAttribute("agentId");
+
+        if (hasApiKeyAuth) {
+            if (agentId != null) {
+                return true;
+            }
+            if (userId != null) {
+                response.setStatus(403);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":403,\"message\":\"Agent API key required for this endpoint\"}");
+                return false;
+            }
+            return authenticateByApiKey(request, response);
+        }
+
         if (userId != null) {
             return true;
         }
+        if (agentId != null) {
+            return true;
+        }
+        return authenticateByApiKey(request, response);
+    }
 
+    private boolean authenticateByApiKey(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String authHeader = request.getHeader("Authorization");
         String apiKeyHeader = request.getHeader("agent-auth-api-key");
 
@@ -48,7 +69,7 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
             apiKey = apiKeyHeader;
         } else {
             response.setStatus(401);
-            response.setContentType("application/json");
+            response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":401,\"message\":\"Missing authentication\"}");
             return false;
         }
@@ -56,7 +77,7 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         Agent agent = agentService.findByApiKey(apiKey);
         if (agent == null) {
             response.setStatus(401);
-            response.setContentType("application/json");
+            response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":401,\"message\":\"Invalid API Key\"}");
             return false;
         }
@@ -64,16 +85,14 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         request.setAttribute("agentId", agent.getId());
         request.setAttribute("userId", agent.getUserId());
 
-        // Check if this is a challenge endpoint (allowed before verification)
         String requestPath = request.getRequestURI();
-        boolean isChallengeEndpoint = requestPath.equals("/api/auth/challenge") 
+        boolean isChallengeEndpoint = requestPath.equals("/api/auth/challenge")
             || requestPath.equals("/api/auth/challenge/verify")
             || requestPath.equals("/api/auth/challenge/status");
 
-        // If NOT a challenge endpoint, require challenge verification
         if (!isChallengeEndpoint && !Boolean.TRUE.equals(agent.getChallengeVerified())) {
             response.setStatus(403);
-            response.setContentType("application/json");
+            response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":403,\"message\":\"Challenge verification required\"}");
             return false;
         }
