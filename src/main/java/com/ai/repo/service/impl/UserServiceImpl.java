@@ -178,6 +178,7 @@ public class UserServiceImpl implements UserService {
         response.setLastLoginAt(user.getLastLoginAt());
         response.setCreatedAt(user.getCreatedAt());
         response.setUpdatedAt(user.getUpdatedAt());
+        response.setHasPassword(user.getPassword() != null && !user.getPassword().isEmpty());
 
         return response;
     }

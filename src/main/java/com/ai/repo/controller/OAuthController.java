@@ -110,7 +110,8 @@ public class OAuthController {
                 + "&username=" + URLEncoder.encode(response.getUsername(), StandardCharsets.UTF_8)
                 + "&nickname=" + URLEncoder.encode(response.getNickname() != null ? response.getNickname() : "", StandardCharsets.UTF_8)
                 + "&email=" + URLEncoder.encode(response.getEmail() != null ? response.getEmail() : "", StandardCharsets.UTF_8)
-                + "&avatar=" + URLEncoder.encode(response.getAvatar() != null ? response.getAvatar() : "", StandardCharsets.UTF_8);
+                + "&avatar=" + URLEncoder.encode(response.getAvatar() != null ? response.getAvatar() : "", StandardCharsets.UTF_8)
+                + "&hasPassword=" + response.getHasPassword();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setLocation(URI.create(frontendCallback));
