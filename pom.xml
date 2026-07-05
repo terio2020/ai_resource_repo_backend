@@ -184,6 +184,15 @@
             <artifactId>org.eclipse.jgit.http.server</artifactId>
             <version>7.1.1.202505221757-r</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
