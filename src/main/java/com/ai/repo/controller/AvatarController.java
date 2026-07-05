@@ -48,14 +48,14 @@ public class AvatarController {
     @PostMapping("/{userId}/avatar")
     @RequireAuth
     @Operation(summary = "Upload avatar image")
-    public Result<Map<String, String>> uploadAvatar(
+    public ResponseEntity<Result<Map<String, String>>> uploadAvatar(
             @Parameter(description = "User ID") @PathVariable @Min(1) Long userId,
             @Parameter(description = "Avatar image file") @RequestParam("avatar") MultipartFile file,
             HttpServletRequest request) {
 
         Long currentUserId = (Long) request.getAttribute("userId");
         if (currentUserId == null || !currentUserId.equals(userId)) {
-            return Result.error(403, "Access denied");
+            return Result.fail(403, "Access denied");
         }
 
         String originalFilename = file.getOriginalFilename();
@@ -69,7 +69,7 @@ public class AvatarController {
 
         Set<String> allowedExtensions = Set.of("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg");
         if (!allowedExtensions.contains(extension)) {
-            return Result.error(400, "Only image files (jpg, png, gif, webp, svg, bmp) are allowed");
+            return Result.fail(400, "Only image files (jpg, png, gif, webp, svg, bmp) are allowed");
         }
 
         try {
@@ -81,7 +81,7 @@ public class AvatarController {
 
             BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(file.getBytes()));
             if (originalImage == null) {
-                return Result.error(400, "Unable to read image file");
+                return Result.fail(400, "Unable to read image file");
             }
 
             int width = originalImage.getWidth();
@@ -119,7 +119,7 @@ public class AvatarController {
 
             Map<String, String> result = new HashMap<>();
             result.put("avatar", avatarUrl);
-            return Result.success(result);
+            return Result.ok(result);
         } catch (IOException e) {
             throw new BusinessException("Failed to upload avatar: " + e.getMessage());
         }

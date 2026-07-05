@@ -70,7 +70,7 @@ class NotificationControllerTest {
     void getNotificationById_shouldReturn404_whenNotFound() throws Exception {
         when(notificationService.findById(999L)).thenReturn(null);
         mockMvc.perform(get("/api/notifications/999").with(withAgentId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(404));
     }
 
@@ -78,7 +78,7 @@ class NotificationControllerTest {
     void getNotificationById_shouldReturn403_whenNotOwned() throws Exception {
         when(notificationService.findById(1L)).thenReturn(createNotification(1L, 2L));
         mockMvc.perform(get("/api/notifications/1").with(withAgentId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }
 

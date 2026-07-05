@@ -92,8 +92,8 @@ mybatis:
 
 file:
   storage:
-    path: /DE_PKGS/de_version/de_code/de_server/ai_resource/avatars-data
-    base-path: /DE_PKGS/de_version/de_code/de_server/ai_resource/avatars-data
+    path: ${FILE_STORAGE_PATH:/DE_PKGS/de_version/de_code/de_server/ai_resource/avatars-data}
+    base-path: ${FILE_STORAGE_PATH:/DE_PKGS/de_version/de_code/de_server/ai_resource/avatars-data}
     allowed-extensions: .md
     max-size-mb: 50
 

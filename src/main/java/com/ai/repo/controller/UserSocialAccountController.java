@@ -1,4 +1,5 @@
 package com.ai.repo.controller;
+import org.springframework.http.ResponseEntity;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.SocialAccount;
@@ -24,7 +25,7 @@ public class UserSocialAccountController {
     @GetMapping
     @RequireAuth
     @Operation(summary = "Get linked social accounts", description = "Get all social accounts linked to current user")
-    public Result<List<SocialAccount>> getLinkedAccounts(HttpServletRequest request) {
+    public ResponseEntity<Result<List<SocialAccount>>> getLinkedAccounts(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         List<SocialAccount> accounts = socialAccountService.findByUserId(userId);
         
@@ -34,17 +35,17 @@ public class UserSocialAccountController {
             account.setRefreshToken(null);
         }
         
-        return Result.success(accounts);
+        return Result.ok(accounts);
     }
 
     @DeleteMapping("/{provider}")
     @RequireAuth
     @Operation(summary = "Unlink social account", description = "Remove social account link from current user")
-    public Result<Void> unlinkSocialAccount(
+    public ResponseEntity<Result<Void>> unlinkSocialAccount(
             HttpServletRequest request,
             @Parameter(description = "OAuth provider") @PathVariable String provider) {
         Long userId = (Long) request.getAttribute("userId");
         socialAccountService.unlinkSocialAccount(userId, provider);
-        return Result.success("Social account unlinked successfully");
+        return Result.okMessage("Social account unlinked successfully");
     }
 }

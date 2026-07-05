@@ -1,4 +1,5 @@
 package com.ai.repo.controller;
+import org.springframework.http.ResponseEntity;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.FileUploadLog;
@@ -38,29 +39,29 @@ public class FileController {
     @RequireAuth
     @RequireOwnership(resourceType = "agent", idParam = "agentId")
     @Operation(summary = "Get files by agent and type", description = "Retrieve files for an agent by file type")
-    public Result<List<FileUploadLog>> getFilesByAgent(
+    public ResponseEntity<Result<List<FileUploadLog>>> getFilesByAgent(
             @Parameter(description = "File type (skill or memory)") @PathVariable String fileType,
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long agentId) {
 
         if (!"memory".equals(fileType)) {
-            return Result.error(400, "Invalid file type. Must be 'memory'");
+            return Result.fail(400, "Invalid file type. Must be 'memory'");
         }
 
         List<FileUploadLog> files = fileUploadLogMapper.selectByAgentIdAndFileType(agentId, fileType);
-        return Result.success(files);
+        return Result.ok(files);
     }
 
     @GetMapping("/agent/{agentId}/stats")
     @RequireAuth
     @RequireOwnership(resourceType = "agent", idParam = "agentId")
     @Operation(summary = "Get file statistics", description = "Get file statistics for an agent")
-    public Result<java.util.Map<String, Object>> getFileStats(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long agentId) {
+    public ResponseEntity<Result<java.util.Map<String, Object>>> getFileStats(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long agentId) {
         Long memoryCount = fileUploadLogMapper.countByAgentId(agentId, "memory");
 
         java.util.Map<String, Object> stats = new java.util.HashMap<>();
         stats.put("memoryFileCount", memoryCount);
         stats.put("totalFileCount", memoryCount);
 
-        return Result.success(stats);
+        return Result.ok(stats);
     }
 }

@@ -48,7 +48,7 @@ public class MemoryController {
     @PostMapping
     @ApiKeyAuth
     @Operation(summary = "Create or update a memory", description = "Create or update a memory with provided details")
-    public Result<Memory> createMemory(@RequestBody MemoryCreateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<Memory>> createMemory(@RequestBody MemoryCreateRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         // When using JWT auth, agentId comes from request body; when using API key auth, it comes from interceptor
         Long agentId = (Long) httpRequest.getAttribute("agentId");
@@ -89,7 +89,7 @@ public class MemoryController {
         memory.setLikeCount(0);
 
         Memory createdMemory = memoryService.upsert(memory);
-        return Result.success(createdMemory);
+        return Result.ok(createdMemory);
     }
 
     private String serializeMetadata(Object metadata) {
@@ -105,7 +105,7 @@ public class MemoryController {
     @PutMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
-    public Result<Memory> updateMemory(
+    public ResponseEntity<Result<Memory>> updateMemory(
             @PathVariable @Min(1) Long id,
             @RequestBody MemoryUpdateRequest request,
             HttpServletRequest httpRequest) {
@@ -134,102 +134,102 @@ public class MemoryController {
         memory.setIsPublic(request.getIsPublic());
         memory.setMetadata(serializeMetadata(request.getMetadata()));
         Memory updatedMemory = memoryService.update(memory);
-        return Result.success(updatedMemory);
+        return Result.ok(updatedMemory);
     }
 
     @DeleteMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Delete a memory", description = "Delete a memory by its ID")
-    public Result<Void> deleteMemory(@PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<Void>> deleteMemory(@PathVariable @Min(1) Long id) {
         memoryService.delete(id);
-        return Result.success();
+        return Result.ok();
     }
 
     @GetMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Get memory by ID", description = "Retrieve a specific memory by its ID")
-    public Result<Memory> getMemoryById(@PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<Memory>> getMemoryById(@PathVariable @Min(1) Long id) {
         Memory memory = memoryService.findById(id);
-        return Result.success(memory);
+        return Result.ok(memory);
     }
 
     @GetMapping("/user/{userId}")
     @RequireAuth
     @Operation(summary = "Get memories by user", description = "Retrieve all memories owned by a specific user")
-    public Result<List<Memory>> getMemoriesByUserId(@PathVariable @Min(1) Long userId) {
+    public ResponseEntity<Result<List<Memory>>> getMemoriesByUserId(@PathVariable @Min(1) Long userId) {
         List<Memory> memories = memoryService.findByUserId(userId);
-        return Result.success(memories);
+        return Result.ok(memories);
     }
 
     @GetMapping("/agent/{agentId}")
     @RequireAuth
     @Operation(summary = "Get memories by agent", description = "Retrieve all memories belonging to a specific agent")
-    public Result<List<Memory>> getMemoriesByAgentId(@PathVariable @Min(1) Long agentId) {
+    public ResponseEntity<Result<List<Memory>>> getMemoriesByAgentId(@PathVariable @Min(1) Long agentId) {
         List<Memory> memories = memoryService.findByAgentId(agentId);
-        return Result.success(memories);
+        return Result.ok(memories);
     }
 
     @GetMapping("/category/{category}")
     @RequireAuth
     @Operation(summary = "Get memories by category", description = "Retrieve all memories in a specific category")
-    public Result<List<Memory>> getMemoriesByCategory(@PathVariable String category) {
+    public ResponseEntity<Result<List<Memory>>> getMemoriesByCategory(@PathVariable String category) {
         List<Memory> memories = memoryService.findByCategory(category);
-        return Result.success(memories);
+        return Result.ok(memories);
     }
 
     @GetMapping("/public")
     @RequireAuth
     @Operation(summary = "Get public memories", description = "Retrieve all public memories")
-    public Result<List<Memory>> getPublicMemories() {
+    public ResponseEntity<Result<List<Memory>>> getPublicMemories() {
         List<Memory> memories = memoryService.findByPublic(true);
-        return Result.success(memories);
+        return Result.ok(memories);
     }
 
     @GetMapping("/search")
     @RequireAuth
     @Operation(summary = "Search memories", description = "Search memories by keyword")
-    public Result<List<Memory>> searchMemories(@RequestParam String keyword) {
+    public ResponseEntity<Result<List<Memory>>> searchMemories(@RequestParam String keyword) {
         List<Memory> memories = memoryService.searchByKeyword(keyword);
-        return Result.success(memories);
+        return Result.ok(memories);
     }
 
     @DeleteMapping("/batch")
     @ApiKeyAuth
     @Operation(summary = "Batch delete memories", description = "Delete multiple memories at once")
-    public Result<Integer> batchDeleteMemories(@RequestBody BatchDeleteRequest request) {
+    public ResponseEntity<Result<Integer>> batchDeleteMemories(@RequestBody BatchDeleteRequest request) {
         int count = memoryService.batchDelete(request.getIds());
-        return Result.success(count);
+        return Result.ok(count);
     }
 
     @PostMapping("/{id}/download")
     @ApiKeyAuth
     @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment download count", description = "Increment download count of a memory")
-    public Result<Void> incrementDownloadCount(@PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<Void>> incrementDownloadCount(@PathVariable @Min(1) Long id) {
         memoryService.incrementDownloadCount(id);
-        return Result.success();
+        return Result.ok();
     }
 
     @PostMapping("/{id}/like")
     @ApiKeyAuth
     @RateLimit(value = 10, period = 60)
     @Operation(summary = "Increment like count", description = "Increment the like count of a memory")
-    public Result<Void> incrementLikeCount(@PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<Void>> incrementLikeCount(@PathVariable @Min(1) Long id) {
         memoryService.incrementLikeCount(id);
-        return Result.success();
+        return Result.ok();
     }
 
     @PostMapping("/{agentId}/upload")
     @ApiKeyAuth
     @Operation(summary = "Upload memory file", description = "Upload a file associated with a memory")
-    public Result<FileUploadResponse> uploadMemoryFile(
+    public ResponseEntity<Result<FileUploadResponse>> uploadMemoryFile(
             @PathVariable @Min(1) Long agentId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "description", required = false) String description,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         FileUploadResponse response = fileStorageService.saveFile(file, userId, agentId, "memory", description);
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     @GetMapping("/file/{fileId}")
@@ -253,19 +253,19 @@ public class MemoryController {
     @GetMapping("/{agentId}/files")
     @ApiKeyAuth
     @Operation(summary = "Get memory files", description = "Retrieve all memory files for an agent")
-    public Result<List<FileUploadLog>> getMemoryFiles(@PathVariable @Min(1) Long agentId) {
+    public ResponseEntity<Result<List<FileUploadLog>>> getMemoryFiles(@PathVariable @Min(1) Long agentId) {
         List<FileUploadLog> files = fileStorageService.getFileList(agentId, "memory", null);
-        return Result.success(files);
+        return Result.ok(files);
     }
 
     @DeleteMapping("/file/{fileId}")
     @ApiKeyAuth
     @Operation(summary = "Delete memory file", description = "Delete a memory file by its file ID")
-    public Result<Void> deleteMemoryFile(
+    public ResponseEntity<Result<Void>> deleteMemoryFile(
             @PathVariable @Min(1) Long fileId,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         fileStorageService.deleteFile(fileId, userId);
-        return Result.success();
+        return Result.ok();
     }
 }

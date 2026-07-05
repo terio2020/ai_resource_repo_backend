@@ -122,7 +122,7 @@ class SkillRepositoryControllerTest {
         mockMvc.perform(get("/api/skill-repos/1/file?path=manifest.json").with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("{\"name\":\"test\"}"));
+                .andExpect(jsonPath("$.data").value("{\"name\":\"test\"}"));
     }
 
     @Test
@@ -295,7 +295,7 @@ class SkillRepositoryControllerTest {
     @Test
     void getMyRatings_shouldReturn403_whenNoAgent() throws Exception {
         mockMvc.perform(get("/api/skill-repos/ratings/my").with(withUserId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }
 }

@@ -101,7 +101,7 @@ class MemoryControllerTest {
 
         mockMvc.perform(post("/api/memories/999/download")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is5xxServerError())
                 .andExpect(jsonPath("$.code").value(500));
     }
 
@@ -124,7 +124,7 @@ class MemoryControllerTest {
 
         mockMvc.perform(post("/api/memories/999/like")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is5xxServerError())
                 .andExpect(jsonPath("$.code").value(500));
     }
 
@@ -167,7 +167,7 @@ class MemoryControllerTest {
         mockMvc.perform(post("/api/memories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"orphan\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -225,7 +225,7 @@ class MemoryControllerTest {
 
         mockMvc.perform(delete("/api/memories/999")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is5xxServerError())
                 .andExpect(jsonPath("$.code").value(500));
     }
 
@@ -251,7 +251,7 @@ class MemoryControllerTest {
 
         mockMvc.perform(get("/api/memories/999")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is5xxServerError())
                 .andExpect(jsonPath("$.code").value(500));
     }
 

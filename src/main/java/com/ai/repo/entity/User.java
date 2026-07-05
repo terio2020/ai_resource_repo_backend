@@ -28,4 +28,5 @@ public class User {
     private String xName;
     private String xAvatar;
     private Boolean xVerified;
+    private Boolean hasPassword;
 }

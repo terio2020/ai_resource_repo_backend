@@ -58,7 +58,7 @@ public class AgentController {
     @PostMapping
     @ApiKeyAuth
     @Operation(summary = "Create a new agent", description = "Create a new agent for the authenticated user")
-    public Result<Agent> createAgent(@RequestBody AgentCreateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<Agent>> createAgent(@RequestBody AgentCreateRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Agent agent = new Agent();
         agent.setUserId(userId);
@@ -70,112 +70,112 @@ public class AgentController {
         agent.setSyncEnabled(false);
         agent.setApiKey(apiKeyUtil.generateApiKey());
         Agent createdAgent = agentService.create(agent);
-        return Result.success(createdAgent);
+        return Result.ok(createdAgent);
     }
 
     @PutMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Update an agent", description = "Update an existing agent's information")
-    public Result<Agent> updateAgent(
+    public ResponseEntity<Result<Agent>> updateAgent(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody Agent agent) {
         agent.setId(id);
         Agent updatedAgent = agentService.update(agent);
-        return Result.success(updatedAgent);
+        return Result.ok(updatedAgent);
     }
 
     @DeleteMapping("/{id}")
     @RequireAuth
     @RequireOwnership(resourceType = "agent", idParam = "id")
     @Operation(summary = "Delete an agent", description = "Delete an agent by its ID")
-    public Result<Void> deleteAgent(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<Void>> deleteAgent(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long id) {
         agentService.delete(id);
-        return Result.success();
+        return Result.ok();
     }
 
     @GetMapping("/{id}")
     @RequireAuth
     @Operation(summary = "Get agent by ID", description = "Retrieve a specific agent by its ID")
-    public Result<Agent> getAgentById(@PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<Agent>> getAgentById(@PathVariable @Min(1) Long id) {
         Agent agent = agentService.findById(id);
-        return Result.success(agent);
+        return Result.ok(agent);
     }
 
     @GetMapping("/code/{code}")
     @RequireAuth
     @Operation(summary = "Get agent by code", description = "Retrieve a specific agent by its code")
-    public Result<Agent> getAgentByCode(@PathVariable String code) {
+    public ResponseEntity<Result<Agent>> getAgentByCode(@PathVariable String code) {
         Agent agent = agentService.findByCode(code);
-        return Result.success(agent);
+        return Result.ok(agent);
     }
 
     @GetMapping("/user/{userId}")
     @RequireAuth
     @Operation(summary = "Get agents by user", description = "Retrieve all agents owned by a specific user")
-    public Result<List<Agent>> getAgentsByUserId(@PathVariable Long userId) {
+    public ResponseEntity<Result<List<Agent>>> getAgentsByUserId(@PathVariable Long userId) {
         List<Agent> agents = agentService.findByUserId(userId);
-        return Result.success(agents);
+        return Result.ok(agents);
     }
 
     @GetMapping("/{id}/stats")
     @RequireAuth
     @Operation(summary = "Get agent statistics", description = "Retrieve statistics for a specific agent")
-    public Result<AgentStatsResponse> getAgentStats(@PathVariable @Min(1) Long id) {
+    public ResponseEntity<Result<AgentStatsResponse>> getAgentStats(@PathVariable @Min(1) Long id) {
         AgentStatsResponse stats = agentService.getStats(id);
-        return Result.success(stats);
+        return Result.ok(stats);
     }
 
     @PostMapping("/{id}/heartbeat")
     @ApiKeyAuth
     @Operation(summary = "Send agent heartbeat", description = "Update agent heartbeat status")
-    public Result<Void> heartbeat(
+    public ResponseEntity<Result<Void>> heartbeat(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody HeartbeatRequest request) {
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         agentService.updateHeartbeat(id, request.getStatus(), now);
-        return Result.success();
+        return Result.ok();
     }
 
     @PutMapping("/{id}/status")
     @ApiKeyAuth
     @Operation(summary = "Update agent status", description = "Update the status of an agent")
-    public Result<Void> updateStatus(
+    public ResponseEntity<Result<Void>> updateStatus(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody StatusUpdateRequest request) {
         agentService.updateStatusOnly(id, request.getStatus());
-        return Result.success();
+        return Result.ok();
     }
 
     @PutMapping("/{id}/config")
     @ApiKeyAuth
     @Operation(summary = "Update agent config", description = "Update the configuration of an agent")
-    public Result<Void> updateConfig(
+    public ResponseEntity<Result<Void>> updateConfig(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @RequestBody ConfigUpdateRequest request) {
         agentService.updateConfigOnly(id, request.getConfig());
-        return Result.success();
+        return Result.ok();
     }
 
     @GetMapping("/counts")
     @RequireAuth
     @Operation(summary = "Get resource counts for agents", description = "Get skill and memory counts for multiple agents by their IDs")
-    public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
+    public ResponseEntity<Result<Map<Long, AgentResourceCounts>>> getAgentCounts(
             @Parameter(description = "Comma-separated list of agent IDs") @RequestParam List<Long> agentIds) {
         Map<Long, AgentResourceCounts> counts = agentService.getResourceCounts(agentIds);
-        return Result.success(counts);
+        return Result.ok(counts);
     }
 
     @PostMapping("/{id}/avatar")
     @ApiKeyAuth
     @Operation(summary = "Upload agent avatar", description = "Upload an avatar image for an agent")
-    public Result<Map<String, String>> uploadAvatar(
+    public ResponseEntity<Result<Map<String, String>>> uploadAvatar(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "Avatar image file") @RequestParam("avatar") MultipartFile file,
             HttpServletRequest request) {
 
         Long currentAgentId = (Long) request.getAttribute("agentId");
         if (currentAgentId == null || !currentAgentId.equals(id)) {
-            return Result.error(403, "Access denied");
+            return Result.fail(403, "Access denied");
         }
 
         String originalFilename = file.getOriginalFilename();
@@ -189,7 +189,7 @@ public class AgentController {
 
         Set<String> allowedExtensions = Set.of("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg");
         if (!allowedExtensions.contains(extension)) {
-            return Result.error(400, "Only image files (jpg, png, gif, webp, svg, bmp) are allowed");
+            return Result.fail(400, "Only image files (jpg, png, gif, webp, svg, bmp) are allowed");
         }
 
         try {
@@ -201,7 +201,7 @@ public class AgentController {
 
             BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(file.getBytes()));
             if (originalImage == null) {
-                return Result.error(400, "Unable to read image file");
+                return Result.fail(400, "Unable to read image file");
             }
 
             int width = originalImage.getWidth();
@@ -236,7 +236,7 @@ public class AgentController {
 
             Map<String, String> result = new HashMap<>();
             result.put("avatar", avatarUrl);
-            return Result.success(result);
+            return Result.ok(result);
         } catch (IOException e) {
             throw new BusinessException("Failed to upload avatar: " + e.getMessage());
         }
@@ -267,11 +267,11 @@ public class AgentController {
     @GetMapping("/{id}/sync")
     @ApiKeyAuth
     @Operation(summary = "Sync agent data", description = "Synchronize agent data since a specific timestamp")
-    public Result<AgentSyncResponse> syncData(
+    public ResponseEntity<Result<AgentSyncResponse>> syncData(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "Since timestamp (ISO format)") @RequestParam(required = false) String since) {
         AgentSyncResponse response = agentService.syncData(id, since);
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     private String getContentType(String fileName) {

@@ -137,7 +137,7 @@ class CommentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"test\"}")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is5xxServerError())
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("Comment not found"));
     }
@@ -307,7 +307,7 @@ class CommentControllerTest {
 
         mockMvc.perform(post("/api/comments/999/like")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is5xxServerError())
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("Comment not found"));
     }

@@ -1,4 +1,5 @@
 package com.ai.repo.controller;
+import org.springframework.http.ResponseEntity;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.Notification;
@@ -27,27 +28,27 @@ public class NotificationController {
     @GetMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Get notification by ID", description = "Retrieve a specific notification by its ID")
-    public Result<Notification> getNotificationById(
+    public ResponseEntity<Result<Notification>> getNotificationById(
             @Parameter(description = "Notification ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Notification notification = notificationService.findById(id);
 
         if (notification == null) {
-            return Result.error(404, "Notification not found");
+            return Result.fail(404, "Notification not found");
         }
 
         if (!notification.getAgentId().equals(agentId)) {
-            return Result.error(403, "Access denied");
+            return Result.fail(403, "Access denied");
         }
 
-        return Result.success(notification);
+        return Result.ok(notification);
     }
 
     @GetMapping
     @ApiKeyAuth
     @Operation(summary = "Get notifications", description = "Retrieve notifications for authenticated agent")
-    public Result<List<Notification>> getNotifications(
+    public ResponseEntity<Result<List<Notification>>> getNotifications(
             @Parameter(description = "Filter unread only") @RequestParam(required = false) Boolean unread,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
@@ -59,66 +60,66 @@ public class NotificationController {
             notifications = notificationService.findByAgentId(agentId);
         }
 
-        return Result.success(notifications);
+        return Result.ok(notifications);
     }
 
     @GetMapping("/count/unread")
     @ApiKeyAuth
     @Operation(summary = "Get unread count", description = "Get count of unread notifications")
-    public Result<Long> getUnreadCount(HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<Long>> getUnreadCount(HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Long count = notificationService.countUnreadByAgentId(agentId);
-        return Result.success(count);
+        return Result.ok(count);
     }
 
     @PostMapping("/{id}/read")
     @ApiKeyAuth
     @Operation(summary = "Mark notification as read", description = "Mark a specific notification as read")
-    public Result<Void> markAsRead(
+    public ResponseEntity<Result<Void>> markAsRead(
             @Parameter(description = "Notification ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Notification notification = notificationService.findById(id);
 
         if (notification == null) {
-            return Result.error(404, "Notification not found");
+            return Result.fail(404, "Notification not found");
         }
 
         if (!notification.getAgentId().equals(agentId)) {
-            return Result.error(403, "Access denied");
+            return Result.fail(403, "Access denied");
         }
 
         notificationService.markAsRead(id);
-        return Result.success();
+        return Result.ok();
     }
 
     @PostMapping("/read-all")
     @ApiKeyAuth
     @Operation(summary = "Mark all as read", description = "Mark all notifications for authenticated agent as read")
-    public Result<Void> markAllAsRead(HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<Void>> markAllAsRead(HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         notificationService.markAllAsRead(agentId);
-        return Result.success();
+        return Result.ok();
     }
 
     @DeleteMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Delete notification", description = "Delete a specific notification")
-    public Result<Void> deleteNotification(
+    public ResponseEntity<Result<Void>> deleteNotification(
             @Parameter(description = "Notification ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Notification notification = notificationService.findById(id);
 
         if (notification == null) {
-            return Result.error(404, "Notification not found");
+            return Result.fail(404, "Notification not found");
         }
 
         if (!notification.getAgentId().equals(agentId)) {
-            return Result.error(403, "Access denied");
+            return Result.fail(403, "Access denied");
         }
 
         notificationService.delete(id);
-        return Result.success();
+        return Result.ok();
     }
 }

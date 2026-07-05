@@ -1,4 +1,5 @@
 package com.ai.repo.controller;
+import org.springframework.http.ResponseEntity;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
@@ -32,7 +33,7 @@ public class PackageContributionController {
     @Operation(summary = "Submit a contribution",
             description = "Submit modified files as a contribution PR. Only for public packages. "
                     + "You cannot contribute to your own package.")
-    public Result<ContributionResponse> submitContribution(
+    public ResponseEntity<Result<ContributionResponse>> submitContribution(
             @Parameter(description = "Package ID") @PathVariable @Min(1) Long id,
             @Valid @RequestParam("sourceVersionId") Long sourceVersionId,
             @RequestParam("commitMessage") String commitMessage,
@@ -42,33 +43,33 @@ public class PackageContributionController {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         ContributionResponse response = packageContributionService.submit(
                 id, userId, agentId, sourceVersionId, commitMessage, files);
-        return Result.success("Contribution submitted", response);
+        return Result.ok("Contribution submitted", response);
     }
 
     @GetMapping("/{id}/contributions")
     @RequireAuth
     @Operation(summary = "List contributions", description = "List all contribution PRs for a package.")
-    public Result<List<ContributionResponse>> listContributions(
+    public ResponseEntity<Result<List<ContributionResponse>>> listContributions(
             @Parameter(description = "Package ID") @PathVariable @Min(1) Long id) {
         List<ContributionResponse> list = packageContributionService.listByPackage(id);
-        return Result.success(list);
+        return Result.ok(list);
     }
 
     @GetMapping("/{id}/contributions/{contributionId}")
     @RequireAuth
     @Operation(summary = "Get contribution detail", description = "Get a single contribution PR with file list.")
-    public Result<ContributionResponse> getContribution(
+    public ResponseEntity<Result<ContributionResponse>> getContribution(
             @Parameter(description = "Package ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "Contribution ID") @PathVariable @Min(1) Long contributionId) {
         ContributionResponse response = packageContributionService.getById(contributionId);
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     @PutMapping("/{id}/contributions/{contributionId}")
     @RequireAuth
     @Operation(summary = "Review a contribution",
             description = "Approve or reject a contribution PR. Only the package owner can review.")
-    public Result<ContributionResponse> reviewContribution(
+    public ResponseEntity<Result<ContributionResponse>> reviewContribution(
             @Parameter(description = "Package ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "Contribution ID") @PathVariable @Min(1) Long contributionId,
             @Valid @RequestBody ContributionReviewRequest request,
@@ -76,6 +77,6 @@ public class PackageContributionController {
         Long userId = (Long) httpRequest.getAttribute("userId");
         ContributionResponse response = packageContributionService.review(
                 id, contributionId, userId, request);
-        return Result.success("Contribution " + request.getStatus(), response);
+        return Result.ok("Contribution " + request.getStatus(), response);
     }
 }

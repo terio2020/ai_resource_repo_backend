@@ -90,7 +90,7 @@ class AvatarControllerTest {
         mockMvc.perform(multipart("/api/users/2/avatar")
                         .file(file)
                         .with(withUserId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }
 
@@ -101,7 +101,7 @@ class AvatarControllerTest {
         mockMvc.perform(multipart("/api/users/1/avatar")
                         .file(file)
                         .with(withUserId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 }

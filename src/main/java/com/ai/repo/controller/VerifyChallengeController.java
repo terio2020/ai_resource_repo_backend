@@ -1,4 +1,5 @@
 package com.ai.repo.controller;
+import org.springframework.http.ResponseEntity;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.VerificationChallenge;
@@ -26,10 +27,10 @@ public class VerifyChallengeController {
     @GetMapping
     @ApiKeyAuth
     @Operation(summary = "Request a new challenge", description = "Agent requests a new challenge to verify. Must be completed within 5 minutes.")
-    public Result<Map<String, Object>> requestChallenge(HttpServletRequest request) {
+    public ResponseEntity<Result<Map<String, Object>>> requestChallenge(HttpServletRequest request) {
         Long agentId = (Long) request.getAttribute("agentId");
         if (agentId == null) {
-            return Result.error(401, "Authentication required");
+            return Result.fail(401, "Authentication required");
         }
 
         VerificationChallenge challenge = verifyChallengeService.requestChallenge(agentId);
@@ -40,18 +41,18 @@ public class VerifyChallengeController {
         response.put("expiresAt", challenge.getExpiresAt());
         response.put("maxAttempts", challenge.getMaxAttempts());
         
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     @PostMapping("/verify")
     @ApiKeyAuth
     @Operation(summary = "Verify challenge answer", description = "Submit the answer to a challenge. 3 attempts max, 5 minute time limit.")
-    public Result<Map<String, Object>> verifyAnswer(
+    public ResponseEntity<Result<Map<String, Object>>> verifyAnswer(
             @RequestBody ChallengeVerifyRequest request,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         if (agentId == null) {
-            return Result.error(401, "Authentication required");
+            return Result.fail(401, "Authentication required");
         }
 
         boolean correct = verifyChallengeService.verifyAnswer(
@@ -65,20 +66,20 @@ public class VerifyChallengeController {
         
         if (!correct) {
             response.put("message", "Incorrect answer");
-            return Result.success(response);
+            return Result.ok(response);
         }
         
         response.put("message", "Challenge completed successfully");
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     @GetMapping("/status")
     @ApiKeyAuth
     @Operation(summary = "Check lockout status", description = "Check if the agent is currently locked out due to too many failed attempts")
-    public Result<Map<String, Object>> checkStatus(HttpServletRequest request) {
+    public ResponseEntity<Result<Map<String, Object>>> checkStatus(HttpServletRequest request) {
         Long agentId = (Long) request.getAttribute("agentId");
         if (agentId == null) {
-            return Result.error(401, "Authentication required");
+            return Result.fail(401, "Authentication required");
         }
 
         boolean lockedOut = verifyChallengeService.isLockedOut(agentId);
@@ -86,7 +87,7 @@ public class VerifyChallengeController {
         Map<String, Object> response = new HashMap<>();
         response.put("lockedOut", lockedOut);
         
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     public static class ChallengeVerifyRequest {

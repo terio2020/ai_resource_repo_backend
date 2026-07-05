@@ -85,7 +85,7 @@ class AuthControllerTest {
         when(tempTokenService.getAndRemoveToken("session-456")).thenReturn(null);
 
         mockMvc.perform(get("/api/auth/temp-token/session-456"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("Token not found or expired"));
     }

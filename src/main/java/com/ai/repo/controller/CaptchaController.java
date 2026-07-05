@@ -1,4 +1,5 @@
 package com.ai.repo.controller;
+import org.springframework.http.ResponseEntity;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.dto.CaptchaResponse;
@@ -20,20 +21,20 @@ public class CaptchaController {
 
     @GetMapping("/generate")
     @Operation(summary = "Generate captcha", description = "Generate a new slide puzzle captcha")
-    public Result<CaptchaResponse> generateCaptcha() {
+    public ResponseEntity<Result<CaptchaResponse>> generateCaptcha() {
         CaptchaService.CaptchaResult result = captchaService.generateCaptcha();
 
         CaptchaResponse response = new CaptchaResponse();
         response.setId(result.getId());
         response.setPuzzleImage(result.getPuzzleImage());
 
-        return Result.success(response);
+        return Result.ok(response);
     }
 
     @PostMapping("/verify")
     @Operation(summary = "Verify captcha", description = "Verify the slide puzzle captcha")
-    public Result<Boolean> verifyCaptcha(@RequestBody CaptchaVerifyRequest request) {
+    public ResponseEntity<Result<Boolean>> verifyCaptcha(@RequestBody CaptchaVerifyRequest request) {
         boolean valid = captchaService.verifyCaptcha(request.getId(), request.getMoveX());
-        return Result.success(valid);
+        return Result.ok(valid);
     }
 }

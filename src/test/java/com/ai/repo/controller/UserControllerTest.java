@@ -118,7 +118,7 @@ class UserControllerTest {
                         .with(withUserId(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"taken@example.com\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(409))
                 .andExpect(jsonPath("$.message").value("Email already exists"));
     }
@@ -156,7 +156,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/update")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"new-nick\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Unauthorized"));
     }
@@ -172,7 +172,7 @@ class UserControllerTest {
                         .with(withUserId(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"new-nick\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("User not found"));
     }
@@ -222,7 +222,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/login/email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"user@example.com\",\"password\":\"wrong-password\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
@@ -236,7 +236,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/login/email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"nonexistent@example.com\",\"password\":\"any-password\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
@@ -248,7 +248,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/login/email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"password\":\"password123\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
@@ -345,7 +345,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"ghost\",\"password\":\"any\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid username or password"));
     }
@@ -361,7 +361,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"testuser\",\"password\":\"wrong\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401));
     }
 
@@ -423,7 +423,7 @@ class UserControllerTest {
                         .param("sessionId", "sess-002")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"agent-bot\",\"password\":\"bad\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401));
     }
 
@@ -454,7 +454,7 @@ class UserControllerTest {
     @Test
     void getCurrentUser_shouldReturn401_whenMissingAuthorizationHeader() throws Exception {
         mockMvc.perform(get("/api/users/me"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Missing or invalid Authorization header"));
     }
@@ -464,7 +464,7 @@ class UserControllerTest {
         when(jwtProvider.validateAccessToken("bad-token")).thenReturn(null);
 
         mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer bad-token"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid or expired token"));
     }
@@ -475,7 +475,7 @@ class UserControllerTest {
         when(userService.findById(999L)).thenReturn(null);
 
         mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer valid-token"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("User not found"));
     }
@@ -532,7 +532,7 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/update")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"x\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Unauthorized"));
     }

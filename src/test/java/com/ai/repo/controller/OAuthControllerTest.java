@@ -75,7 +75,7 @@ class OAuthControllerTest {
         when(socialAccountService.isProviderConfigured("unknown")).thenReturn(false);
 
         mockMvc.perform(get("/api/oauth/unknown"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -112,7 +112,7 @@ class OAuthControllerTest {
         mockMvc.perform(get("/api/oauth/google/callback")
                         .param("code", "auth-code")
                         .param("state", "bad-state"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -124,7 +124,7 @@ class OAuthControllerTest {
         mockMvc.perform(get("/api/oauth/google/callback")
                         .param("code", "any-code")
                         .param("state", "valid-state"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -136,7 +136,7 @@ class OAuthControllerTest {
         mockMvc.perform(get("/api/oauth/github/callback")
                         .param("code", "any-code")
                         .param("state", "valid-state"))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 

@@ -68,7 +68,7 @@ class FileControllerTest {
     void getFilesByAgent_shouldReturn400_whenInvalidType() throws Exception {
         mockMvc.perform(get("/api/files/invalid/agent/1")
                         .with(withUserId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("Invalid file type. Must be 'memory'"));
     }

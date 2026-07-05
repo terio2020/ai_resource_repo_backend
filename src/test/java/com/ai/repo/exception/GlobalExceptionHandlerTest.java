@@ -5,6 +5,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -24,36 +26,44 @@ class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
+    private static Result<?> body(ResponseEntity<Result<?>> re) {
+        return re.getBody();
+    }
+
     @Test
     void handleBusinessException() {
         BusinessException e = new BusinessException(400, "Custom error");
-        Result<?> result = handler.handleBusinessException(e);
+        Result<?> result = body(handler.handleBusinessException(e));
         assertEquals(400, result.getCode());
         assertEquals("Custom error", result.getMessage());
+        assertEquals(HttpStatus.BAD_REQUEST, handler.handleBusinessException(e).getStatusCode());
     }
 
     @Test
     void handleAuthenticationException() {
         AuthenticationException e = new AuthenticationException("Not authenticated");
-        Result<?> result = handler.handleAuthenticationException(e);
+        Result<?> result = body(handler.handleAuthenticationException(e));
         assertEquals(401, result.getCode());
         assertEquals("Not authenticated", result.getMessage());
+        assertEquals(HttpStatus.UNAUTHORIZED, handler.handleAuthenticationException(e).getStatusCode());
     }
 
     @Test
     void handleTokenExpiredException() {
         TokenExpiredException e = new TokenExpiredException("Token expired");
-        Result<?> result = handler.handleTokenExpiredException(e);
+        Result<?> result = body(handler.handleTokenExpiredException(e));
         assertEquals(401, result.getCode());
         assertEquals("Token expired, please refresh", result.getMessage());
+        assertEquals(HttpStatus.UNAUTHORIZED, handler.handleTokenExpiredException(e).getStatusCode());
     }
 
     @Test
     void handleAccessDeniedException() {
         AccessDeniedException e = new AccessDeniedException("Access denied");
-        Result<?> result = handler.handleAccessDeniedException(e);
+        Result<?> result = body(handler.handleAccessDeniedException(e));
         assertEquals(403, result.getCode());
         assertEquals("Access denied", result.getMessage());
+        assertEquals(HttpStatus.FORBIDDEN, handler.handleAccessDeniedException(e).getStatusCode());
     }
 
     @Test
@@ -64,9 +74,10 @@ class GlobalExceptionHandlerTest {
         org.mockito.Mockito.when(e.getBindingResult()).thenReturn(bindingResult);
         org.mockito.Mockito.when(bindingResult.getFieldError()).thenReturn(fieldError);
 
-        Result<?> result = handler.handleValidationException(e);
+        Result<?> result = body(handler.handleValidationException(e));
         assertEquals(400, result.getCode());
         assertEquals("must not be null", result.getMessage());
+        assertEquals(HttpStatus.BAD_REQUEST, handler.handleValidationException(e).getStatusCode());
     }
 
     @Test
@@ -77,7 +88,7 @@ class GlobalExceptionHandlerTest {
         org.mockito.Mockito.when(e.getBindingResult()).thenReturn(bindingResult);
         org.mockito.Mockito.when(bindingResult.getFieldError()).thenReturn(fieldError);
 
-        Result<?> result = handler.handleBindException(e);
+        Result<?> result = body(handler.handleBindException(e));
         assertEquals(400, result.getCode());
         assertEquals("binding failed", result.getMessage());
     }
@@ -85,7 +96,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleMissingParams() {
         MissingServletRequestParameterException e = new MissingServletRequestParameterException("userId", "Long");
-        Result<?> result = handler.handleMissingParams(e);
+        Result<?> result = body(handler.handleMissingParams(e));
         assertEquals(400, result.getCode());
         assertTrue(result.getMessage().contains("userId"));
     }
@@ -93,7 +104,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleIllegalArgumentException() {
         IllegalArgumentException e = new IllegalArgumentException("Invalid argument");
-        Result<?> result = handler.handleIllegalArgumentException(e);
+        Result<?> result = body(handler.handleIllegalArgumentException(e));
         assertEquals(400, result.getCode());
         assertEquals("Invalid argument", result.getMessage());
     }
@@ -101,7 +112,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleInvalidFileTypeException() {
         InvalidFileTypeException e = new InvalidFileTypeException("Only .md files allowed");
-        Result<?> result = handler.handleInvalidFileTypeException(e);
+        Result<?> result = body(handler.handleInvalidFileTypeException(e));
         assertEquals(400, result.getCode());
         assertEquals("Only .md files allowed", result.getMessage());
     }
@@ -109,37 +120,39 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleFileTooLargeException() {
         FileTooLargeException e = new FileTooLargeException("File exceeds 50MB limit", 50 * 1024 * 1024);
-        Result<?> result = handler.handleFileTooLargeException(e);
+        Result<?> result = body(handler.handleFileTooLargeException(e));
         assertEquals(413, result.getCode());
         assertEquals("File exceeds 50MB limit", result.getMessage());
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, handler.handleFileTooLargeException(e).getStatusCode());
     }
 
     @Test
     void handleFileStorageException() {
         FileStorageException e = new FileStorageException("Disk full");
-        Result<?> result = handler.handleFileStorageException(e);
+        Result<?> result = body(handler.handleFileStorageException(e));
         assertEquals(500, result.getCode());
         assertTrue(result.getMessage().contains("Disk full"));
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, handler.handleFileStorageException(e).getStatusCode());
     }
 
     @Test
     void handleRepositoryNotFoundException() {
         RepositoryNotFoundException e = new RepositoryNotFoundException("Repo not found");
-        Result<?> result = handler.handleRepositoryNotFoundException(e);
+        Result<?> result = body(handler.handleRepositoryNotFoundException(e));
         assertEquals(404, result.getCode());
     }
 
     @Test
     void handleFileNotAllowedException() {
         FileNotAllowedException e = new FileNotAllowedException("Path not allowed");
-        Result<?> result = handler.handleFileNotAllowedException(e);
+        Result<?> result = body(handler.handleFileNotAllowedException(e));
         assertEquals(400, result.getCode());
     }
 
     @Test
     void handleIOException() {
         IOException e = new IOException("I/O error");
-        Result<?> result = handler.handleIOException(e);
+        Result<?> result = body(handler.handleIOException(e));
         assertEquals(500, result.getCode());
         assertTrue(result.getMessage().contains("I/O error"));
     }
@@ -147,7 +160,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleGitAPIException() {
         GitAPIException e = new GitAPIException("Git failed") {};
-        Result<?> result = handler.handleGitAPIException(e);
+        Result<?> result = body(handler.handleGitAPIException(e));
         assertEquals(500, result.getCode());
         assertTrue(result.getMessage().contains("Git failed"));
     }
@@ -155,7 +168,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleGenericException() {
         Exception e = new RuntimeException("Unexpected error");
-        Result<?> result = handler.handleException(e);
+        Result<?> result = body(handler.handleException(e));
         assertEquals(500, result.getCode());
         assertEquals("System error, please contact administrator", result.getMessage());
     }
@@ -169,7 +182,7 @@ class GlobalExceptionHandlerTest {
         violations.add(violation);
 
         ConstraintViolationException e = new ConstraintViolationException("pathVariable.id", violations);
-        Result<?> result = handler.handleConstraintViolation(e);
+        Result<?> result = body(handler.handleConstraintViolation(e));
         assertEquals(400, result.getCode());
         assertEquals("must be greater than or equal to 1", result.getMessage());
     }
@@ -177,7 +190,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleConstraintViolationExceptionWithEmptyViolations() {
         ConstraintViolationException e = new ConstraintViolationException("no violations", Collections.emptySet());
-        Result<?> result = handler.handleConstraintViolation(e);
+        Result<?> result = body(handler.handleConstraintViolation(e));
         assertEquals(400, result.getCode());
         assertEquals("Validation failed", result.getMessage());
     }

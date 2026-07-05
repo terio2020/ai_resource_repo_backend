@@ -163,7 +163,7 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e MAIL_PASSWORD=${MAIL_PASSWORD} \
         -e MAIL_FROM=${MAIL_FROM} \
         -e APP_BASE_URL=${APP_BASE_URL} \
-        -e APP_FRONTEND_URL=${APP_FRONTEND_URL} \
+        -e FRONTEND_URL=${APP_FRONTEND_URL} \
         -e OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID:-} \
         -e OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET:-} \
         -e OAUTH_GOOGLE_REDIRECT_URI=${OAUTH_GOOGLE_REDIRECT_URI:-} \
@@ -176,6 +176,9 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e OAUTH_APPLE_PRIVATE_KEY=${OAUTH_APPLE_PRIVATE_KEY:-} \
         -e OAUTH_APPLE_REDIRECT_URI=${OAUTH_APPLE_REDIRECT_URI:-} \
         -e OPENAI_API_KEY=${OPENAI_API_KEY:-} \
+        -e JWT_SECRET=${JWT_SECRET:-} \
+        -e APP_OAUTH_STATE_SECRET=${APP_OAUTH_STATE_SECRET:-} \
+        -e FILE_STORAGE_PATH=${REMOTE_DIR} \
         -w ${REMOTE_DIR} \
         eclipse-temurin:17-jdk-alpine \
         java -jar app.jar

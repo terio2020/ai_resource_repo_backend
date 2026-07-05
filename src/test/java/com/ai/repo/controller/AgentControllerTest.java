@@ -120,7 +120,7 @@ class AgentControllerTest {
         mockMvc.perform(multipart("/api/agents/2/avatar")
                         .file(file)
                         .with(withAgentId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }
 
@@ -131,7 +131,7 @@ class AgentControllerTest {
         mockMvc.perform(multipart("/api/agents/1/avatar")
                         .file(file)
                         .with(withAgentId(1L)))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -141,7 +141,7 @@ class AgentControllerTest {
 
         mockMvc.perform(multipart("/api/agents/1/avatar")
                         .file(file))
-                .andExpect(status().isOk())
+                .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }
 

@@ -7,6 +7,8 @@ import java.io.IOException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -20,112 +22,112 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public Result<?> handleBusinessException(BusinessException e) {
+    public ResponseEntity<Result<?>> handleBusinessException(BusinessException e) {
         log.error("Business exception: {}", e.getMessage());
-        return Result.error(e.getCode(), e.getMessage());
+        return Result.failRaw(e.getCode(), e.getMessage());
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public Result<?> handleAuthenticationException(AuthenticationException e) {
+    public ResponseEntity<Result<?>> handleAuthenticationException(AuthenticationException e) {
         log.error("Authentication exception: {}", e.getMessage());
-        return Result.error(401, e.getMessage());
+        return Result.failRaw(401, e.getMessage());
     }
 
     @ExceptionHandler(TokenExpiredException.class)
-    public Result<?> handleTokenExpiredException(TokenExpiredException e) {
+    public ResponseEntity<Result<?>> handleTokenExpiredException(TokenExpiredException e) {
         log.warn("Token expired: {}", e.getMessage());
-        return Result.error(401, "Token expired, please refresh");
+        return Result.failRaw(401, "Token expired, please refresh");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public Result<?> handleAccessDeniedException(AccessDeniedException e) {
+    public ResponseEntity<Result<?>> handleAccessDeniedException(AccessDeniedException e) {
         log.warn("Access denied: {}", e.getMessage());
-        return Result.error(403, "Access denied");
+        return Result.failRaw(403, "Access denied");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public Result<?> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<Result<?>> handleValidationException(MethodArgumentNotValidException e) {
         FieldError fieldError = e.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "Validation failed";
         log.error("Validation exception: {}", message);
-        return Result.error(400, message);
+        return Result.failRaw(400, message);
     }
 
     @ExceptionHandler(BindException.class)
-    public Result<?> handleBindException(BindException e) {
+    public ResponseEntity<Result<?>> handleBindException(BindException e) {
         FieldError fieldError = e.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "Binding failed";
         log.error("Bind exception: {}", message);
-        return Result.error(400, message);
+        return Result.failRaw(400, message);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public Result<?> handleMissingParams(MissingServletRequestParameterException e) {
+    public ResponseEntity<Result<?>> handleMissingParams(MissingServletRequestParameterException e) {
         log.warn("Missing request parameter: {}", e.getMessage());
-        return Result.error(400, "Required parameter '" + e.getParameterName() + "' is missing");
+        return Result.failRaw(400, "Required parameter '" + e.getParameterName() + "' is missing");
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public Result<?> handleConstraintViolation(ConstraintViolationException e) {
+    public ResponseEntity<Result<?>> handleConstraintViolation(ConstraintViolationException e) {
         String message = e.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
                 .findFirst()
                 .orElse("Validation failed");
         log.warn("Constraint violation: {}", message);
-        return Result.error(400, message);
+        return Result.failRaw(400, message);
     }
 
     @ExceptionHandler(Exception.class)
-    public Result<?> handleException(Exception e) {
+    public ResponseEntity<Result<?>> handleException(Exception e) {
         log.error("System exception: ", e);
-        return Result.error("System error, please contact administrator");
+        return Result.failRaw("System error, please contact administrator");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public Result<?> handleIllegalArgumentException(IllegalArgumentException e) {
+    public ResponseEntity<Result<?>> handleIllegalArgumentException(IllegalArgumentException e) {
         log.error("Illegal argument: {}", e.getMessage());
-        return Result.error(400, e.getMessage());
+        return Result.failRaw(400, e.getMessage());
     }
 
     @ExceptionHandler(InvalidFileTypeException.class)
-    public Result<?> handleInvalidFileTypeException(InvalidFileTypeException e) {
+    public ResponseEntity<Result<?>> handleInvalidFileTypeException(InvalidFileTypeException e) {
         log.warn("Invalid file type: {}", e.getMessage());
-        return Result.error(400, e.getMessage());
+        return Result.failRaw(400, e.getMessage());
     }
 
     @ExceptionHandler(FileTooLargeException.class)
-    public Result<?> handleFileTooLargeException(FileTooLargeException e) {
+    public ResponseEntity<Result<?>> handleFileTooLargeException(FileTooLargeException e) {
         log.warn("File too large: {}", e.getMessage());
-        return Result.error(413, e.getMessage());
+        return Result.failRaw(413, e.getMessage());
     }
 
     @ExceptionHandler(FileStorageException.class)
-    public Result<?> handleFileStorageException(FileStorageException e) {
+    public ResponseEntity<Result<?>> handleFileStorageException(FileStorageException e) {
         log.error("File storage exception: {}", e.getMessage(), e);
-        return Result.error(500, "File storage failed: " + e.getMessage());
+        return Result.failRaw(500, "File storage failed: " + e.getMessage());
     }
 
     @ExceptionHandler(RepositoryNotFoundException.class)
-    public Result<?> handleRepositoryNotFoundException(RepositoryNotFoundException e) {
+    public ResponseEntity<Result<?>> handleRepositoryNotFoundException(RepositoryNotFoundException e) {
         log.warn("Repository not found: {}", e.getMessage());
-        return Result.error(e.getCode(), e.getMessage());
+        return Result.failRaw(e.getCode(), e.getMessage());
     }
 
     @ExceptionHandler(FileNotAllowedException.class)
-    public Result<?> handleFileNotAllowedException(FileNotAllowedException e) {
+    public ResponseEntity<Result<?>> handleFileNotAllowedException(FileNotAllowedException e) {
         log.warn("File not allowed: {}", e.getMessage());
-        return Result.error(e.getCode(), e.getMessage());
+        return Result.failRaw(e.getCode(), e.getMessage());
     }
 
     @ExceptionHandler(IOException.class)
-    public Result<?> handleIOException(IOException e) {
+    public ResponseEntity<Result<?>> handleIOException(IOException e) {
         log.error("IO exception: {}", e.getMessage(), e);
-        return Result.error(500, "Internal I/O error: " + e.getMessage());
+        return Result.failRaw(500, "Internal I/O error: " + e.getMessage());
     }
 
     @ExceptionHandler(GitAPIException.class)
-    public Result<?> handleGitAPIException(GitAPIException e) {
+    public ResponseEntity<Result<?>> handleGitAPIException(GitAPIException e) {
         log.error("Git operation failed: {}", e.getMessage(), e);
-        return Result.error(500, "Git operation failed: " + e.getMessage());
+        return Result.failRaw(500, "Git operation failed: " + e.getMessage());
     }
 }
