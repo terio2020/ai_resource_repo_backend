@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import org.mockito.stubbing.Answer;
+
 @ExtendWith(MockitoExtension.class)
 class SocialAccountServiceImplTest {
 
@@ -28,6 +30,9 @@ class SocialAccountServiceImplTest {
     @Mock
     private UserMapper userMapper;
 
+    @Mock
+    private TokenEncryptionService tokenEncryptionService;
+
     private SocialAccountServiceImpl socialAccountService;
 
     @BeforeEach
@@ -35,6 +40,11 @@ class SocialAccountServiceImplTest {
         socialAccountService = new SocialAccountServiceImpl();
         setField("socialAccountMapper", socialAccountMapper);
         setField("userMapper", userMapper);
+        setField("tokenEncryptionService", tokenEncryptionService);
+
+        // Pass-through encrypt/decrypt so existing test assertions on token values still match
+        lenient().when(tokenEncryptionService.encrypt(any())).thenAnswer((Answer<String>) inv -> inv.getArgument(0));
+        lenient().when(tokenEncryptionService.decrypt(any())).thenAnswer((Answer<String>) inv -> inv.getArgument(0));
     }
 
     private void setField(String name, Object value) throws Exception {

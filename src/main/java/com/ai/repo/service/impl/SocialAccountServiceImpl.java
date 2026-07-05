@@ -41,6 +41,9 @@ public class SocialAccountServiceImpl implements SocialAccountService {
     @Resource
     private UserMapper userMapper;
 
+    @Resource
+    private TokenEncryptionService tokenEncryptionService;
+
     @Value("${oauth.google.client-id:}")
     private String googleClientId;
 
@@ -144,8 +147,8 @@ public class SocialAccountServiceImpl implements SocialAccountService {
         socialAccount.setUserId(user.getId());
         socialAccount.setProvider(provider);
         socialAccount.setProviderUserId(providerUserId);
-        socialAccount.setAccessToken(accessToken);
-        socialAccount.setRefreshToken(refreshToken);
+        socialAccount.setAccessToken(tokenEncryptionService.encrypt(accessToken));
+        socialAccount.setRefreshToken(tokenEncryptionService.encrypt(refreshToken));
         socialAccount.setEmail(email);
         socialAccount.setNickname(nickname);
         socialAccount.setAvatar(avatar);
@@ -188,8 +191,8 @@ public class SocialAccountServiceImpl implements SocialAccountService {
         socialAccount.setUserId(userId);
         socialAccount.setProvider(provider);
         socialAccount.setProviderUserId(providerUserId);
-        socialAccount.setAccessToken(accessToken);
-        socialAccount.setRefreshToken(refreshToken);
+        socialAccount.setAccessToken(tokenEncryptionService.encrypt(accessToken));
+        socialAccount.setRefreshToken(tokenEncryptionService.encrypt(refreshToken));
         socialAccount.setEmail(email);
         socialAccount.setNickname(nickname);
         socialAccount.setAvatar(avatar);
@@ -244,8 +247,8 @@ public class SocialAccountServiceImpl implements SocialAccountService {
             throw new BusinessException(404, "Social account not found");
         }
         
-        socialAccount.setAccessToken(accessToken);
-        socialAccount.setRefreshToken(refreshToken);
+        socialAccount.setAccessToken(tokenEncryptionService.encrypt(accessToken));
+        socialAccount.setRefreshToken(tokenEncryptionService.encrypt(refreshToken));
         socialAccount.setTokenExpiresAt(expiresIn != null ? LocalDateTime.now().plusSeconds(expiresIn) : null);
         socialAccount.setUpdatedAt(LocalDateTime.now());
         

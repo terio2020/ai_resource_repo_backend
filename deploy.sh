@@ -178,6 +178,7 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e OPENAI_API_KEY=${OPENAI_API_KEY:-} \
         -e JWT_SECRET=${JWT_SECRET:-} \
         -e APP_OAUTH_STATE_SECRET=${APP_OAUTH_STATE_SECRET:-} \
+        -e TOKEN_ENCRYPTION_SECRET=${TOKEN_ENCRYPTION_SECRET:-} \
         -e FILE_STORAGE_PATH=${REMOTE_DIR} \
         -w ${REMOTE_DIR} \
         eclipse-temurin:17-jdk-alpine \

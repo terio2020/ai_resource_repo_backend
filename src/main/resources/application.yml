@@ -82,6 +82,10 @@ jwt:
   refresh-token-expiration: 604800000
   token-prefix: Bearer
 
+token:
+  encryption:
+    secret: ${TOKEN_ENCRYPTION_SECRET:change-me-token-encryption-secret-32-bytes-min!!}
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.ai.repo.entity
