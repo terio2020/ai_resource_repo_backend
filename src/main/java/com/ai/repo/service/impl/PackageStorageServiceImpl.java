@@ -4,6 +4,7 @@ import com.ai.repo.entity.PackageFile;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.FileTooLargeException;
 import com.ai.repo.service.PackageStorageService;
+import com.ai.repo.util.StoragePathResolver;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,7 +65,10 @@ public class PackageStorageServiceImpl implements PackageStorageService {
     @Override
     public String createVersionDirectory(String basePath, Long userId, Long agentId,
                                           String packageType, String packageName, String versionTag) {
-        String dir = basePath + "/" + packageType + "/" + userId + "/" + agentId + "/" + packageName + "/" + versionTag;
+        String safeType = StoragePathResolver.safeSegment(packageType, "packageType");
+        String safeName = StoragePathResolver.safeSegment(packageName, "packageName");
+        String safeVersion = StoragePathResolver.safeSegment(versionTag, "versionTag");
+        String dir = basePath + "/" + safeType + "/" + userId + "/" + agentId + "/" + safeName + "/" + safeVersion;
         try {
             Files.createDirectories(Path.of(dir));
         } catch (IOException e) {
@@ -89,7 +93,7 @@ public class PackageStorageServiceImpl implements PackageStorageService {
                 throw new BusinessException(400, "File name must not be empty");
             }
 
-            String sanitized = sanitizeFileName(fileName);
+            String sanitized = StoragePathResolver.safeRelativePath(fileName, "fileName");
             Path targetPath = Path.of(versionDir, sanitized);
 
             try {
@@ -155,7 +159,7 @@ public class PackageStorageServiceImpl implements PackageStorageService {
             throw new BusinessException(400, "File name must not be empty");
         }
 
-        String sanitized = sanitizeFileName(fileName);
+        String sanitized = StoragePathResolver.safeRelativePath(fileName, "fileName");
         Path targetPath = Path.of(tempDir, sanitized);
         try {
             Files.createDirectories(targetPath.getParent());
@@ -265,13 +269,6 @@ public class PackageStorageServiceImpl implements PackageStorageService {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("MD5 not available", e);
         }
-    }
-
-    private String sanitizeFileName(String fileName) {
-        return fileName.replace("\\", "/")
-                       .replaceAll("[/]+", "/")
-                       .replaceAll("^\\.\\.", "")
-                       .replaceAll("\0", "");
     }
 
     private String saveWithMd5(MultipartFile file, Path targetPath) throws IOException {

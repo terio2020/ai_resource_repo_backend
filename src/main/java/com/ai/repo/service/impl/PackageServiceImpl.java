@@ -7,6 +7,7 @@ import com.ai.repo.mapper.*;
 import com.ai.repo.service.ContentModerationService;
 import com.ai.repo.service.PackageService;
 import com.ai.repo.service.PackageStorageService;
+import com.ai.repo.util.StoragePathResolver;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,8 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,17 +51,20 @@ public class PackageServiceImpl implements PackageService {
     @Override
     @Transactional
     public AgentPackage create(Long userId, Long agentId, PackageCreateRequest request) {
+        String safeName = StoragePathResolver.safeSegment(request.getName(), "packageName");
+        String safeType = StoragePathResolver.safeSegment(request.getPackageType(), "packageType");
+
         AgentPackage existing = agentPackageMapper.selectByAgentIdAndTypeAndName(
-                agentId, request.getPackageType(), request.getName());
+                agentId, safeType, safeName);
         if (existing != null) {
-            throw new BusinessException(409, "Package '" + request.getName() + "' already exists for this agent");
+            throw new BusinessException(409, "Package '" + safeName + "' already exists for this agent");
         }
 
         AgentPackage ap = new AgentPackage();
         ap.setUserId(userId);
         ap.setAgentId(agentId);
-        ap.setPackageType(request.getPackageType());
-        ap.setName(request.getName());
+        ap.setPackageType(safeType);
+        ap.setName(safeName);
         ap.setDescription(request.getDescription());
         ap.setTags(request.getTags());
         ap.setIsPublic(false);
@@ -116,6 +118,12 @@ public class PackageServiceImpl implements PackageService {
             throw new BusinessException(400, "At least one file is required");
         }
 
+        // F4: moderate every uploaded file in memory BEFORE any disk write.
+        // Previously moderation ran AFTER saveFiles, so disallowed content already
+        // landed on disk; and once it threw, the transaction rollback did not
+        // remove the physical files left behind.
+        moderateMultipartFiles(files);
+
         int versionNum = packageVersionMapper.selectMaxVersionNum(packageId) + 1;
         String versionTag = PackageStorageServiceImpl.generateVersionTag(packageId, versionNum);
 
@@ -137,16 +145,6 @@ public class PackageServiceImpl implements PackageService {
 
         List<PackageFile> packageFiles = packageStorageService.saveFiles(pv.getId(), versionDir, files);
 
-        for (PackageFile pf : packageFiles) {
-            try {
-                contentModerationService.moderateContent(
-                        new String(Files.readAllBytes(Path.of(versionDir, pf.getFilePath()))),
-                        pf.getFileName());
-            } catch (IOException e) {
-                log.warn("Cannot read file for moderation: {}", pf.getFilePath());
-            }
-        }
-
         long totalSize = packageFiles.stream().mapToLong(PackageFile::getFileSize).sum();
         pv.setFileCount(packageFiles.size());
         pv.setTotalSize(totalSize);
@@ -157,6 +155,23 @@ public class PackageServiceImpl implements PackageService {
 
         log.info("Version {} published for package {} by user {}", versionTag, packageId, userId);
         return toVersionResponse(pv, packageFiles);
+    }
+
+    /**
+     * Read each uploaded file's bytes and pass them through the content moderation pipeline.
+     * Throws {@link BusinessException} (wrapping the underlying {@code ContentModerationException})
+     * for any flagged content, so the caller's {@code @Transactional} rolls back the DB before any
+     * filesystem side effects occur.
+     */
+    private void moderateMultipartFiles(List<MultipartFile> files) {
+        for (MultipartFile file : files) {
+            String name = file.getOriginalFilename();
+            try {
+                contentModerationService.moderateContent(new String(file.getBytes()), name);
+            } catch (IOException e) {
+                throw new BusinessException(400, "Cannot read file for moderation: " + name);
+            }
+        }
     }
 
     @Override

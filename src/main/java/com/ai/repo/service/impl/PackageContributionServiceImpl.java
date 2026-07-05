@@ -4,8 +4,10 @@ import com.ai.repo.dto.*;
 import com.ai.repo.entity.*;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.*;
+import com.ai.repo.service.ContentModerationService;
 import com.ai.repo.service.PackageContributionService;
 import com.ai.repo.service.PackageStorageService;
+import com.ai.repo.util.StoragePathResolver;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -49,6 +52,9 @@ public class PackageContributionServiceImpl implements PackageContributionServic
     @Resource
     private PackageStorageService packageStorageService;
 
+    @Resource
+    private ContentModerationService contentModerationService;
+
     @Override
     @Transactional
     public ContributionResponse submit(Long packageId, Long userId, Long agentId,
@@ -70,6 +76,12 @@ public class PackageContributionServiceImpl implements PackageContributionServic
         if (userId != null && userId.equals(ap.getUserId())) {
             throw new BusinessException(400, "Cannot contribute to your own package");
         }
+
+        // F5: moderate every contribution file in memory BEFORE any disk write.
+        // Without this, a contributor could upload disallowed content (markdown images,
+        // XSS, private-IP SSRF) that the package owner would see only after opening the
+        // merged version — and the file would already be persisted on the API server.
+        moderateMultipartFiles(files);
 
         PackageContribution pc = new PackageContribution();
         pc.setPackageId(packageId);
@@ -155,13 +167,23 @@ public class PackageContributionServiceImpl implements PackageContributionServic
             for (ContributionFile cf : contribFiles) {
                 try {
                     Path src = Path.of(cf.getStoragePath());
-                    Path dest = Path.of(newVersionDir, cf.getFilePath());
+                    // F3: cf.getFilePath() came from the contributor's originalFilename and is
+                    // joined onto newVersionDir; force it to stay a relative path under that dir.
+                    String safeRelative = StoragePathResolver.safeRelativePath(cf.getFilePath(), "filePath");
+                    Path dest = Path.of(newVersionDir, safeRelative);
                     Files.createDirectories(dest.getParent());
                     Files.copy(src, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {
                     throw new BusinessException(500, "Failed to merge contribution file: " + cf.getFilePath());
                 }
             }
+
+            // F5: re-moderate the merged directory contents before persisting metadata.
+            // Defense in depth: contribution files were moderated at submit, but the source
+            // version's pre-existing files were never moderated on this path. A reviewer
+            // approving the PR should not be able to publish previously-bypassed disallowed
+            // content as a new "active" version.
+            moderateDirectoryContents(newVersionDir);
 
             PackageVersion newVersion = new PackageVersion();
             newVersion.setPackageId(packageId);
@@ -290,6 +312,51 @@ public class PackageContributionServiceImpl implements PackageContributionServic
             return HexFormat.of().formatHex(md.digest());
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /**
+     * Read each uploaded file's bytes and pass them through the content moderation pipeline.
+     * Throws {@link BusinessException} (wrapping the underlying {@code ContentModerationException})
+     * for any flagged content, so the caller's {@code @Transactional} rolls back the DB and
+     * the caller never gets to the disk-write step.
+     */
+    private void moderateMultipartFiles(List<MultipartFile> files) {
+        for (MultipartFile file : files) {
+            String name = file.getOriginalFilename();
+            try {
+                contentModerationService.moderateContent(new String(file.getBytes()), name);
+            } catch (IOException e) {
+                throw new BusinessException(400, "Cannot read file for moderation: " + name);
+            }
+        }
+    }
+
+    /**
+     * Walk {@code dirPath} and moderate every regular file found, reading content from disk.
+     * Throws {@link BusinessException} on read failure or on flagged content. Used on the
+     * contribution {@code review(approve)} path after the contributor's files have been
+     * merged on top of the source version's directory.
+     */
+    private void moderateDirectoryContents(String dirPath) {
+        Path root = Path.of(dirPath);
+        try (Stream<Path> walk = Files.walk(root)) {
+            walk.filter(Files::isRegularFile).forEach(path -> {
+                try {
+                    String content = new String(Files.readAllBytes(path));
+                    contentModerationService.moderateContent(content, path.getFileName().toString());
+                } catch (IOException e) {
+                    throw new BusinessException(500, "Cannot read merged file for moderation: " + path);
+                }
+            });
+        } catch (IOException e) {
+            throw new BusinessException(500, "Failed to walk merged version directory: " + e.getMessage());
+        } catch (RuntimeException e) {
+            // Re-throw BusinessException as-is; wrap anything else.
+            if (e instanceof BusinessException) {
+                throw e;
+            }
+            throw new BusinessException(500, "Failed to moderate merged directory: " + e.getMessage());
         }
     }
 }

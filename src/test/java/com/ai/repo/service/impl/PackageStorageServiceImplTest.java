@@ -86,8 +86,8 @@ class PackageStorageServiceImplTest {
         assertEquals(18, tag.length());
     }
 
-    @Test
-    void packAsZip_shouldCreateZip() throws IOException {
+@Test
+void packAsZip_shouldCreateZip() throws IOException {
         String versionDir = service.createVersionDirectory(
                 tempDir.toString(), 1L, 10L, "skill", "test-pkg", "v1");
 
@@ -97,5 +97,86 @@ class PackageStorageServiceImplTest {
         java.io.File zip = service.packAsZip(versionDir);
         assertTrue(zip.exists());
         assertTrue(zip.length() > 0);
+    }
+
+    // ==================== F3: path traversal regressions ====================
+
+    @Test
+    void createVersionDirectory_shouldRejectAbsolutePackageType() {
+        assertThrows(BusinessException.class, () ->
+                service.createVersionDirectory(tempDir.toString(), 1L, 10L, "/skill", "pkg", "v1"));
+    }
+
+    @Test
+    void createVersionDirectory_shouldRejectParentInPackageName() {
+        assertThrows(BusinessException.class, () ->
+                service.createVersionDirectory(tempDir.toString(), 1L, 10L, "skill", "../escape", "v1"));
+    }
+
+    @Test
+    void createVersionDirectory_shouldRejectSeparatorInVersionTag() {
+        assertThrows(BusinessException.class, () ->
+                service.createVersionDirectory(tempDir.toString(), 1L, 10L, "skill", "pkg", "v1/../../.."));
+    }
+
+    @Test
+    void saveFiles_shouldRejectAbsoluteFileName_thatEscapesVersionDir() throws IOException {
+        String versionDir = service.createVersionDirectory(
+                tempDir.toString(), 1L, 10L, "skill", "test-pkg", "v1");
+
+        // "/etc/passwd.txt" — Path.of(versionDir, "/etc/passwd.txt") would otherwise
+        // resolve to the absolute path /etc/passwd.txt and overwrite it.
+        List<MultipartFile> files = List.of(
+                new MockMultipartFile("files", "/etc/passwd.txt", "text/plain", "pwned".getBytes())
+        );
+
+        assertThrows(BusinessException.class, () -> service.saveFiles(1L, versionDir, files));
+
+        // Nothing should have escaped the version directory
+        assertFalse(Files.exists(Path.of("/etc/passwd.txt")));
+    }
+
+    @Test
+    void saveFiles_shouldRejectParentTraversalFileName() throws IOException {
+        String versionDir = service.createVersionDirectory(
+                tempDir.toString(), 1L, 10L, "skill", "test-pkg", "v1");
+
+        List<MultipartFile> files = List.of(
+                new MockMultipartFile("files", "../escape.md", "text/markdown", "escape".getBytes())
+        );
+
+        assertThrows(BusinessException.class, () -> service.saveFiles(1L, versionDir, files));
+        assertFalse(Files.exists(Path.of(tempDir.toString(), "escape.md")));
+    }
+
+    @Test
+    void saveFiles_shouldRejectNullByteInFileName() throws IOException {
+        String versionDir = service.createVersionDirectory(
+                tempDir.toString(), 1L, 10L, "skill", "test-pkg", "v1");
+
+        List<MultipartFile> files = List.of(
+                new MockMultipartFile("files", "fix\0.md", "text/markdown", "x".getBytes())
+        );
+
+        assertThrows(BusinessException.class, () -> service.saveFiles(1L, versionDir, files));
+    }
+
+    @Test
+    void saveContributionFile_shouldRejectAbsoluteFileName() {
+        assertThrows(BusinessException.class, () -> {
+            MultipartFile file = new MockMultipartFile("files", "/etc/passwd.txt",
+                    "text/plain", "x".getBytes());
+            service.saveContributionFile(1L, tempDir.toString(), file);
+        });
+        assertFalse(Files.exists(Path.of("/etc/passwd.txt")));
+    }
+
+    @Test
+    void saveContributionFile_shouldRejectParentTraversalFileName() {
+        assertThrows(BusinessException.class, () -> {
+            MultipartFile file = new MockMultipartFile("files", "../escape.md",
+                    "text/markdown", "x".getBytes());
+            service.saveContributionFile(1L, tempDir.toString(), file);
+        });
     }
 }
