@@ -139,7 +139,7 @@ public class SkillRepositoryController {
             description = "Agent-only. Update version, description, tags, category, type, enabled.")
     public ResponseEntity<Result<SkillRepository>> updateMetadata(
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
-            @RequestBody SkillRepository updates,
+            @Valid @RequestBody SkillRepository updates,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         updates.setId(id);

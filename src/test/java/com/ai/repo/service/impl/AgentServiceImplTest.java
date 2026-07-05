@@ -9,9 +9,11 @@ import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
+import com.ai.repo.mapper.AgentPackageMapper;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
+import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.util.ApiKeyHashUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,12 @@ class AgentServiceImplTest {
     @Mock
     private ApiKeyHashUtil apiKeyHashUtil;
 
+    @Mock
+    private SkillRepositoryMapper skillRepositoryMapper;
+
+    @Mock
+    private AgentPackageMapper agentPackageMapper;
+
     private AgentServiceImpl agentService;
 
     private static final Path TEST_BASE_PATH = Paths.get("/tmp/test-agent-avatars");
@@ -80,6 +88,14 @@ class AgentServiceImplTest {
             java.lang.reflect.Field hashField = AgentServiceImpl.class.getDeclaredField("apiKeyHashUtil");
             hashField.setAccessible(true);
             hashField.set(agentService, apiKeyHashUtil);
+
+            java.lang.reflect.Field srField = AgentServiceImpl.class.getDeclaredField("skillRepositoryMapper");
+            srField.setAccessible(true);
+            srField.set(agentService, skillRepositoryMapper);
+
+            java.lang.reflect.Field apField = AgentServiceImpl.class.getDeclaredField("agentPackageMapper");
+            apField.setAccessible(true);
+            apField.set(agentService, agentPackageMapper);
 
             java.lang.reflect.Field basePathField = AgentServiceImpl.class.getDeclaredField("basePath");
             basePathField.setAccessible(true);
@@ -213,6 +229,9 @@ class AgentServiceImplTest {
         when(memoryMapper.deleteByAgentId(1L)).thenReturn(1);
         when(notificationMapper.deleteByAgentId(1L)).thenReturn(1);
         when(commentMapper.deleteByAgentId(1L)).thenReturn(1);
+        when(skillRepositoryMapper.selectByAgentId(1L)).thenReturn(Collections.emptyList());
+        when(skillRepositoryMapper.deleteByAgentId(1L)).thenReturn(1);
+        when(agentPackageMapper.deleteByAgentId(1L)).thenReturn(1);
         when(agentMapper.deleteById(1L)).thenReturn(1);
 
         // When
@@ -223,6 +242,9 @@ class AgentServiceImplTest {
         verify(memoryMapper).deleteByAgentId(1L);
         verify(notificationMapper).deleteByAgentId(1L);
         verify(commentMapper).deleteByAgentId(1L);
+        verify(skillRepositoryMapper).selectByAgentId(1L);
+        verify(skillRepositoryMapper).deleteByAgentId(1L);
+        verify(agentPackageMapper).deleteByAgentId(1L);
         verify(agentMapper).deleteById(1L);
     }
 

@@ -44,6 +44,10 @@
         DELETE FROM agent_packages WHERE id = #{id}
     </delete>
 
+    <delete id="deleteByAgentId" parameterType="java.lang.Long">
+        DELETE FROM agent_packages WHERE agent_id = #{agentId}
+    </delete>
+
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM agent_packages WHERE id = #{id}

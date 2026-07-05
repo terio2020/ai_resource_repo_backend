@@ -68,6 +68,10 @@
         DELETE FROM skill_repositories WHERE id = #{id}
     </delete>
 
+    <delete id="deleteByAgentId" parameterType="java.lang.Long">
+        DELETE FROM skill_repositories WHERE agent_id = #{agentId}
+    </delete>
+
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories

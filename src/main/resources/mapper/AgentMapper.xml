@@ -237,7 +237,7 @@
 
     <update id="updateAgentStatus">
         UPDATE agents SET status = #{status}, updated_at = NOW()
-        WHERE id = #{id}
+        WHERE id = #{id} AND status != 'OFFLINE'
     </update>
 
     <update id="updateChallengeVerified">

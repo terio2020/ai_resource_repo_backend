@@ -11,6 +11,7 @@ public interface AgentPackageMapper {
     int insert(AgentPackage agentPackage);
     int update(AgentPackage agentPackage);
     int deleteById(Long id);
+    int deleteByAgentId(@Param("agentId") Long agentId);
     AgentPackage selectById(Long id);
     List<AgentPackage> selectByAgentId(@Param("agentId") Long agentId);
     List<AgentPackage> selectByUserId(@Param("userId") Long userId);

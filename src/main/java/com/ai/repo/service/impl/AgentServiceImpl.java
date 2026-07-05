@@ -8,17 +8,22 @@ import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
+import com.ai.repo.mapper.AgentPackageMapper;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
+import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.util.ApiKeyHashUtil;
 import com.ai.repo.util.AvatarUtil;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +33,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class AgentServiceImpl implements AgentService {
 
@@ -51,6 +58,12 @@ public class AgentServiceImpl implements AgentService {
 
     @Resource
     private ApiKeyHashUtil apiKeyHashUtil;
+
+    @Resource
+    private SkillRepositoryMapper skillRepositoryMapper;
+
+    @Resource
+    private AgentPackageMapper agentPackageMapper;
 
     @Override
     public Agent create(Agent agent) {
@@ -127,6 +140,7 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
+    @Transactional
     public boolean delete(Long id) {
         if (agentMapper.selectById(id) == null) {
             throw new BusinessException("Agent not found");
@@ -135,6 +149,25 @@ public class AgentServiceImpl implements AgentService {
         memoryMapper.deleteByAgentId(id);
         notificationMapper.deleteByAgentId(id);
         commentMapper.deleteByAgentId(id);
+        // S3: also clean up skill repositories and agent packages owned by this agent
+        List<SkillRepository> repos = skillRepositoryMapper.selectByAgentId(id);
+        for (SkillRepository repo : repos) {
+            Path repoDir = Paths.get(repo.getRepoPath());
+            try {
+                if (Files.exists(repoDir)) {
+                    try (Stream<Path> walk = Files.walk(repoDir)) {
+                        List<Path> paths = walk.sorted((a, b) -> b.compareTo(a)).toList();
+                        for (Path p : paths) {
+                            Files.deleteIfExists(p);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                log.warn("Failed to delete repo directory {}: {}", repoDir, e.getMessage());
+            }
+        }
+        skillRepositoryMapper.deleteByAgentId(id);
+        agentPackageMapper.deleteByAgentId(id);
         return agentMapper.deleteById(id) > 0;
     }
 

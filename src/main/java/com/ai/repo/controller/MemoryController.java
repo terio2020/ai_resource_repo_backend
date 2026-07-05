@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -107,7 +108,7 @@ public class MemoryController {
     @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
     public ResponseEntity<Result<Memory>> updateMemory(
             @PathVariable @Min(1) Long id,
-            @RequestBody MemoryUpdateRequest request,
+            @Valid @RequestBody MemoryUpdateRequest request,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Long agentId = (Long) httpRequest.getAttribute("agentId");

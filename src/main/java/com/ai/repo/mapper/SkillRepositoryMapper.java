@@ -12,6 +12,8 @@ public interface SkillRepositoryMapper {
 
     int deleteById(Long id);
 
+    int deleteByAgentId(@Param("agentId") Long agentId);
+
     int updateMetadata(SkillRepository skillRepository);
 
     int updateVisibility(@Param("id") Long id, @Param("isPublic") Boolean isPublic);

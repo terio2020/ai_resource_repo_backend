@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -42,7 +43,7 @@ public class CommentController {
     @Operation(summary = "Update a comment", description = "Update an existing comment")
     public ResponseEntity<Result<Comment>> updateComment(
             @Parameter(description = "Comment ID") @PathVariable @Min(1) Long id,
-            @RequestBody Comment comment) {
+            @Valid @RequestBody Comment comment) {
         comment.setId(id);
         Comment updatedComment = commentService.update(comment);
         return Result.ok(updatedComment);

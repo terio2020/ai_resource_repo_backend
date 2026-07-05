@@ -231,6 +231,7 @@ public class PackageServiceImpl implements PackageService {
 
         try {
             File zip = packageStorageService.packAsZip(pv.getStoragePath());
+            zip.deleteOnExit();
             return new org.springframework.core.io.FileSystemResource(zip);
         } catch (IOException e) {
             throw new BusinessException(500, "Failed to create archive: " + e.getMessage());

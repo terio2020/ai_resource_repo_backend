@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -48,7 +49,7 @@ public class VerifyChallengeController {
     @ApiKeyAuth
     @Operation(summary = "Verify challenge answer", description = "Submit the answer to a challenge. 3 attempts max, 5 minute time limit.")
     public ResponseEntity<Result<Map<String, Object>>> verifyAnswer(
-            @RequestBody ChallengeVerifyRequest request,
+            @Valid @RequestBody ChallengeVerifyRequest request,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         if (agentId == null) {

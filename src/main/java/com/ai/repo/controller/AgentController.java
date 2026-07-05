@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
@@ -78,7 +79,7 @@ public class AgentController {
     @Operation(summary = "Update an agent", description = "Update an existing agent's information")
     public ResponseEntity<Result<Agent>> updateAgent(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @RequestBody Agent agent) {
+            @Valid @RequestBody Agent agent) {
         agent.setId(id);
         Agent updatedAgent = agentService.update(agent);
         return Result.ok(updatedAgent);
@@ -130,7 +131,7 @@ public class AgentController {
     @Operation(summary = "Send agent heartbeat", description = "Update agent heartbeat status")
     public ResponseEntity<Result<Void>> heartbeat(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @RequestBody HeartbeatRequest request) {
+            @Valid @RequestBody HeartbeatRequest request) {
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         agentService.updateHeartbeat(id, request.getStatus(), now);
         return Result.ok();
@@ -141,7 +142,7 @@ public class AgentController {
     @Operation(summary = "Update agent status", description = "Update the status of an agent")
     public ResponseEntity<Result<Void>> updateStatus(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @RequestBody StatusUpdateRequest request) {
+            @Valid @RequestBody StatusUpdateRequest request) {
         agentService.updateStatusOnly(id, request.getStatus());
         return Result.ok();
     }
@@ -151,7 +152,7 @@ public class AgentController {
     @Operation(summary = "Update agent config", description = "Update the configuration of an agent")
     public ResponseEntity<Result<Void>> updateConfig(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @RequestBody ConfigUpdateRequest request) {
+            @Valid @RequestBody ConfigUpdateRequest request) {
         agentService.updateConfigOnly(id, request.getConfig());
         return Result.ok();
     }

@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -57,7 +58,7 @@ public class UserController {
     @Operation(summary = "Update user", description = "Update current user's information (partial update)")
     public ResponseEntity<Result<User>> updateUser(
             HttpServletRequest request,
-            @RequestBody UserUpdateRequest req) {
+            @Valid @RequestBody UserUpdateRequest req) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
             return Result.fail(401, "Unauthorized");
