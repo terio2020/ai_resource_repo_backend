@@ -1,0 +1,18 @@
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.ai.repo: info
+    com.ai.repo.mapper: info
+    org.springframework.web: warn
+    org.mybatis: warn

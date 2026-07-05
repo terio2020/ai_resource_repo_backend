@@ -66,9 +66,9 @@ public class JwtProvider {
         String token = Jwts.builder()
                 .claim(JwtConstants.USER_ID_CLAIM, userId)
                 .claim(JwtConstants.USERNAME_CLAIM, username)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
                 .compact();
 
         storeToken(userId, token, JwtConstants.ACCESS_TOKEN_PREFIX, accessTokenExpiration);
@@ -81,9 +81,9 @@ public class JwtProvider {
 
         String token = Jwts.builder()
                 .claim(JwtConstants.USER_ID_CLAIM, userId)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
                 .compact();
 
         storeToken(userId, token, JwtConstants.REFRESH_TOKEN_PREFIX, refreshTokenExpiration);
@@ -101,11 +101,11 @@ public class JwtProvider {
 
     public Long validateAccessToken(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .parseSignedClaims(token)
+                    .getPayload();
 
             Long userId = claims.get(JwtConstants.USER_ID_CLAIM, Long.class);
             
@@ -126,11 +126,11 @@ public class JwtProvider {
 
     public Long validateRefreshToken(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .parseSignedClaims(token)
+                    .getPayload();
 
             Long userId = claims.get(JwtConstants.USER_ID_CLAIM, Long.class);
             

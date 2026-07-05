@@ -105,7 +105,7 @@ echo " 3. 上传文件至服务器 ${SERVER_IP}..."
 echo "=========================================="
 
 # 确保远程部署目录存在
-ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} "mkdir -p ${REMOTE_DIR}"
+ssh -o StrictHostKeyChecking=accept-new -i "$SSH_KEY" "${USER}@${SERVER_IP}" "mkdir -p '${REMOTE_DIR}'"
 
 if [ $? -ne 0 ]; then
     echo "❌ 创建远程目录失败！"
@@ -113,7 +113,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 上传 JAR 包
-scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$LOCAL_JAR" ${USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.jar
+scp -o StrictHostKeyChecking=accept-new -i "$SSH_KEY" "$LOCAL_JAR" "${USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.jar"
 
 if [ $? -ne 0 ]; then
     echo "❌ 上传 JAR 包失败！"
@@ -122,7 +122,7 @@ fi
 
 # 上传 .env 文件（如果存在）
 if [ -f "$ENV_FILE" ]; then
-    scp -o StrictHostKeyChecking=no -i "$SSH_KEY" "$ENV_FILE" ${USER}@${SERVER_IP}:${REMOTE_DIR}/.env
+    scp -o StrictHostKeyChecking=accept-new -i "$SSH_KEY" "$ENV_FILE" "${USER}@${SERVER_IP}:${REMOTE_DIR}/.env"
     if [ $? -eq 0 ]; then
         echo "✅ $ENV_FILE 文件已上传"
     fi
@@ -131,7 +131,7 @@ fi
 echo "=========================================="
 echo " 4. 远程执行替换与重启..."
 echo "=========================================="
-ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
+ssh -o StrictHostKeyChecking=accept-new -i "$SSH_KEY" "${USER}@${SERVER_IP}" << EOF
     cd ${REMOTE_DIR} || { echo "❌ 找不到远程目录 ${REMOTE_DIR}"; exit 1; }
 
     # 备份旧的 app.jar
@@ -182,7 +182,7 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" ${USER}@${SERVER_IP} << EOF
         -e FILE_STORAGE_PATH=${REMOTE_DIR} \
         -w ${REMOTE_DIR} \
         eclipse-temurin:17-jdk-alpine \
-        java -jar app.jar
+        java -jar app.jar --spring.profiles.active=prod
 
     echo "✅ 部署已完成！"
     echo "=========================================="

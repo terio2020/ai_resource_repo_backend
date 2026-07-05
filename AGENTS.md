@@ -682,7 +682,7 @@ mvn test -Dtest=PackageStorageServiceImplTest,PackageServiceImplTest,PackageCont
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (594 tests total, 1 skipped, 50 test files):**
+**Test Coverage (631 tests total, 1 skipped, 50 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
