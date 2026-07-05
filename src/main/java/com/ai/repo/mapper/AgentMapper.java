@@ -32,6 +32,7 @@ public interface AgentMapper {
     int updateAvatar(@Param("id") Long id, @Param("avatar") String avatar);
 
     Agent selectByApiKey(String apiKey);
+    Agent selectByApiKeyHash(String apiKeyHash);
     int updateClaimStatus(@Param("id") Long id, @Param("isClaimed") boolean isClaimed);
     int updateKarma(@Param("id") Long id, @Param("delta") int delta);
 

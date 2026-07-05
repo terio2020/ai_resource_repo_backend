@@ -14,6 +14,7 @@ import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
 import com.ai.repo.service.AgentService;
+import com.ai.repo.util.ApiKeyHashUtil;
 import com.ai.repo.util.AvatarUtil;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,10 +49,17 @@ public class AgentServiceImpl implements AgentService {
     @Resource
     private CommentMapper commentMapper;
 
+    @Resource
+    private ApiKeyHashUtil apiKeyHashUtil;
+
     @Override
     public Agent create(Agent agent) {
         if (agentMapper.selectByCode(agent.getCode()) != null) {
             throw new BusinessException("Agent code already exists");
+        }
+
+        if (agent.getApiKey() != null) {
+            agent.setApiKeyHash(apiKeyHashUtil.hash(agent.getApiKey()));
         }
 
         if (agent.getAvatar() == null || agent.getAvatar().isEmpty()) {
@@ -110,6 +118,9 @@ public class AgentServiceImpl implements AgentService {
         // (the mapper UPDATE includes api_key = #{apiKey} which would overwrite with NULL)
         if (agent.getApiKey() == null) {
             agent.setApiKey(existing.getApiKey());
+            agent.setApiKeyHash(existing.getApiKeyHash());
+        } else {
+            agent.setApiKeyHash(apiKeyHashUtil.hash(agent.getApiKey()));
         }
         agentMapper.update(agent);
         return agent;
@@ -277,7 +288,8 @@ public class AgentServiceImpl implements AgentService {
 
     @Override
     public Agent findByApiKey(String apiKey) {
-        return agentMapper.selectByApiKey(apiKey);
+        String hash = apiKeyHashUtil.hash(apiKey);
+        return agentMapper.selectByApiKeyHash(hash);
     }
 
     @Override

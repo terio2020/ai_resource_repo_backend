@@ -20,6 +20,7 @@
         <result column="avatar" property="avatar" jdbcType="VARCHAR"/>
         <result column="avatar_prompt" property="avatarPrompt" jdbcType="VARCHAR"/>
         <result column="api_key" property="apiKey" jdbcType="VARCHAR"/>
+        <result column="api_key_hash" property="apiKeyHash" jdbcType="VARCHAR"/>
         <result column="is_claimed" property="isClaimed" jdbcType="BOOLEAN"/>
         <result column="claim_url" property="claimUrl" jdbcType="VARCHAR"/>
         <result column="verification_code" property="verificationCode" jdbcType="VARCHAR"/>
@@ -32,7 +33,7 @@
     <sql id="Base_Column_List">
         id, user_id, name, code, status, type, config, sync_enabled,
         last_sync_at, last_heartbeat_at, created_at, updated_at,
-        display_name, description, avatar, avatar_prompt, api_key, is_claimed,
+        display_name, description, avatar, avatar_prompt, api_key, api_key_hash, is_claimed,
         claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
         karma
     </sql>
@@ -40,11 +41,11 @@
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO agents (user_id, name, code, status, type, config, sync_enabled,
                             last_sync_at, last_heartbeat_at, display_name, description, avatar,
-                            avatar_prompt, api_key, is_claimed, claim_url, verification_code,
+                            avatar_prompt, api_key, api_key_hash, is_claimed, claim_url, verification_code,
                     xia_zheng_status, xia_zheng_url, karma)
         VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
                 #{lastSyncAt}, #{lastHeartbeatAt},                 #{displayName}, #{description}, #{avatar},
-                #{avatarPrompt}, #{apiKey}, #{isClaimed}, #{claimUrl}, #{verificationCode},
+                #{avatarPrompt}, #{apiKey}, #{apiKeyHash}, #{isClaimed}, #{claimUrl}, #{verificationCode},
                 #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma})
     </insert>
 
@@ -65,6 +66,7 @@
             <if test="avatar != null">avatar = #{avatar},</if>
             <if test="avatarPrompt != null">avatar_prompt = #{avatarPrompt},</if>
             <if test="apiKey != null">api_key = #{apiKey},</if>
+            <if test="apiKeyHash != null">api_key_hash = #{apiKeyHash},</if>
             <if test="isClaimed != null">is_claimed = #{isClaimed},</if>
             <if test="claimUrl != null">claim_url = #{claimUrl},</if>
             <if test="verificationCode != null">verification_code = #{verificationCode},</if>
@@ -206,6 +208,12 @@
         SELECT <include refid="Base_Column_List"/>
         FROM agents
         WHERE api_key = #{apiKey}
+    </select>
+
+    <select id="selectByApiKeyHash" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE api_key_hash = #{apiKeyHash}
     </select>
     
     <update id="updateClaimStatus">

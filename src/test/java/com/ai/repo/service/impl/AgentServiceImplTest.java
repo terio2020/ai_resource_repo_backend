@@ -12,6 +12,7 @@ import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
+import com.ai.repo.util.ApiKeyHashUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,9 @@ class AgentServiceImplTest {
     @Mock
     private CommentMapper commentMapper;
 
+    @Mock
+    private ApiKeyHashUtil apiKeyHashUtil;
+
     private AgentServiceImpl agentService;
 
     private static final Path TEST_BASE_PATH = Paths.get("/tmp/test-agent-avatars");
@@ -73,6 +77,10 @@ class AgentServiceImplTest {
             commentField.setAccessible(true);
             commentField.set(agentService, commentMapper);
 
+            java.lang.reflect.Field hashField = AgentServiceImpl.class.getDeclaredField("apiKeyHashUtil");
+            hashField.setAccessible(true);
+            hashField.set(agentService, apiKeyHashUtil);
+
             java.lang.reflect.Field basePathField = AgentServiceImpl.class.getDeclaredField("basePath");
             basePathField.setAccessible(true);
             basePathField.set(agentService, TEST_BASE_PATH.toString());
@@ -87,6 +95,10 @@ class AgentServiceImplTest {
                         try { Files.deleteIfExists(p); } catch (IOException ignored) {}
                     });
         }
+
+        // Pass-through hash so existing tests that set/get apiKey still match
+        lenient().when(apiKeyHashUtil.hash(anyString()))
+                .thenAnswer(inv -> "hashed_" + inv.<String>getArgument(0));
     }
 
     // ========== create() Tests ==========
@@ -98,6 +110,7 @@ class AgentServiceImplTest {
         agent.setName("Test Agent");
         agent.setCode("test-agent-001");
         agent.setStatus("ACTIVE");
+        agent.setApiKey("raw-key-001");
 
         when(agentMapper.selectByCode("test-agent-001")).thenReturn(null);
         when(agentMapper.insert(any(Agent.class))).thenReturn(1);
@@ -106,6 +119,7 @@ class AgentServiceImplTest {
 
         assertNotNull(result);
         assertEquals("test-agent-001", result.getCode());
+        assertEquals("hashed_raw-key-001", result.getApiKeyHash());
         assertNotNull(result.getAvatar());
         assertTrue(result.getAvatar().contains("/avatars/agents/"));
         verify(agentMapper).insert(any(Agent.class));
@@ -603,8 +617,9 @@ class AgentServiceImplTest {
         Agent agent = new Agent();
         agent.setId(1L);
         agent.setApiKey("test-api-key");
+        agent.setApiKeyHash("hashed_test-api-key");
 
-        when(agentMapper.selectByApiKey("test-api-key")).thenReturn(agent);
+        when(agentMapper.selectByApiKeyHash("hashed_test-api-key")).thenReturn(agent);
 
         // When
         Agent result = agentService.findByApiKey("test-api-key");
@@ -612,6 +627,7 @@ class AgentServiceImplTest {
         // Then
         assertNotNull(result);
         assertEquals("test-api-key", result.getApiKey());
+        assertEquals("hashed_test-api-key", result.getApiKeyHash());
     }
 
     // ========== getResourceCounts() Tests ==========
