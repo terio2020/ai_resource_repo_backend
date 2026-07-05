@@ -197,6 +197,7 @@ class PackageContributionServiceImplTest {
                 .thenReturn(List.of(mergedFile));
         when(packageStorageService.createVersionDirectory(anyString(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
                 .thenReturn(java.nio.file.Files.createTempDirectory("version_").toString());
+        when(packageContributionMapper.reviewIfPending(any())).thenReturn(1);
 
         doAnswer((Answer<Void>) invocation -> {
             PackageVersion pv = invocation.getArgument(0);
@@ -245,6 +246,7 @@ class PackageContributionServiceImplTest {
         when(contributionFileMapper.selectByContributionId(10L)).thenReturn(List.of(cf));
         when(packageStorageService.createVersionDirectory(anyString(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
                 .thenReturn(java.nio.file.Files.createTempDirectory("version_").toString());
+        when(packageContributionMapper.reviewIfPending(any())).thenReturn(1);
 
         doThrow(new ContentModerationException(
                 ContentModerationException.ModerationErrorType.IMAGE_NOT_ALLOWED, "evil img"))
@@ -275,6 +277,7 @@ class PackageContributionServiceImplTest {
 
         when(agentPackageMapper.selectById(1L)).thenReturn(ap);
         when(packageContributionMapper.selectById(10L)).thenReturn(pc);
+        when(packageContributionMapper.reviewIfPending(any())).thenReturn(1);
 
         ContributionReviewRequest req = new ContributionReviewRequest();
         req.setStatus("rejected");

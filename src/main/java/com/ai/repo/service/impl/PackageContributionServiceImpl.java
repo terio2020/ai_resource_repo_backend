@@ -148,6 +148,14 @@ public class PackageContributionServiceImpl implements PackageContributionServic
         pc.setReviewedAt(LocalDateTime.now());
         pc.setReviewComment(request.getReviewComment());
 
+        // S2: use a conditional UPDATE (WHERE status = 'pending') so that two concurrent
+        // review requests cannot both approve the same contribution. If the update affects
+        // zero rows then another reviewer already processed it.
+        int updated = packageContributionMapper.reviewIfPending(pc);
+        if (updated == 0) {
+            throw new BusinessException(400, "Contribution is already " + pc.getStatus());
+        }
+
         if ("approved".equals(request.getStatus())) {
             PackageVersion sourceVersion = packageVersionMapper.selectById(pc.getSourceVersionId());
 

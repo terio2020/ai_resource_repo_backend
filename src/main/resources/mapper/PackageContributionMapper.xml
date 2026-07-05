@@ -73,4 +73,20 @@
         WHERE package_id = #{packageId} AND status = 'pending'
     </select>
 
+    <update id="updateStatusIfPending">
+        UPDATE package_contributions
+        SET status = #{status}
+        WHERE id = #{id} AND status = 'pending'
+    </update>
+
+    <update id="reviewIfPending" parameterType="com.ai.repo.entity.PackageContribution">
+        UPDATE package_contributions
+        SET status = #{status},
+            reviewed_by = #{reviewedBy},
+            reviewed_at = #{reviewedAt},
+            review_comment = #{reviewComment},
+            target_version_id = #{targetVersionId}
+        WHERE id = #{id} AND status = 'pending'
+    </update>
+
 </mapper>

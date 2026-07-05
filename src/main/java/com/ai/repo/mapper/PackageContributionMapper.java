@@ -16,4 +16,6 @@ public interface PackageContributionMapper {
     List<PackageContribution> selectByContributorAgentId(@Param("agentId") Long agentId);
     List<PackageContribution> selectByStatus(@Param("status") String status);
     int countPendingByPackageId(@Param("packageId") Long packageId);
+    int reviewIfPending(PackageContribution contribution);
+    int updateStatusIfPending(@Param("id") Long id, @Param("status") String status);
 }

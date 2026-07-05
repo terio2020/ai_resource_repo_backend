@@ -16,6 +16,7 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -194,7 +195,19 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
         forked.setSkillName(forkedSkillName);
         forked.setRepoPath(targetDir.toAbsolutePath().toString());
         forked.setParentId(sourceRepoId);
-        skillRepositoryMapper.insert(forked);
+        try {
+            skillRepositoryMapper.insert(forked);
+        } catch (DuplicateKeyException e) {
+            // Race: another concurrent request inserted the same (agent_id, skill_name)
+            // between our SELECT check and this INSERT. Clean up the disk copy and
+            // report a clear 409.
+            try {
+                deleteDirectory(targetDir);
+            } catch (IOException cleanupEx) {
+                log.warn("Failed to clean up fork directory after DuplicateKeyException: {}", cleanupEx.getMessage());
+            }
+            throw new BusinessException(409, "You already have a fork named '" + forkedSkillName + "'");
+        }
 
         log.info("Repository forked: source={} target={} agent={}", sourceRepoId, forked.getId(), currentAgentId);
         return forked;
