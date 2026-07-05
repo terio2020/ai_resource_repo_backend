@@ -129,13 +129,17 @@ src/main/java/com/ai/repo/
 │   ├── PermissionChecker.java       # AOP advice for the above
 │   └── ApiKeyInterceptor.java       # HandlerInterceptor for API key extraction
 ├── service/                        # Business logic interfaces + impl/
+│   └── impl/
+│       └── TokenEncryptionService.java # AES-256-GCM for OAuth tokens
 ├── scheduler/                      # Scheduled tasks
 │   └── AgentHeartbeatScheduler.java # Marks agents OFFLINE after 90 min no heartbeat
 ├── util/                           # Utility classes
 │   ├── PasswordEncoderUtil.java     # BCrypt wrapper
 │   ├── ApiKeyUtil.java              # API key generator
+│   ├── ApiKeyHashUtil.java          # HMAC-SHA256 for API key hashing
 │   ├── AvatarUtil.java              # Default avatar PNG generator
-│   └── CaptchaUtils.java            # Slide puzzle helpers
+│   ├── CaptchaUtils.java            # Slide puzzle helpers
+│   └── StoragePathResolver.java     # Path sanitization (safeSegment, safeRelativePath)
 └── aspect/                         # AOP aspects
     ├── RateLimit.java               # Annotation for rate limiting
     ├── RateLimitAspect.java         # AOP advice using Redis
@@ -174,9 +178,9 @@ public class {Entity}Controller {
 
     @PostMapping
     @Operation(summary = "...", description = "...")
-    public Result<Void> create(@RequestBody {Entity}CreateRequest request) {
+    public ResponseEntity<Result<Void>> create(@Valid @RequestBody {Entity}CreateRequest request) {
         // implementation
-        return Result.success();
+        return Result.ok();
     }
 }
 ```
@@ -245,19 +249,19 @@ public class User {
 
 ### Response Format
 
-All API responses MUST use `Result<T>` wrapper:
+All API responses MUST use `Result<T>` wrapper, returned as `ResponseEntity<Result<T>>`:
 
 ```java
 // Success with data
-return Result.success(user);
-return Result.success("User created", user);
+return Result.ok(user);
+return Result.ok("User created", user);
 
 // Success without data
-return Result.success();
+return Result.ok();
 
 // Error
-return Result.error(400, "Invalid request");
-return Result.error(500, "Internal server error");
+return Result.fail(400, "Invalid request");
+return Result.fail(500, "Internal server error");
 ```
 
 `Result<T>` structure:
@@ -307,6 +311,9 @@ if (user == null) {
 - Use `@RequireAuth` annotation for protected endpoints
 - JWT tokens validated via `JwtProvider`
 - Passwords encoded with `PasswordEncoderUtil`
+- API keys hashed with `ApiKeyHashUtil` (HMAC-SHA256); `Agent.findByApiKey()` queries by hash
+- OAuth access/refresh tokens encrypted via `TokenEncryptionService` (AES-256-GCM)
+- File paths sanitized via `StoragePathResolver.safeSegment()` / `safeRelativePath()` to prevent traversal
 
 ### Challenge Verification for Agents
 
@@ -399,7 +406,7 @@ SkillRepositoryServiceImpl.forkRepository()
 2. Check for existing fork with same name (409 if duplicate)
 3. NIO copy: sourceDir → targetDir (agent_{id}/{name}_fork.git)
 4. On copy failure: clean up partial target dir, throw 500
-5. Insert new SkillRepository row with parentId = sourceRepoId
+5. Insert new SkillRepository row with parentId = sourceRepoId (catches `DuplicateKeyException` for race condition safety)
 6. Return forked repo record
 ```
 
@@ -600,7 +607,7 @@ public class AgentResourceCounts {
 @GetMapping("/counts")
 @RequireAuth
 @Operation(summary = "Get resource counts for agents")
-public Result<Map<Long, AgentResourceCounts>> getAgentCounts(
+    public ResponseEntity<Result<Map<Long, AgentResourceCounts>>> getAgentCounts(
         @RequestParam List<Long> agentIds) {
     // comma-separated list of IDs
 }
@@ -710,7 +717,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 
-**Service/Impl layer (18 test files):**
+**Service/Impl layer (19 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
@@ -732,8 +739,9 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `PackageStorageServiceImplTest` | File storage operations, directory creation, file save, ZIP packing | 5 |
 | `PackageServiceImplTest` | Package CRUD, visibility, rollback, search, ownership checks | 10 |
 | `PackageContributionServiceImplTest` | Contribution submit, review (approve/reject), self-review protection | 6 |
+| `TokenEncryptionServiceTest` | AES-256-GCM encrypt/decrypt, key derivation, integrity checks | 14 |
 
-**Infrastructure layer (12 tests, 100%):**
+**Infrastructure layer (13 tests, 100%):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
@@ -748,6 +756,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `RateLimitAspectTest` | AOP rate limit (increment, exceed, throw) | 3 |
 | `AgentHeartbeatSchedulerTest` | Offline agent detection, status update | 3 |
 | `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 3 |
+| `StoragePathResolverTest` | Path sanitization (safeSegment, safeRelativePath), traversal prevention | 14 |
 
 Run all tests:
 ```bash
@@ -762,7 +771,8 @@ mvn test
 # Create database
 mysql -u root -p -e "CREATE DATABASE logicoma_net CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# Run migrations
+# Run migrations (Flyway — auto-applied on startup via src/main/resources/db/migration/)
+# Or manually:
 mysql -u root -p logicoma_net < sql.txt
 ```
 
@@ -785,14 +795,14 @@ spring:
 Use `PageResult<T>` for paginated responses:
 
 ```java
-@GET
-public Result<PageResult<Agent>> getAgents(
+@GetMapping
+public ResponseEntity<Result<PageResult<Agent>>> getAgents(
     @RequestParam(defaultValue = "1") int page,
     @RequestParam(defaultValue = "10") int size
 ) {
     List<Agent> list = agentService.findPage(page, size);
     long total = agentService.count();
-    return Result.success(new PageResult<>(list, page, size, total));
+    return Result.ok(new PageResult<>(list, page, size, total));
 }
 ```
 
@@ -827,8 +837,8 @@ public class UserController {
 
     @GetMapping("/{id}")
     @RequireAuth
-    public Result<User> getUserById(@PathVariable @Min(1) Long id) {
-        return Result.success(userService.findById(id));
+    public ResponseEntity<Result<User>> getUserById(@PathVariable @Min(1) Long id) {
+        return Result.ok(userService.findById(id));
     }
 }
 ```
@@ -847,6 +857,19 @@ public class UserServiceImpl {
     }
 }
 ```
+
+**Race condition pattern — `reviewIfPending` conditional UPDATE:**
+
+When reviewing a contribution (approve/reject), use a conditional UPDATE that only affects rows in `pending` status to prevent double-processing:
+
+```java
+int updated = packageContributionMapper.reviewIfPending(id, status, reviewerId);
+if (updated == 0) {
+    throw new BusinessException(400, "Contribution already reviewed");
+}
+```
+
+This ensures only one concurrent request can transition the status from `pending` to the target state, avoiding race conditions without pessimistic locking.
 
 ---
 

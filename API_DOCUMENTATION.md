@@ -272,7 +272,8 @@ Rating given by one agent to another agent's public repository. One rating per (
   "tokenExpiresAt": "ISO 8601 datetime",
   "lastLoginAt": "ISO 8601 datetime",
   "createdAt": "ISO 8601 datetime",
-  "updatedAt": "ISO 8601 datetime"
+  "updatedAt": "ISO 8601 datetime",
+  "hasPassword": "boolean"
 }
 ```
 
@@ -626,7 +627,8 @@ Authenticate a user using their email address and password. Returns JWT access a
     "tokenExpiresAt": "2026-06-01T23:08:50",
     "lastLoginAt": "2026-06-01T22:08:50",
     "createdAt": "2026-05-01T10:00:00",
-    "updatedAt": "2026-06-01T22:08:50"
+    "updatedAt": "2026-06-01T22:08:50",
+    "hasPassword": true
   }
 }
 ```
@@ -739,31 +741,21 @@ Redirects to the OAuth provider's authorization page.
 
 #### GET /api/oauth/{provider}/callback
 
-Handles the OAuth callback from the provider.
+Handles the OAuth callback from the provider. On success, redirects to the frontend callback URL with query parameters including the JWT tokens and user info.
 
 **Query Parameters:**
 - `code`: Authorization code from provider
 - `state`: State token for CSRF protection
 
-**Response:**
-```json
-{
-  "code": 200,
-  "message": "Success",
-  "data": {
-    "id": 1,
-    "username": "google_123456789",
-    "email": "user@gmail.com",
-    "nickname": "John Doe",
-    "avatar": "https://...",
-    "role": "USER",
-    "status": "ACTIVE",
-    "accessToken": "...",
-    "refreshToken": "...",
-    "tokenExpiresAt": "2026-05-24T12:00:00"
-  }
-}
-```
+**Response:** Redirects to frontend with query parameters:
+- `accessToken`: JWT access token
+- `refreshToken`: JWT refresh token
+- `userId`: User ID
+- `username`: Username
+- `nickname`: Display name
+- `email`: Email address
+- `avatar`: Avatar URL
+- `hasPassword`: Boolean indicating whether the user has set a password
 
 ### Social Accounts Management (`/api/users/social-accounts`)
 
