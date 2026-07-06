@@ -319,17 +319,23 @@ public class SocialAccountServiceImpl implements SocialAccountService {
 
     @Override
     public String generateState(String redirectUri) {
+        return generateState(redirectUri, null);
+    }
+
+    @Override
+    public String generateState(String redirectUri, String sessionId) {
         long timestamp = System.currentTimeMillis();
         String random = UUID.randomUUID().toString();
         String safeRedirectUri = (redirectUri != null && !redirectUri.isEmpty()) ? redirectUri : "default";
-        String payload = safeRedirectUri + ":" + timestamp + ":" + random;
+        String safeSessionId = (sessionId != null && !sessionId.isEmpty()) ? sessionId : "";
+        String payload = safeRedirectUri + ":" + timestamp + ":" + random + ":" + safeSessionId;
         String signature = hmacSha256(payload);
         String rawState = payload + ":" + signature;
         return Base64.getUrlEncoder().withoutPadding().encodeToString(rawState.getBytes());
     }
 
     @Override
-    public String validateAndExtractState(String state) {
+    public OAuthState validateAndExtractState(String state) {
         try {
             String decoded = new String(Base64.getUrlDecoder().decode(state));
             int lastColon = decoded.lastIndexOf(':');
@@ -347,7 +353,9 @@ public class SocialAccountServiceImpl implements SocialAccountService {
 
             String[] parts = payload.split(":");
             if (parts.length >= 2) {
-                return parts[0].isEmpty() ? null : parts[0];
+                String redirectUri = parts[0].isEmpty() ? null : parts[0];
+                String sessionId = parts.length >= 4 ? parts[3] : "";
+                return new OAuthState(redirectUri, sessionId.isEmpty() ? null : sessionId);
             }
             return null;
         } catch (Exception e) {

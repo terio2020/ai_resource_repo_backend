@@ -51,8 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     request.setAttribute("userId", userId);
                     log.debug("User authenticated: {}", userId);
                 } else {
-                    log.warn("Invalid token provided");
-                    throw new BadCredentialsException("Invalid token");
+                    log.warn("Invalid token provided, will try API key auth");
                 }
             }
         } catch (AuthenticationException e) {

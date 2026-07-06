@@ -70,9 +70,30 @@ public interface SocialAccountService {
     String generateState(String redirectUri);
 
     /**
-     * Validate and extract redirect URI from state parameter
+     * Generate OAuth state parameter with HMAC signature, with optional sessionId for agent binding
      */
-    String validateAndExtractState(String state);
+    String generateState(String redirectUri, String sessionId);
+
+    /**
+     * Result of validating and parsing an OAuth state parameter
+     */
+    class OAuthState {
+        private final String redirectUri;
+        private final String sessionId;
+
+        public OAuthState(String redirectUri, String sessionId) {
+            this.redirectUri = redirectUri;
+            this.sessionId = sessionId;
+        }
+
+        public String getRedirectUri() { return redirectUri; }
+        public String getSessionId() { return sessionId; }
+    }
+
+    /**
+     * Validate and extract redirect URI and sessionId from state parameter
+     */
+    OAuthState validateAndExtractState(String state);
 
     /**
      * Exchange authorization code for user info from the provider

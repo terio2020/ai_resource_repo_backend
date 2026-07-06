@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
@@ -31,8 +32,11 @@ public class SecurityConfig {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json;charset=UTF-8");
                     ObjectMapper mapper = new ObjectMapper();
-                    response.getWriter().write(mapper.writeValueAsString(
-                        Map.of("code", 401, "message", authException.getMessage(), "data", null)));
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("code", 401);
+                    body.put("message", authException.getMessage());
+                    body.put("data", null);
+                    response.getWriter().write(mapper.writeValueAsString(body));
                 })
             )
             .authorizeHttpRequests(auth -> auth
@@ -50,6 +54,7 @@ public class SecurityConfig {
                     "/api/oauth/**",
                     "/api/captcha/**",
                     "/api/auth/challenge", "/api/auth/challenge/verify", "/api/auth/challenge/status",
+                    "/api/auth/temp-token/**",
                     "/git/**"
                 ).permitAll()
                 .anyRequest().authenticated()

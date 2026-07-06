@@ -5,6 +5,7 @@ import com.ai.repo.entity.SocialAccount;
 import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.service.SocialAccountService;
+import com.ai.repo.service.TempTokenService;
 import com.ai.repo.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +36,9 @@ public class OAuthController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private TempTokenService tempTokenService;
+
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
@@ -42,13 +46,14 @@ public class OAuthController {
     @Operation(summary = "Initiate OAuth login", description = "Redirect to provider's authorization page")
     public ResponseEntity<RedirectView> initiateOAuth(
             @Parameter(description = "OAuth provider (google, github)") @PathVariable String provider,
-            @Parameter(description = "Redirect URL after successful login") @RequestParam(required = false) String redirect_uri) {
+            @Parameter(description = "Redirect URL after successful login") @RequestParam(required = false) String redirect_uri,
+            @Parameter(description = "Session ID for agent binding flow") @RequestParam(required = false) String sessionId) {
 
         if (!socialAccountService.isProviderConfigured(provider)) {
             throw new BusinessException(400, "OAuth provider not configured: " + provider);
         }
 
-        String state = socialAccountService.generateState(redirect_uri);
+        String state = socialAccountService.generateState(redirect_uri, sessionId);
         String authUrl = socialAccountService.buildAuthorizationUrl(provider, state);
 
         log.info("Initiating OAuth flow for provider: {}", provider);
@@ -62,8 +67,8 @@ public class OAuthController {
             @Parameter(description = "Authorization code") @RequestParam String code,
             @Parameter(description = "State token") @RequestParam String state) {
 
-        String redirectUri = socialAccountService.validateAndExtractState(state);
-        if (redirectUri == null) {
+        SocialAccountService.OAuthState oauthState = socialAccountService.validateAndExtractState(state);
+        if (oauthState == null || oauthState.getRedirectUri() == null) {
             throw new BusinessException(400, "Invalid state parameter");
         }
 
@@ -103,9 +108,17 @@ public class OAuthController {
         LoginResponse response = userService.generateTokens(user.getId());
         userService.updateLoginTime(user.getId());
 
+        // If this is an agent binding flow, store the access token in temp-token store
+        String sessionId = oauthState.getSessionId();
+        if (sessionId != null) {
+            tempTokenService.storeToken(sessionId, response.getAccessToken());
+            log.info("Stored temp token for agent binding session: {}", sessionId);
+        }
+
         String frontendCallback = frontendUrl + "/oauth/" + provider + "/callback"
                 + "?accessToken=" + URLEncoder.encode(response.getAccessToken(), StandardCharsets.UTF_8)
                 + "&refreshToken=" + URLEncoder.encode(response.getRefreshToken(), StandardCharsets.UTF_8)
+                + "&sessionId=" + (sessionId != null ? URLEncoder.encode(sessionId, StandardCharsets.UTF_8) : "")
                 + "&userId=" + response.getId()
                 + "&username=" + URLEncoder.encode(response.getUsername(), StandardCharsets.UTF_8)
                 + "&nickname=" + URLEncoder.encode(response.getNickname() != null ? response.getNickname() : "", StandardCharsets.UTF_8)

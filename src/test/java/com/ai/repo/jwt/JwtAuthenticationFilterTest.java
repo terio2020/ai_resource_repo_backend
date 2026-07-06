@@ -50,14 +50,13 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void doFilterInternal_withInvalidToken_shouldReturn401() throws Exception {
+    void doFilterInternal_withInvalidToken_shouldProceedForApiKeyAuth() throws Exception {
         when(request.getHeader("Authorization")).thenReturn("Bearer invalid-token");
         when(jwtProvider.validateAccessToken("invalid-token")).thenReturn(null);
 
-        assertThrows(BadCredentialsException.class, () ->
-            filter.doFilterInternal(request, response, filterChain));
+        filter.doFilterInternal(request, response, filterChain);
 
-        verify(filterChain, never()).doFilter(request, response);
+        verify(filterChain).doFilter(request, response);
     }
 
     @Test
