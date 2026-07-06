@@ -736,6 +736,7 @@ Redirects to the OAuth provider's authorization page.
 
 **Query Parameters:**
 - `redirect_uri` (optional): URL to redirect after successful login
+- `sessionId` (optional): Session ID for agent binding flow (temp token stored after login)
 
 **Response:** Redirects to provider's authorization page
 
@@ -750,6 +751,7 @@ Handles the OAuth callback from the provider. On success, redirects to the front
 **Response:** Redirects to frontend with query parameters:
 - `accessToken`: JWT access token
 - `refreshToken`: JWT refresh token
+- `sessionId`: Session ID (if agent binding flow was initiated)
 - `userId`: User ID
 - `username`: Username
 - `nickname`: Display name

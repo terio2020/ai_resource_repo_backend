@@ -526,6 +526,7 @@ Human users can register/login via social accounts:
 // 4. If new user: auto-create account and link social account
 // 5. If existing user: log in and update tokens
 // 6. Returns JWT tokens for API access
+// 7. (Optional) sessionId param for agent binding: temp token stored, accessible via GET /api/auth/temp-token/{sessionId}
 
 // Supported providers: google, github
 ```
@@ -582,6 +583,7 @@ OAUTH_GOOGLE_REDIRECT_URI=http://localhost:8080/api/oauth/google/callback
 - Same provider cannot be linked to multiple users
 - Access tokens are stored encrypted
 - Unlink removes social account without deleting user
+- `validateAndExtractState` returns `OAuthState` containing `redirectUri` and optional `sessionId` for agent binding
 
 ### Batch Resource Counts (`getResourceCounts`)
 

@@ -5,6 +5,7 @@ import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.GlobalExceptionHandler;
 import com.ai.repo.service.SocialAccountService;
+import com.ai.repo.service.TempTokenService;
 import com.ai.repo.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,12 +57,15 @@ class OAuthControllerTest {
     @MockBean
     private UserService userService;
 
+    @MockBean
+    private TempTokenService tempTokenService;
+
     // ==================== initiateOAuth ====================
 
     @Test
     void initiateOAuth_shouldRedirect_whenProviderConfigured() throws Exception {
         when(socialAccountService.isProviderConfigured("google")).thenReturn(true);
-        when(socialAccountService.generateState(null)).thenReturn("test-state");
+        when(socialAccountService.generateState(null, null)).thenReturn("test-state");
         when(socialAccountService.buildAuthorizationUrl("google", "test-state"))
                 .thenReturn("https://accounts.google.com/o/oauth2/v2/auth?state=test-state");
 
@@ -82,7 +86,7 @@ class OAuthControllerTest {
     @Test
     void initiateOAuth_githubConfigured_shouldRedirectWithGithubAuthUrl() throws Exception {
         when(socialAccountService.isProviderConfigured("github")).thenReturn(true);
-        when(socialAccountService.generateState(null)).thenReturn("test-state");
+        when(socialAccountService.generateState(null, null)).thenReturn("test-state");
         when(socialAccountService.buildAuthorizationUrl("github", "test-state"))
                 .thenReturn("https://github.com/login/oauth/authorize?state=test-state");
 
@@ -94,7 +98,7 @@ class OAuthControllerTest {
     @Test
     void initiateOAuth_withRedirectUri_shouldStillSucceed() throws Exception {
         when(socialAccountService.isProviderConfigured("google")).thenReturn(true);
-        when(socialAccountService.generateState("http://myapp.com/callback")).thenReturn("test-state");
+        when(socialAccountService.generateState("http://myapp.com/callback", null)).thenReturn("test-state");
         when(socialAccountService.buildAuthorizationUrl("google", "test-state"))
                 .thenReturn("https://accounts.google.com/o/oauth2/v2/auth?state=test-state");
 
@@ -118,7 +122,7 @@ class OAuthControllerTest {
 
     @Test
     void handleOAuthCallback_google_shouldReturn400_whenProviderCallFails() throws Exception {
-        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn("default");
+        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn(new SocialAccountService.OAuthState("default", null));
         when(socialAccountService.exchangeCodeForUserInfo("google", "any-code")).thenReturn(null);
 
         mockMvc.perform(get("/api/oauth/google/callback")
@@ -130,7 +134,7 @@ class OAuthControllerTest {
 
     @Test
     void handleOAuthCallback_github_shouldReturn400_whenProviderCallFails() throws Exception {
-        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn("default");
+        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn(new SocialAccountService.OAuthState("default", null));
         when(socialAccountService.exchangeCodeForUserInfo("github", "any-code")).thenReturn(null);
 
         mockMvc.perform(get("/api/oauth/github/callback")
@@ -165,7 +169,7 @@ class OAuthControllerTest {
                 "expires_in", 3600L
         );
 
-        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn("default");
+        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn(new SocialAccountService.OAuthState("default", null));
         when(socialAccountService.exchangeCodeForUserInfo("google", "code-123")).thenReturn(userInfo);
         when(socialAccountService.authenticateWithSocialAccount("google", "12345")).thenReturn(null);
         when(socialAccountService.linkSocialAccountToNewUser("google", "12345", "user@gmail.com",
@@ -216,7 +220,7 @@ class OAuthControllerTest {
         socialAccount.setId(10L);
         socialAccount.setUserId(2L);
 
-        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn("default");
+        when(socialAccountService.validateAndExtractState("valid-state")).thenReturn(new SocialAccountService.OAuthState("default", null));
         when(socialAccountService.exchangeCodeForUserInfo("github", "code-456")).thenReturn(userInfo);
         when(socialAccountService.authenticateWithSocialAccount("github", "67890")).thenReturn(existingUser);
         when(socialAccountService.findByUserIdAndProvider(2L, "github")).thenReturn(socialAccount);
