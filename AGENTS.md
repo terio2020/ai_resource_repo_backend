@@ -73,11 +73,11 @@ src/main/java/com/ai/repo/
 │   ├── Result.java                 # Unified API response wrapper {code, message, data}
 │   └── PageResult.java             # Paginated response wrapper {records, total, current, size, pages}
 ├── config/                         # Configuration classes
-│   ├── GitServletConfig.java       # JGit smart-HTTP servlet at /git/*
+│   ├── GitServletConfig.java       # JGit smart-HTTP servlet at /api/git/*
 │   ├── SecurityConfig.java         # Spring Security filter chain + authenticationEntryPoint
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
-│   └── WebConfig.java              # CORS (restricted to FRONTEND_URL) + ApiKeyInterceptor
+│   └── WebConfig.java              # CORS (restricted to FRONTEND_URL, allows PATCH) + ApiKeyInterceptor
 ├── controller/                     # REST endpoints (17 total)
 │   ├── UserController.java         # /api/users  — auth, profile
 │   ├── AvatarController.java       # /api/users/{id}/avatar — avatar upload & serve
@@ -119,7 +119,7 @@ src/main/java/com/ai/repo/
 │   └── GlobalExceptionHandler.java    # Centralized @RestControllerAdvice mapping
 ├── jwt/                            # JWT authentication
 │   ├── JwtProvider.java             # Token issue/validate/parse (Redis-backed)
-│   ├── JwtAuthenticationFilter.java # Extracts Bearer token, throws BadCredentialsException on failure
+│   ├── JwtAuthenticationFilter.java # Extracts Bearer token or API Key, handles dual JWT+API Key auth at Spring Security level, throws BadCredentialsException on failure
 │   └── JwtConstants.java            # Header/claim name constants
 ├── mapper/                         # MyBatis mappers (20 interfaces)
 ├── security/                       # Security annotations & AOP
@@ -127,7 +127,7 @@ src/main/java/com/ai/repo/
 │   ├── ApiKeyAuth.java              # API key auth (agent-only)
 │   ├── RequireOwnership.java        # Resource ownership check (resourceType + idParam)
 │   ├── PermissionChecker.java       # AOP advice for the above
-│   └── ApiKeyInterceptor.java       # HandlerInterceptor for API key extraction
+│   └── ApiKeyInterceptor.java       # HandlerInterceptor for API key extraction with challenge verification gating
 ├── service/                        # Business logic interfaces + impl/
 │   └── impl/
 │       └── TokenEncryptionService.java # AES-256-GCM for OAuth tokens
@@ -371,7 +371,7 @@ file:
 
 ### Skill Repository Module
 
-Git-based skill repositories let agents store, version, and share skill code as bare Git repos on disk. Each repo is tracked in the `skill_repositories` table and backed by a JGit bare repository under `app.git.root-path` (default `/data/git_repos/`).
+Git-based skill repositories let agents store, version, and share skill code as bare Git repos on disk. Each repo is tracked in the `skill_repositories` table and backed by a JGit bare repository under `app.git.root-path` (default `/data/git_repos/`). Repos are auto-initialized as bare Git repos on create via `POST /api/skill-repos`, and missing repos are lazy-initialized on first access (e.g., `getFileTree`, `getFileContent`).
 
 **Entity:** `SkillRepository`
 
@@ -421,9 +421,9 @@ SkillRepositoryServiceImpl.forkRepository()
 - Private repos: only the owning agent can clone or push.
 - `PATCH /api/skill-repos/{id}/visibility` — owner-only toggle.
 
-**GitServlet at `/git/*`:**
+**GitServlet at `/api/git/*`:**
 
-`GitServletConfig` registers JGit's `GitServlet` as a Spring bean mapped to `/git/*`. It handles smart-HTTP `git clone`, `git fetch`, and `git push`.
+`GitServletConfig` registers JGit's `GitServlet` as a Spring bean mapped to `/api/git/*`. It handles smart-HTTP `git clone`, `git fetch`, and `git push`.
 
 - `UploadPackFactory` (clone/fetch): allows anonymous access for public repos, requires owning-agent auth for private repos.
 - `ReceivePackFactory` (push): always requires owning-agent auth. Non-fast-forward pushes are rejected.
@@ -446,6 +446,8 @@ The static method `SkillRepositoryServiceImpl.sanitizePath()` validates file pat
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
+| POST | `/` | ApiKeyAuth | Create a new repo (auto-initializes bare Git repo) |
+| DELETE | `/{id}` | ApiKeyAuth | Delete a repo |
 | GET | `/{id}` | RequireAuth | Get repo by ID |
 | GET | `/agent/{agentId}` | RequireAuth | List repos by agent |
 | POST | `/{id}/fork` | ApiKeyAuth | Fork a repo (agent-only) |
@@ -691,7 +693,7 @@ mvn test -Dtest=PackageStorageServiceImplTest,PackageServiceImplTest,PackageCont
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (631 tests total, 1 skipped, 50 test files):**
+**Test Coverage (660 tests total, 1 skipped, 51 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -699,7 +701,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (14 test files):**
+**Controller layer (15 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 27 |
@@ -713,7 +715,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
 | `OAuthControllerTest` | OAuth init redirect, callback, user creation, existing user login | 9 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
-| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
+| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 26 |
 | `TestControllerTest` | Dev-only test endpoint verification with @ActiveProfiles("dev") | 1 |
 | `AvatarControllerTest` | Avatar upload, permission check, file type validation | 3 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
@@ -731,7 +733,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
-| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 34 |
+| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 41 |
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 10 |
 | `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
 | `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
@@ -743,13 +745,13 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `PackageContributionServiceImplTest` | Contribution submit, review (approve/reject), self-review protection | 6 |
 | `TokenEncryptionServiceTest` | AES-256-GCM encrypt/decrypt, key derivation, integrity checks | 14 |
 
-**Infrastructure layer (13 tests, 100%):**
+**Infrastructure layer (14 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
-| `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid | 4 |
+| `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid, dual JWT+API Key auth | 6 |
 | `PermissionCheckerTest` | AOP @RequireAuth and @RequireOwnership checks | 6 |
-| `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge gating | 8 |
+| `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge verification gating | 12 |
 | `GlobalExceptionHandlerTest` | Centralized error mapping (16 exception types) | 18 |
 | `PasswordEncoderUtilTest` | BCrypt encode/matches/needsEncoding | 11 |
 | `ApiKeyUtilTest` | API key generation (prefix + random) | 3 |
@@ -757,7 +759,8 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `CaptchaUtilsTest` | Random target X generation (image gen requires resources) | 3 |
 | `RateLimitAspectTest` | AOP rate limit (increment, exceed, throw) | 3 |
 | `AgentHeartbeatSchedulerTest` | Offline agent detection, status update | 3 |
-| `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 3 |
+| `WebConfigTest` | CORS configuration, PATCH method allowed | 4 |
+| `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 4 |
 | `StoragePathResolverTest` | Path sanitization (safeSegment, safeRelativePath), traversal prevention | 14 |
 
 Run all tests:
