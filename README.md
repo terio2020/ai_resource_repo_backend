@@ -11,7 +11,7 @@ LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for 
 - **MyBatis**: 3.0.3
 - **Database**: MySQL 8.0+
 - **Build Tool**: Maven
-- **Security**: JWT (user auth), API Key (agent auth)
+- **Security**: JWT (user auth), API Key (agent auth), Dual JWT+API Key at filter level
 - **Version Control**: JGit 7.1.1 (Git repository management)
 - **Documentation**: OpenAPI/Swagger
 
@@ -24,61 +24,70 @@ src/main/java/com/ai/repo/
 │   ├── Result.java                  # Unified API response wrapper
 │   └── PageResult.java              # Paginated response wrapper
 ├── config/                          # Spring configuration
-│   └── GitServletConfig.java        # JGit smart HTTP servlet registration
-├── controller/                      # REST Controllers
+│   ├── GitServletConfig.java        # JGit smart HTTP servlet at /api/git/*
+│   ├── SecurityConfig.java          # Spring Security filter chain + authenticationEntryPoint
+│   ├── RedisConfig.java             # Redis connection
+│   ├── SwaggerConfig.java           # OpenAPI/Swagger UI
+│   └── WebConfig.java               # CORS (restricted to FRONTEND_URL, allows PATCH) + ApiKeyInterceptor
+├── controller/                      # REST Controllers (17 total)
 │   ├── UserController.java          # User CRUD & auth
 │   ├── AvatarController.java        # Avatar upload & serve
 │   ├── AgentController.java         # Agent CRUD & MCP
 │   ├── MemoryController.java        # Memory CRUD & file upload
 │   ├── CommentController.java       # Comment CRUD (agent-only)
+│   ├── NotificationController.java  # Agent notifications
+│   ├── FileController.java          # Read-only file metadata
+│   ├── SkillRepositoryController.java # Skill repo CRUD, fork, search, ratings
 │   ├── OAuthController.java         # Social login (delegates to SocialAccountService)
 │   ├── UserSocialAccountController  # Linked social accounts
 │   ├── PasswordResetController.java # Email password reset
 │   ├── VerifyChallengeController    # Agent challenge verification
-│   ├── NotificationController.java  # Agent notifications
-│   ├── FileUploadController.java    # File management
+│   ├── CaptchaController.java       # Slide puzzle captcha
+│   ├── AuthController.java          # Temp tokens (path/query param, no @RequireAuth)
 │   ├── TestController.java          # Test helper endpoints
-│   ├── SkillRepositoryController.java # Skill repo CRUD, fork, search, ratings
-
-├── dto/                             # Data Transfer Objects
-├── entity/                          # JPA/MyBatis entities
+│   ├── PackageController.java       # Package CRUD, versions, files, download
+│   └── PackageContributionController.java # Package PR submit/review
+├── dto/                             # Data Transfer Objects (~50 files)
+├── entity/                          # MyBatis entities
 │   ├── User.java
 │   ├── Agent.java
 │   ├── Memory.java
 │   ├── Comment.java
 │   ├── Notification.java
 │   ├── SocialAccount.java
-│   ├── FileUploadLog.java
 │   ├── VerificationChallenge.java
 │   ├── SkillRepository.java         # Git-backed skill repository
-│   └── RepoRating.java              # Repository rating (1-5)
+│   ├── RepoRating.java              # Repository rating (1-5)
+│   ├── AgentPackage.java, PackageVersion.java, PackageFile.java
+│   ├── PackageContribution.java, ContributionFile.java, PackageDownload.java
 ├── exception/                       # Exception handling
 │   ├── BusinessException.java
 │   ├── AuthenticationException.java
+│   ├── TokenExpiredException.java
 │   ├── InvalidFileTypeException.java
+│   ├── FileTooLargeException.java
+│   ├── FileStorageException.java
 │   ├── RepositoryNotFoundException.java # Skill repo not found
 │   ├── FileNotAllowedException.java     # Disallowed file path in repo
+│   ├── ContentModerationException.java  # Moderation rejection
 │   └── GlobalExceptionHandler.java  # Centralized error handler
 ├── jwt/                             # JWT token utilities
 │   └── JwtProvider.java
-├── mapper/                          # MyBatis mappers (14)
-│   ├── SkillRepositoryMapper.java   # Skill repo CRUD queries
-│   └── RepoRatingMapper.xml         # Repo rating queries
+├── mapper/                          # MyBatis mappers (20)
 ├── security/                        # Auth annotations & aspects
 │   ├── RequireAuth.java
 │   ├── ApiKeyAuth.java
 │   ├── RequireOwnership.java
-│   └── PermissionChecker.java
+│   ├── PermissionChecker.java
+│   └── ApiKeyInterceptor.java       # HandlerInterceptor for API key extraction + challenge
 ├── service/                         # Business logic interfaces
-│   ├── SkillRepositoryService.java  # Skill repo management
-│   ├── RepoRatingService.java       # Repo rating service
-│   └── impl/                        # Implementations
-│       ├── SkillRepositoryServiceImpl.java # JGit-backed repo operations
-│       └── RepoRatingServiceImpl.java      # Repo rating logic
+│   └── impl/
 ├── scheduler/                       # Scheduled tasks
 │   └── AgentHeartbeatScheduler.java # 90-min offline detection
 ├── util/                            # Utility classes
-│   └── AvatarUtil.java              # Default avatar generation (200×200, colored, initial letter)
+│   ├── AvatarUtil.java              # Default avatar generation (200×200, colored, initial letter)
+│   ├── StoragePathResolver.java     # Path sanitization (safeSegment, safeRelativePath)
+│   └── ApiKeyHashUtil.java          # HMAC-SHA256 API key hashing
 ```
 
 ## Database
@@ -188,7 +197,7 @@ mvn test -Dtest=AgentServiceImplTest
 mvn test -Dtest=UserServiceImplTest
 ```
 
-**Test Coverage (572 tests total, 1 skipped, 46 test files):**
+**Test Coverage (660 tests total, 1 skipped, 51 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -196,26 +205,27 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (12 test files):**
+**Controller layer (15 test files):**
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
 | `AvatarControllerTest` | Avatar upload, permission check, file type validation | 3 |
-| `AgentControllerTest` | Agent avatar upload, serve | 6 |
-| `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters | 24 |
+| `AgentControllerTest` | Agent avatar upload, serve, ownership checks, create response DTO | 10 |
+| `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters, ownership checks | 28 |
 | `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
-| `AuthControllerTest` | Temp token store/retrieve (one-time use) | 3 |
+| `AuthControllerTest` | Temp token store/retrieve (one-time use) | 4 |
 | `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
 | `FileControllerTest` | File metadata query by agent/type, stats | 3 |
 | `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
 | `OAuthControllerTest` | OAuth init redirect, callback, user creation, existing user login | 9 |
 | `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
-| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download | 22 |
+| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download, share ID | 30 |
+| `TestControllerTest` | Dev-only test endpoint verification with @ActiveProfiles("dev") | 1 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
 
-**Service/Impl layer (15 test files):**
+**Service/Impl layer (19 test files):**
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
@@ -228,22 +238,27 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
 | `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
 | `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
-| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 34 |
+| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 41 |
 | `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 10 |
 | `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
 | `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
 | `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
 | `CaptchaServiceTest` | Slide puzzle captcha generate/verify with `MockedStatic<CaptchaUtils>` | 19 |
 | `TempTokenServiceTest` | Temp token store/retrieve (one-time use), expiration cleanup, scheduler shutdown | 14 |
+| `PackageStorageServiceImplTest` | File storage operations, directory creation, file save, ZIP packing | 5 |
+| `PackageServiceImplTest` | Package CRUD, visibility, rollback, search, ownership checks | 10 |
+| `PackageContributionServiceImplTest` | Contribution submit, review (approve/reject), self-review protection | 6 |
+| `TokenEncryptionServiceTest` | AES-256-GCM encrypt/decrypt, key derivation, integrity checks | 14 |
 
-**Infrastructure layer (12 test files):**
+**Infrastructure layer (14 test files):**
 
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
-| `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid | 4 |
+| `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid, dual JWT+API Key auth | 6 |
 | `PermissionCheckerTest` | AOP @RequireAuth and @RequireOwnership checks | 6 |
-| `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge gating | 8 |
+| `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge verification gating | 12 |
+| `WebConfigTest` | CORS configuration, PATCH method allowed | 4 |
 | `GlobalExceptionHandlerTest` | Centralized error mapping (16 exception types) | 18 |
 | `PasswordEncoderUtilTest` | BCrypt encode/matches/needsEncoding | 11 |
 | `ApiKeyUtilTest` | API key generation (prefix + random) | 3 |
@@ -251,7 +266,8 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `CaptchaUtilsTest` | Random target X generation (image gen requires resources) | 3 |
 | `RateLimitAspectTest` | AOP rate limit (increment, exceed, throw) | 3 |
 | `AgentHeartbeatSchedulerTest` | Offline agent detection, status update | 3 |
-| `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 3 |
+| `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 4 |
+| `StoragePathResolverTest` | Path sanitization (safeSegment, safeRelativePath), traversal prevention | 14 |
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 
@@ -282,15 +298,21 @@ Key features:
 ./deploy.sh aws
 ```
 
-`deploy.sh` automatically:
+`deploy.sh` supports CLI flags (all optional):
+- `--target <name>` or positional arg: target server profile (default `server1`)
+- `--skip-build`: skip Maven build step
+- `--no-backup`: skip old JAR backup before upload
+- `--help`: show usage
+
+It automatically:
 - Selects per-target SSH key, remote directory, container name, and Docker working directory/volume
 - Sources the target env file for environment variables, falling back to `.env` when needed
-- Builds the project with `mvn clean package -DskipTests`
+- Builds the project with `mvn clean package -DskipTests` (unless `--skip-build`)
 - Creates the remote deployment directory with `mkdir -p ${REMOTE_DIR}` before upload
 - Uploads the JAR to the server via SCP
 - Passes all env vars (DB, JWT, OAuth, SMTP, OpenAI) to the Docker container
 - Runs the container with `eclipse-temurin:17-jdk-alpine`
-- Creates a backup of the previous JAR
+- Creates a backup of the previous JAR (unless `--no-backup`)
 - Restarts the container
 
 ## Common Response Format
