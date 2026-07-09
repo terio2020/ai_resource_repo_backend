@@ -1,5 +1,6 @@
 package com.ai.repo.service.impl;
 
+import com.ai.repo.dto.FileTreeEntry;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.RepositoryNotFoundException;
@@ -7,10 +8,13 @@ import com.ai.repo.mapper.SkillRepositoryMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,11 +29,17 @@ class SkillRepositoryServiceImplTest {
 
     private SkillRepositoryServiceImpl service;
 
+    @TempDir
+    Path tempDir;
+
+    private String gitRootPath;
+
     @BeforeEach
     void setUp() {
         service = new SkillRepositoryServiceImpl();
+        gitRootPath = tempDir.resolve("git_repos").toString();
         ReflectionTestUtils.setField(service, "skillRepositoryMapper", skillRepositoryMapper);
-        ReflectionTestUtils.setField(service, "gitRootPath", "/data/git_repos/");
+        ReflectionTestUtils.setField(service, "gitRootPath", gitRootPath);
     }
 
     private SkillRepository createSampleRepo(Long id, Long agentId, String skillName) {
@@ -38,7 +48,7 @@ class SkillRepositoryServiceImplTest {
         r.setAgentId(agentId);
         r.setUserId(1L);
         r.setSkillName(skillName);
-        r.setRepoPath("/data/git_repos/agent_" + agentId + "/" + skillName + ".git");
+        r.setRepoPath(gitRootPath + "/agent_" + agentId + "/" + skillName + ".git");
         r.setIsPublic(false);
         return r;
     }
@@ -86,6 +96,7 @@ class SkillRepositoryServiceImplTest {
         repo.setEnabled(null);
         repo.setDownloadCount(null);
         repo.setLikeCount(null);
+        repo.setRepoPath(null);
 
         service.create(repo);
 
@@ -94,6 +105,53 @@ class SkillRepositoryServiceImplTest {
         assertEquals(0, repo.getDownloadCount());
         assertEquals(0, repo.getLikeCount());
         assertNotNull(repo.getCreatedAt());
+        assertNotNull(repo.getRepoPath());
+        assertTrue(repo.getRepoPath().contains("weather.git"));
+        verify(skillRepositoryMapper).insert(repo);
+    }
+
+    @Test
+    void create_shouldAutoGenerateRepoPath_whenNotProvided() {
+        SkillRepository repo = new SkillRepository();
+        repo.setAgentId(10L);
+        repo.setSkillName("my-skill");
+        repo.setRepoPath(null);
+
+        service.create(repo);
+
+        assertNotNull(repo.getRepoPath());
+        assertTrue(repo.getRepoPath().contains("my-skill.git"));
+        assertTrue(repo.getRepoPath().contains("agent_10"));
+        verify(skillRepositoryMapper).insert(repo);
+    }
+
+    @Test
+    void create_shouldPreserveRepoPath_whenProvided() {
+        SkillRepository repo = new SkillRepository();
+        repo.setAgentId(10L);
+        repo.setSkillName("my-skill");
+        repo.setRepoPath(tempDir.resolve("custom/repo.git").toString());
+
+        service.create(repo);
+
+        assertTrue(repo.getRepoPath().endsWith("custom/repo.git"));
+        verify(skillRepositoryMapper).insert(repo);
+    }
+
+    @Test
+    void create_shouldInitializeBareGitRepo() {
+        SkillRepository repo = new SkillRepository();
+        repo.setAgentId(10L);
+        repo.setSkillName("hello-world");
+        repo.setRepoPath(null);
+
+        service.create(repo);
+
+        File gitDir = new File(repo.getRepoPath());
+        assertTrue(gitDir.exists(), "Bare git directory should exist");
+        assertTrue(new File(gitDir, "HEAD").exists(), "HEAD file should exist");
+        assertTrue(new File(gitDir, "refs").exists(), "refs directory should exist");
+        assertTrue(new File(gitDir, "objects").exists(), "objects directory should exist");
         verify(skillRepositoryMapper).insert(repo);
     }
 
@@ -141,6 +199,17 @@ class SkillRepositoryServiceImplTest {
 
         service.delete(1L);
 
+        verify(skillRepositoryMapper).deleteById(1L);
+    }
+
+    @Test
+    void delete_shouldNotNpe_whenRepoPathIsNull() {
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath(null);
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+        when(skillRepositoryMapper.deleteById(1L)).thenReturn(1);
+
+        assertDoesNotThrow(() -> service.delete(1L));
         verify(skillRepositoryMapper).deleteById(1L);
     }
 
@@ -249,6 +318,16 @@ class SkillRepositoryServiceImplTest {
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
         assertThrows(BusinessException.class, () -> service.setVisibility(1L, 99L, true));
+        verify(skillRepositoryMapper, never()).updateVisibility(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void setVisibility_shouldThrow_whenUserIdIsNull() {
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setUserId(null);
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+
+        assertThrows(BusinessException.class, () -> service.setVisibility(1L, 1L, true));
         verify(skillRepositoryMapper, never()).updateVisibility(anyLong(), anyBoolean());
     }
 
@@ -399,8 +478,98 @@ class SkillRepositoryServiceImplTest {
         repo.setRepoPath("/tmp/nonexistent_repo_path");
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
-        // The repo path does not point to a real git repo, so openRepository will throw IOException
-        assertThrows(BusinessException.class, () -> service.getFileTree(1L));
+        List<FileTreeEntry> result = service.getFileTree(1L);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getFileTree_shouldReturnFiles_whenRepoHasCommits() throws Exception {
+        java.nio.file.Path repoDir = java.nio.file.Files.createTempDirectory("gittree_test");
+        org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.init().setBare(true).setDirectory(repoDir.toFile()).call();
+        java.nio.file.Path workDir = java.nio.file.Files.createTempDirectory("gittree_work");
+        git.close();
+
+        // Clone and make a commit
+        org.eclipse.jgit.api.Git.cloneRepository()
+                .setURI(repoDir.toAbsolutePath().toString())
+                .setDirectory(workDir.toFile())
+                .call()
+                .getRepository()
+                .close();
+
+        java.nio.file.Files.writeString(workDir.resolve("README.md"), "# Hello");
+        java.nio.file.Files.writeString(workDir.resolve("manifest.json"), "{}");
+        java.nio.file.Files.createDirectories(workDir.resolve("src"));
+        java.nio.file.Files.writeString(workDir.resolve("src/main.py"), "print('hello')");
+
+        git = org.eclipse.jgit.api.Git.open(workDir.toFile());
+        git.add().addFilepattern(".").call();
+        git.commit().setMessage("Initial").call();
+        git.getRepository().close();
+
+        // Now push to bare repo
+        git = org.eclipse.jgit.api.Git.open(workDir.toFile());
+        git.push().setRemote(repoDir.toAbsolutePath().toString()).call();
+        git.close();
+
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath(repoDir.toAbsolutePath().toString());
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+
+        List<FileTreeEntry> files = service.getFileTree(1L);
+
+        List<String> filePaths = files.stream().map(FileTreeEntry::getPath).toList();
+        assertTrue(filePaths.contains("README.md"));
+        assertTrue(filePaths.contains("manifest.json"));
+        assertTrue(filePaths.contains("src/main.py"));
+        assertEquals(3, files.size());
+
+        // Cleanup
+        deleteDir(workDir);
+        deleteDir(repoDir);
+    }
+
+    @Test
+    void getFileContent_shouldReturnContent_whenFileExists() throws Exception {
+        java.nio.file.Path repoDir = java.nio.file.Files.createTempDirectory("gitcontent_test");
+        org.eclipse.jgit.api.Git.init().setBare(true).setDirectory(repoDir.toFile()).call().close();
+
+        java.nio.file.Path workDir = java.nio.file.Files.createTempDirectory("gitcontent_work");
+        org.eclipse.jgit.api.Git.cloneRepository()
+                .setURI(repoDir.toAbsolutePath().toString())
+                .setDirectory(workDir.toFile())
+                .call()
+                .getRepository()
+                .close();
+
+        java.nio.file.Files.writeString(workDir.resolve("hello.txt"), "Hello World!");
+
+        org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.open(workDir.toFile());
+        git.add().addFilepattern(".").call();
+        git.commit().setMessage("Initial").call();
+        git.getRepository().close();
+
+        git = org.eclipse.jgit.api.Git.open(workDir.toFile());
+        git.push().setRemote(repoDir.toAbsolutePath().toString()).call();
+        git.close();
+
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        repo.setRepoPath(repoDir.toAbsolutePath().toString());
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+
+        String content = service.getFileContent(1L, "hello.txt");
+        assertEquals("Hello World!", content);
+
+        deleteDir(workDir);
+        deleteDir(repoDir);
+    }
+
+    private void deleteDir(java.nio.file.Path dir) throws Exception {
+        if (java.nio.file.Files.exists(dir)) {
+            java.nio.file.Files.walk(dir)
+                    .sorted((a, b) -> b.compareTo(a))
+                    .forEach(p -> { try { java.nio.file.Files.deleteIfExists(p); } catch (Exception ignored) {} });
+        }
     }
 
     // ==================== getFileContent ====================
@@ -411,7 +580,7 @@ class SkillRepositoryServiceImplTest {
         repo.setRepoPath("/tmp/nonexistent_repo");
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
-        assertThrows(BusinessException.class, () -> service.getFileContent(1L, "test.txt"));
+        assertThrows(RepositoryNotFoundException.class, () -> service.getFileContent(1L, "test.txt"));
     }
 
     // ==================== sanitizePath ====================

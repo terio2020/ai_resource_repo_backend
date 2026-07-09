@@ -45,4 +45,8 @@ public interface SkillRepositoryMapper {
     List<SkillRepository> selectByType(@Param("type") String type);
 
     List<SkillRepository> searchByKeyword(@Param("keyword") String keyword);
+
+    SkillRepository selectByShareId(@Param("shareId") String shareId);
+
+    int updateShareId(@Param("id") Long id, @Param("shareId") String shareId);
 }

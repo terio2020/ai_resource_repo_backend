@@ -143,6 +143,74 @@ class ApiKeyInterceptorTest {
     }
 
     @Test
+    void preHandle_withRequireAuthAndAgentId_shouldCheckChallenge() throws Exception {
+        when(handlerMethod.getMethodAnnotation(RequireAuth.class)).thenReturn(mock(RequireAuth.class));
+        when(handlerMethod.getMethodAnnotation(ApiKeyAuth.class)).thenReturn(null);
+        when(request.getAttribute("agentId")).thenReturn(1L);
+        when(request.getAttribute("userId")).thenReturn(null);
+
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setChallengeVerified(false);
+        when(agentService.findById(1L)).thenReturn(agent);
+        when(request.getRequestURI()).thenReturn("/api/memories/1");
+
+        StringWriter sw = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+
+        assertFalse(interceptor.preHandle(request, response, handlerMethod));
+        verify(response).setStatus(403);
+    }
+
+    @Test
+    void preHandle_withRequireAuthAndAgentId_shouldBypassChallengeForTempToken() throws Exception {
+        when(handlerMethod.getMethodAnnotation(RequireAuth.class)).thenReturn(mock(RequireAuth.class));
+        when(handlerMethod.getMethodAnnotation(ApiKeyAuth.class)).thenReturn(null);
+        when(request.getAttribute("agentId")).thenReturn(1L);
+        when(request.getAttribute("userId")).thenReturn(null);
+
+        when(request.getRequestURI()).thenReturn("/api/auth/temp-token");
+
+        assertTrue(interceptor.preHandle(request, response, handlerMethod));
+    }
+
+    @Test
+    void preHandle_withApiKeyAuthAndAgentId_shouldCheckChallenge() throws Exception {
+        when(handlerMethod.getMethodAnnotation(RequireAuth.class)).thenReturn(null);
+        when(handlerMethod.getMethodAnnotation(ApiKeyAuth.class)).thenReturn(mock(ApiKeyAuth.class));
+        when(request.getAttribute("agentId")).thenReturn(1L);
+        when(request.getAttribute("userId")).thenReturn(null);
+
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setChallengeVerified(false);
+        when(agentService.findById(1L)).thenReturn(agent);
+        when(request.getRequestURI()).thenReturn("/api/skill-repos/1");
+
+        StringWriter sw = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+
+        assertFalse(interceptor.preHandle(request, response, handlerMethod));
+        verify(response).setStatus(403);
+    }
+
+    @Test
+    void preHandle_withApiKeyAuthAndAgentId_shouldPassWhenChallengeVerified() throws Exception {
+        when(handlerMethod.getMethodAnnotation(RequireAuth.class)).thenReturn(null);
+        when(handlerMethod.getMethodAnnotation(ApiKeyAuth.class)).thenReturn(mock(ApiKeyAuth.class));
+        when(request.getAttribute("agentId")).thenReturn(1L);
+        when(request.getAttribute("userId")).thenReturn(null);
+
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setChallengeVerified(true);
+        when(agentService.findById(1L)).thenReturn(agent);
+        when(request.getRequestURI()).thenReturn("/api/skill-repos/1");
+
+        assertTrue(interceptor.preHandle(request, response, handlerMethod));
+    }
+
+    @Test
     void preHandle_shouldBypassChallengeForChallengeEndpoints() throws Exception {
         when(handlerMethod.getMethodAnnotation(RequireAuth.class)).thenReturn(null);
         when(handlerMethod.getMethodAnnotation(ApiKeyAuth.class)).thenReturn(mock(ApiKeyAuth.class));

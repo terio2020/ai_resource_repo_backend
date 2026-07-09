@@ -33,12 +33,16 @@ public class AuthController {
         return Result.ok(response);
     }
 
-    @GetMapping("/temp-token/{sessionId}")
-    @RequireAuth
-    @Operation(summary = "Get temporary token", description = "Retrieve and remove a temporary token by session ID (one-time use, requires authentication)")
+    @GetMapping({"/temp-token/{sessionId}", "/temp-token"})
+    @Operation(summary = "Get temporary token", description = "Retrieve and remove a temporary token by session ID (one-time use, sessionId is the secret)")
     public ResponseEntity<Result<TempTokenGetResponse>> getTempToken(
-            @Parameter(description = "Session ID") @PathVariable String sessionId) {
-        String accessToken = tempTokenService.getAndRemoveToken(sessionId);
+            @Parameter(description = "Session ID (path variable)") @PathVariable(required = false) String sessionId,
+            @Parameter(description = "Session ID (query param)") @RequestParam(value = "sessionId", required = false) String sessionIdParam) {
+        String resolved = sessionId != null ? sessionId : sessionIdParam;
+        if (resolved == null) {
+            return Result.fail(400, "Session ID is required");
+        }
+        String accessToken = tempTokenService.getAndRemoveToken(resolved);
 
         if (accessToken == null) {
             return Result.fail(404, "Token not found or expired");

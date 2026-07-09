@@ -67,8 +67,8 @@ public class RepoRatingServiceImpl implements RepoRatingService {
 
         SkillRatingAverageResponse response = new SkillRatingAverageResponse();
         response.setSkillId(repoId);
-        response.setAverageRating(avg != null ? ((Number) avg.get("avg_rating")).doubleValue() : 0.0);
-        response.setTotalRatings(avg != null ? ((Number) avg.get("total")).intValue() : 0);
+        response.setAverageRating(avg != null && avg.get("avg_rating") != null ? ((Number) avg.get("avg_rating")).doubleValue() : 0.0);
+        response.setTotalRatings(avg != null && avg.get("total") != null ? ((Number) avg.get("total")).intValue() : 0);
         response.setDistribution(distribution);
         return response;
     }

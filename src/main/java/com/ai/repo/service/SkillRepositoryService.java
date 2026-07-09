@@ -1,5 +1,6 @@
 package com.ai.repo.service;
 
+import com.ai.repo.dto.FileTreeEntry;
 import com.ai.repo.entity.SkillRepository;
 
 import java.util.List;
@@ -36,7 +37,9 @@ public interface SkillRepositoryService {
 
     SkillRepository findByRepoPath(String repoPath);
 
-    List<String> getFileTree(Long repoId);
+    SkillRepository findByShareId(String shareId);
+
+    List<FileTreeEntry> getFileTree(Long repoId);
 
     String getFileContent(Long repoId, String filePath);
 

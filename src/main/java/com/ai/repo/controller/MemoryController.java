@@ -11,6 +11,7 @@ import com.ai.repo.entity.Memory;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
+import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -45,6 +46,9 @@ public class MemoryController {
 
     @Resource
     private ObjectMapper objectMapper;
+
+    @Resource
+    private AgentService agentService;
 
     @PostMapping
     @ApiKeyAuth
@@ -103,6 +107,26 @@ public class MemoryController {
         }
     }
 
+    @GetMapping("/{id}")
+    @ApiKeyAuth
+    @Operation(summary = "Get memory by ID", description = "Retrieve a specific memory by its ID. Only returns if public or owned by caller.")
+    public ResponseEntity<Result<Memory>> getMemoryById(
+            @PathVariable @Min(1) Long id,
+            HttpServletRequest httpRequest) {
+        Memory memory = memoryService.findById(id);
+        if (memory == null) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        boolean isOwner = (callerUserId != null && callerUserId.equals(memory.getUserId()))
+                || (callerAgentId != null && callerAgentId.equals(memory.getAgentId()));
+        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
+        return Result.ok(memory);
+    }
+
     @PutMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
@@ -110,15 +134,22 @@ public class MemoryController {
             @PathVariable @Min(1) Long id,
             @Valid @RequestBody MemoryUpdateRequest request,
             HttpServletRequest httpRequest) {
+        Memory existing = memoryService.findById(id);
+        if (existing == null) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (callerAgentId == null || !callerAgentId.equals(existing.getAgentId())) {
+            throw new com.ai.repo.exception.BusinessException(403, "Only the owning agent can update this memory");
+        }
         Long userId = (Long) httpRequest.getAttribute("userId");
-        Long agentId = (Long) httpRequest.getAttribute("agentId");
-        if (agentId == null) {
-            agentId = request.getAgentId();
+        if (callerAgentId == null) {
+            callerAgentId = request.getAgentId();
         }
         Memory memory = new Memory();
         memory.setId(id);
         memory.setUserId(userId);
-        memory.setAgentId(agentId);
+        memory.setAgentId(callerAgentId);
         memory.setTitle(request.getTitle());
         memory.setContent(request.getContent());
         memory.setVersion(request.getVersion());
@@ -140,33 +171,59 @@ public class MemoryController {
 
     @DeleteMapping("/{id}")
     @ApiKeyAuth
-    @Operation(summary = "Delete a memory", description = "Delete a memory by its ID")
-    public ResponseEntity<Result<Void>> deleteMemory(@PathVariable @Min(1) Long id) {
+    @Operation(summary = "Delete a memory", description = "Delete a memory by its ID. Only the owning agent can delete.")
+    public ResponseEntity<Result<Void>> deleteMemory(
+            @PathVariable @Min(1) Long id,
+            HttpServletRequest httpRequest) {
+        Memory existing = memoryService.findById(id);
+        if (existing == null) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (callerAgentId == null || !callerAgentId.equals(existing.getAgentId())) {
+            throw new com.ai.repo.exception.BusinessException(403, "Only the owning agent can delete this memory");
+        }
         memoryService.delete(id);
         return Result.ok();
     }
 
-    @GetMapping("/{id}")
-    @ApiKeyAuth
-    @Operation(summary = "Get memory by ID", description = "Retrieve a specific memory by its ID")
-    public ResponseEntity<Result<Memory>> getMemoryById(@PathVariable @Min(1) Long id) {
-        Memory memory = memoryService.findById(id);
-        return Result.ok(memory);
-    }
-
     @GetMapping("/user/{userId}")
     @RequireAuth
-    @Operation(summary = "Get memories by user", description = "Retrieve all memories owned by a specific user")
-    public ResponseEntity<Result<List<Memory>>> getMemoriesByUserId(@PathVariable @Min(1) Long userId) {
-        List<Memory> memories = memoryService.findByUserId(userId);
+    @Operation(summary = "Get memories by user", description = "Retrieve memories owned by a user. Returns all if caller owns them, otherwise public only.")
+    public ResponseEntity<Result<List<Memory>>> getMemoriesByUserId(
+            @PathVariable @Min(1) Long userId,
+            HttpServletRequest httpRequest) {
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        List<Memory> memories;
+        if (callerUserId != null && callerUserId.equals(userId)) {
+            memories = memoryService.findByUserId(userId);
+        } else {
+            memories = memoryService.findByUserIdAndPublic(userId, true);
+        }
         return Result.ok(memories);
     }
 
     @GetMapping("/agent/{agentId}")
     @RequireAuth
-    @Operation(summary = "Get memories by agent", description = "Retrieve all memories belonging to a specific agent")
-    public ResponseEntity<Result<List<Memory>>> getMemoriesByAgentId(@PathVariable @Min(1) Long agentId) {
-        List<Memory> memories = memoryService.findByAgentId(agentId);
+    @Operation(summary = "Get memories by agent", description = "Retrieve memories belonging to an agent. Returns all if caller owns them, otherwise public only.")
+    public ResponseEntity<Result<List<Memory>>> getMemoriesByAgentId(
+            @PathVariable @Min(1) Long agentId,
+            HttpServletRequest httpRequest) {
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        boolean isOwner = (callerAgentId != null && callerAgentId.equals(agentId));
+        if (!isOwner && callerUserId != null) {
+            try {
+                com.ai.repo.entity.Agent agent = agentService.findById(agentId);
+                isOwner = callerUserId.equals(agent.getUserId());
+            } catch (Exception e) { /* not owner */ }
+        }
+        List<Memory> memories;
+        if (isOwner) {
+            memories = memoryService.findByAgentId(agentId);
+        } else {
+            memories = memoryService.findByAgentIdAndPublic(agentId, true);
+        }
         return Result.ok(memories);
     }
 
@@ -188,9 +245,9 @@ public class MemoryController {
 
     @GetMapping("/search")
     @RequireAuth
-    @Operation(summary = "Search memories", description = "Search memories by keyword")
+    @Operation(summary = "Search public memories", description = "Search public memories by keyword")
     public ResponseEntity<Result<List<Memory>>> searchMemories(@RequestParam String keyword) {
-        List<Memory> memories = memoryService.searchByKeyword(keyword);
+        List<Memory> memories = memoryService.searchPublicByKeyword(keyword);
         return Result.ok(memories);
     }
 

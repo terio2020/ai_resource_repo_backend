@@ -130,6 +130,23 @@ class RepoRatingServiceImplTest {
     // ==================== getAverageByRepoId() ====================
 
     @Test
+    void getAverageByRepoId_shouldNotNpe_whenAvgIsNull() {
+        SkillRepository repo = createSampleRepo(1L, 10L, true);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        Map<String, Object> avgMap = new java.util.HashMap<>();
+        avgMap.put("avg_rating", null);
+        avgMap.put("total", null);
+        when(repoRatingMapper.selectAvgByRepoId(1L)).thenReturn(avgMap);
+        when(repoRatingMapper.selectDistributionByRepoId(1L)).thenReturn(List.of());
+
+        assertDoesNotThrow(() -> {
+            SkillRatingAverageResponse result = service.getAverageByRepoId(1L);
+            assertEquals(0.0, result.getAverageRating(), 0.001);
+            assertEquals(0, result.getTotalRatings());
+        });
+    }
+
+    @Test
     void getAverageByRepoId_shouldReturnEmpty_whenNoRatings() {
         SkillRepository repo = createSampleRepo(1L, 10L, true);
         when(skillRepositoryService.findById(1L)).thenReturn(repo);

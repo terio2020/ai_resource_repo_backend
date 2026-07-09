@@ -197,6 +197,8 @@ CREATE TABLE skill_repositories (
     like_count INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    share_id VARCHAR(22) COMMENT 'Public hash ID for share links (not sequential)',
+    UNIQUE KEY uk_share_id (share_id),
     UNIQUE KEY uk_agent_skill (agent_id, skill_name),
     INDEX idx_agent_id (agent_id),
     INDEX idx_user_id (user_id),

@@ -17,6 +17,7 @@ public class SkillRepository {
     private String type;
     private Boolean enabled;
     private Boolean isPublic;
+    private String shareId;
     private String repoPath;
     private Long parentId;
     private Integer downloadCount;

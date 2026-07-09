@@ -1,5 +1,6 @@
 package com.ai.repo.service.impl;
 
+import com.ai.repo.dto.FileTreeEntry;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.FileNotAllowedException;
@@ -8,6 +9,7 @@ import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.SkillRepositoryService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.Repository;
@@ -30,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -50,12 +53,33 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
         if (repo == null) {
             throw new RepositoryNotFoundException(id);
         }
+        ensureShareId(repo);
+        return repo;
+    }
+
+    @Override
+    public SkillRepository findByShareId(String shareId) {
+        SkillRepository repo = skillRepositoryMapper.selectByShareId(shareId);
+        if (repo == null) {
+            throw new RepositoryNotFoundException("Skill not found for share ID: " + shareId);
+        }
         return repo;
     }
 
     @Override
     public List<SkillRepository> findByAgentId(Long agentId) {
         return skillRepositoryMapper.selectByAgentId(agentId);
+    }
+
+    private String generateShareId() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 21);
+    }
+
+    private void ensureShareId(SkillRepository repo) {
+        if (repo != null && (repo.getShareId() == null || repo.getShareId().isBlank())) {
+            repo.setShareId(generateShareId());
+            skillRepositoryMapper.updateShareId(repo.getId(), repo.getShareId());
+        }
     }
 
     @Override
@@ -72,6 +96,25 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
         if (skillRepository.getLikeCount() == null) {
             skillRepository.setLikeCount(0);
         }
+        if (skillRepository.getShareId() == null || skillRepository.getShareId().isBlank()) {
+            skillRepository.setShareId(generateShareId());
+        }
+        if (skillRepository.getRepoPath() == null || skillRepository.getRepoPath().isBlank()) {
+            skillRepository.setRepoPath(Paths.get(gitRootPath, "agent_" + skillRepository.getAgentId(),
+                    (skillRepository.getSkillName() != null ? skillRepository.getSkillName() : "repo_" + System.currentTimeMillis()) + ".git").toString());
+        }
+
+        Path repoDir = Paths.get(skillRepository.getRepoPath());
+        try {
+            Files.createDirectories(repoDir.getParent());
+            try (Repository repo = Git.init().setBare(true).setDirectory(repoDir.toFile()).call().getRepository()) {
+                log.info("Initialized bare Git repository at {}", repoDir);
+            }
+        } catch (Exception e) {
+            log.error("Failed to initialize Git repository at {}: {}", repoDir, e.getMessage());
+            throw new BusinessException(500, "Failed to initialize Git repository");
+        }
+
         skillRepository.setCreatedAt(LocalDateTime.now());
         skillRepositoryMapper.insert(skillRepository);
         return skillRepository;
@@ -123,7 +166,7 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
     @Transactional
     public void setVisibility(Long repoId, Long requestUserId, boolean isPublic) {
         SkillRepository repo = findById(repoId);
-        if (!repo.getUserId().equals(requestUserId)) {
+        if (repo.getUserId() == null || !repo.getUserId().equals(requestUserId)) {
             throw new BusinessException(403, "Only the owning user can change visibility");
         }
         skillRepositoryMapper.updateVisibility(repoId, isPublic);
@@ -148,13 +191,15 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
     @Override
     public void delete(Long id) {
         SkillRepository repo = findById(id);
-        Path repoDir = Paths.get(repo.getRepoPath());
-        try {
-            if (Files.exists(repoDir)) {
-                deleteDirectory(repoDir);
+        if (repo.getRepoPath() != null) {
+            Path repoDir = Paths.get(repo.getRepoPath());
+            try {
+                if (Files.exists(repoDir)) {
+                    deleteDirectory(repoDir);
+                }
+            } catch (IOException e) {
+                log.warn("Failed to delete repository directory {}: {}", repoDir, e.getMessage());
             }
-        } catch (IOException e) {
-            log.warn("Failed to delete repository directory {}: {}", repoDir, e.getMessage());
         }
         skillRepositoryMapper.deleteById(id);
     }
@@ -214,9 +259,11 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
     }
 
     @Override
-    public List<String> getFileTree(Long repoId) {
+    public List<FileTreeEntry> getFileTree(Long repoId) {
         SkillRepository repo = findById(repoId);
         Path repoPath = Paths.get(repo.getRepoPath());
+
+        ensureRepoDirectory(repo);
 
         try (Repository repository = openRepository(repoPath)) {
             ObjectId headId = repository.resolve("HEAD");
@@ -231,9 +278,14 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
                 treeWalk.addTree(headCommit.getTree());
                 treeWalk.setRecursive(true);
 
-                List<String> files = new ArrayList<>();
+                List<FileTreeEntry> files = new ArrayList<>();
                 while (treeWalk.next()) {
-                    files.add(treeWalk.getPathString());
+                    ObjectId blobId = treeWalk.getObjectId(0);
+                    ObjectLoader loader = repository.open(blobId);
+                    files.add(FileTreeEntry.builder()
+                            .path(treeWalk.getPathString())
+                            .size(loader.getSize())
+                            .build());
                 }
                 return files;
             }
@@ -249,6 +301,8 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
 
         SkillRepository repo = findById(repoId);
         Path repoDir = Paths.get(repo.getRepoPath());
+
+        ensureRepoDirectory(repo);
 
         try (Repository repository = openRepository(repoDir)) {
             ObjectId headId = repository.resolve("HEAD");
@@ -332,6 +386,21 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
                 for (Path path : paths) {
                     Files.deleteIfExists(path);
                 }
+            }
+        }
+    }
+
+    private void ensureRepoDirectory(SkillRepository repo) {
+        Path repoPath = Paths.get(repo.getRepoPath());
+        if (!Files.exists(repoPath)) {
+            try {
+                Files.createDirectories(repoPath.getParent());
+                try (Repository r = Git.init().setBare(true).setDirectory(repoPath.toFile()).call().getRepository()) {
+                    log.info("Lazy-initialized bare Git repository at {}", repoPath);
+                }
+            } catch (Exception e) {
+                log.error("Failed to lazy-init Git repository at {}: {}", repoPath, e.getMessage());
+                throw new BusinessException(500, "Repository not initialized");
             }
         }
     }

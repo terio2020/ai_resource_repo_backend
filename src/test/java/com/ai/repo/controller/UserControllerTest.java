@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -535,5 +536,71 @@ class UserControllerTest {
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Unauthorized"));
+    }
+
+    // ==================== POST /api/users/password/change ====================
+
+    @Test
+    void changePassword_shouldSucceed_whenCurrentPasswordMatches() throws Exception {
+        User existing = new User();
+        existing.setId(1L);
+        existing.setUsername("testuser");
+        existing.setPassword("ENCODED-OLD-PASS");
+
+        when(userService.findById(1L)).thenReturn(existing);
+        when(passwordEncoderUtil.matches("correct-old-pass", "ENCODED-OLD-PASS")).thenReturn(true);
+        when(userService.update(any(User.class))).thenReturn(existing);
+
+        mockMvc.perform(post("/api/users/password/change")
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"correct-old-pass\",\"newPassword\":\"new-secure-pass\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("Password changed successfully"));
+
+        verify(userService).update(argThat(u ->
+                1L == u.getId() && "new-secure-pass".equals(u.getPassword())));
+    }
+
+    @Test
+    void changePassword_shouldReturn400_whenCurrentPasswordWrong() throws Exception {
+        User existing = new User();
+        existing.setId(1L);
+        existing.setPassword("ENCODED-OLD-PASS");
+
+        when(userService.findById(1L)).thenReturn(existing);
+        when(passwordEncoderUtil.matches("wrong-pass", "ENCODED-OLD-PASS")).thenReturn(false);
+
+        mockMvc.perform(post("/api/users/password/change")
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"wrong-pass\",\"newPassword\":\"new-secure-pass\"}"))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Current password is incorrect"));
+    }
+
+    @Test
+    void changePassword_shouldReturn401_whenNotAuthenticated() throws Exception {
+        mockMvc.perform(post("/api/users/password/change")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"any\",\"newPassword\":\"new-secure-pass\"}"))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("Unauthorized"));
+    }
+
+    @Test
+    void changePassword_shouldReturn404_whenUserNotFound() throws Exception {
+        when(userService.findById(999L)).thenReturn(null);
+
+        mockMvc.perform(post("/api/users/password/change")
+                        .with(withUserId(999L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"any\",\"newPassword\":\"new-secure-pass\"}"))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("User not found"));
     }
 }

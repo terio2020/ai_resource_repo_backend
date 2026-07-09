@@ -38,7 +38,7 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
 
         if (hasApiKeyAuth) {
             if (agentId != null) {
-                return true;
+                return checkChallengeVerified(request, response, (Long) agentId);
             }
             if (userId != null) {
                 response.setStatus(403);
@@ -49,10 +49,11 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
             return authenticateByApiKey(request, response);
         }
 
-        if (userId != null) {
-            return true;
-        }
+        // For @RequireAuth: if authenticated via API key (agentId set), check challenge
         if (agentId != null) {
+            return checkChallengeVerified(request, response, (Long) agentId);
+        }
+        if (userId != null) {
             return true;
         }
         return authenticateByApiKey(request, response);
@@ -86,17 +87,37 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         request.setAttribute("userId", agent.getUserId());
 
         String requestPath = request.getRequestURI();
-        boolean isChallengeEndpoint = requestPath.equals("/api/auth/challenge")
+        boolean isExemptEndpoint = requestPath.equals("/api/auth/challenge")
             || requestPath.equals("/api/auth/challenge/verify")
-            || requestPath.equals("/api/auth/challenge/status");
+            || requestPath.equals("/api/auth/challenge/status")
+            || requestPath.startsWith("/api/auth/temp-token");
 
-        if (!isChallengeEndpoint && !Boolean.TRUE.equals(agent.getChallengeVerified())) {
+        if (!isExemptEndpoint && !Boolean.TRUE.equals(agent.getChallengeVerified())) {
             response.setStatus(403);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":403,\"message\":\"Challenge verification required\"}");
             return false;
         }
 
+        return true;
+    }
+
+    private boolean checkChallengeVerified(HttpServletRequest request, HttpServletResponse response, Long agentId) throws Exception {
+        String requestPath = request.getRequestURI();
+        boolean isExemptEndpoint = requestPath.equals("/api/auth/challenge")
+            || requestPath.equals("/api/auth/challenge/verify")
+            || requestPath.equals("/api/auth/challenge/status")
+            || requestPath.startsWith("/api/auth/temp-token");
+
+        if (!isExemptEndpoint) {
+            Agent agent = agentService.findById(agentId);
+            if (agent != null && !Boolean.TRUE.equals(agent.getChallengeVerified())) {
+                response.setStatus(403);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":403,\"message\":\"Challenge verification required\"}");
+                return false;
+            }
+        }
         return true;
     }
 }

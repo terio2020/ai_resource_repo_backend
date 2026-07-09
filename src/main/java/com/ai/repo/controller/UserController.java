@@ -182,6 +182,34 @@ public class UserController {
         return Result.ok();
     }
 
+    @PostMapping("/password/change")
+    @RequireAuth
+    @Operation(summary = "Change password", description = "Change password for authenticated user (requires current password)")
+    public ResponseEntity<Result<Void>> changePassword(
+            HttpServletRequest request,
+            @Valid @RequestBody PasswordChangeRequest req) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return Result.fail(401, "Unauthorized");
+        }
+
+        User user = userService.findById(userId);
+        if (user == null) {
+            return Result.fail(404, "User not found");
+        }
+
+        if (!passwordEncoderUtil.matches(req.getCurrentPassword(), user.getPassword())) {
+            return Result.fail(400, "Current password is incorrect");
+        }
+
+        User updateUser = new User();
+        updateUser.setId(userId);
+        updateUser.setPassword(req.getNewPassword());
+        userService.update(updateUser);
+
+        return Result.okMessage("Password changed successfully");
+    }
+
     @GetMapping("/me")
     @Operation(summary = "Get current user info", description = "Return current user's non-sensitive information based on token")
     public ResponseEntity<Result<User>> getCurrentUser(HttpServletRequest request) {

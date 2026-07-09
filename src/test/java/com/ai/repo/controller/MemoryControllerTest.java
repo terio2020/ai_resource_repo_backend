@@ -1,9 +1,11 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.GlobalExceptionHandler;
+import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
 import org.junit.jupiter.api.Test;
@@ -52,12 +54,39 @@ class MemoryControllerTest {
     @MockBean
     private FileStorageService fileStorageService;
 
+    @MockBean
+    private AgentService agentService;
+
     private RequestPostProcessor withAgentId(Long agentId) {
         return request -> {
             request.setAttribute("agentId", agentId);
             request.setAttribute("userId", 1L);
             return request;
         };
+    }
+
+    private RequestPostProcessor withUserIdOnly(Long userId) {
+        return request -> {
+            request.setAttribute("userId", userId);
+            return request;
+        };
+    }
+
+    private Memory createMemory(Long id, Long agentId, boolean isPublic) {
+        Memory m = new Memory();
+        m.setId(id);
+        m.setAgentId(agentId);
+        m.setUserId(1L);
+        m.setTitle("Test");
+        m.setIsPublic(isPublic);
+        return m;
+    }
+
+    private Agent createAgent(Long id, Long userId) {
+        Agent a = new Agent();
+        a.setId(id);
+        a.setUserId(userId);
+        return a;
     }
 
     // ==================== POST /api/memories (create) ====================
@@ -192,6 +221,7 @@ class MemoryControllerTest {
 
     @Test
     void updateMemory_shouldPassIdAndBody() throws Exception {
+        when(memoryService.findById(1L)).thenReturn(createMemory(1L, 5L, false));
         Memory memory = new Memory();
         memory.setId(1L);
         memory.setAgentId(5L);
@@ -211,6 +241,7 @@ class MemoryControllerTest {
 
     @Test
     void deleteMemory_shouldInvokeService() throws Exception {
+        when(memoryService.findById(1L)).thenReturn(createMemory(1L, 5L, false));
         mockMvc.perform(delete("/api/memories/1")
                         .with(withAgentId(5L)))
                 .andExpect(status().isOk())
@@ -220,23 +251,18 @@ class MemoryControllerTest {
 
     @Test
     void deleteMemory_notFound_shouldReturnError() throws Exception {
-        org.mockito.Mockito.doThrow(new BusinessException("Memory not found"))
-                .when(memoryService).delete(999L);
-
+        when(memoryService.findById(999L)).thenReturn(null);
         mockMvc.perform(delete("/api/memories/999")
                         .with(withAgentId(5L)))
-                .andExpect(status().is5xxServerError())
-                .andExpect(jsonPath("$.code").value(500));
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(404));
     }
 
     // ==================== GET /api/memories/{id} ====================
 
     @Test
     void getMemoryById_shouldReturnMemory() throws Exception {
-        Memory memory = new Memory();
-        memory.setId(1L);
-        memory.setTitle("Test");
-        when(memoryService.findById(1L)).thenReturn(memory);
+        when(memoryService.findById(1L)).thenReturn(createMemory(1L, 5L, true));
 
         mockMvc.perform(get("/api/memories/1")
                         .with(withAgentId(5L)))
@@ -303,12 +329,12 @@ class MemoryControllerTest {
 
     @Test
     void searchMemories_shouldInvokeSearch() throws Exception {
-        when(memoryService.searchByKeyword("kotlin")).thenReturn(Collections.emptyList());
+        when(memoryService.searchPublicByKeyword("kotlin")).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/api/memories/search").param("keyword", "kotlin"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
-        verify(memoryService).searchByKeyword("kotlin");
+        verify(memoryService).searchPublicByKeyword("kotlin");
     }
 
     // ==================== DELETE /api/memories/batch ====================
@@ -379,5 +405,68 @@ class MemoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
         verify(fileStorageService).deleteFile(eq(11L), eq(1L));
+    }
+
+    // ==================== Access control: visibility & ownership ====================
+
+    @Test
+    void getMemoryById_shouldReturn404_whenPrivateAndNotOwner() throws Exception {
+        Memory m = createMemory(1L, 99L, false);
+        m.setUserId(99L);
+        when(memoryService.findById(1L)).thenReturn(m);
+        mockMvc.perform(get("/api/memories/1").with(withAgentId(5L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(404));
+    }
+
+    @Test
+    void getMemoryById_shouldReturn200_whenPrivateAndOwnedByAgent() throws Exception {
+        when(memoryService.findById(1L)).thenReturn(createMemory(1L, 5L, false));
+        mockMvc.perform(get("/api/memories/1").with(withAgentId(5L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void updateMemory_shouldReturn403_whenNotOwner() throws Exception {
+        Memory m = createMemory(1L, 5L, false);
+        m.setAgentId(99L);
+        when(memoryService.findById(1L)).thenReturn(m);
+        mockMvc.perform(put("/api/memories/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Hacked\"}")
+                        .with(withAgentId(5L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void deleteMemory_shouldReturn403_whenNotOwner() throws Exception {
+        Memory m = createMemory(1L, 5L, false);
+        m.setAgentId(99L);
+        when(memoryService.findById(1L)).thenReturn(m);
+        mockMvc.perform(delete("/api/memories/1").with(withAgentId(5L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void getMemoriesByAgentId_shouldReturnAll_whenJwtUserOwnsAgent() throws Exception {
+        when(agentService.findById(5L)).thenReturn(createAgent(5L, 1L));
+        when(memoryService.findByAgentId(5L)).thenReturn(List.of(
+                createMemory(1L, 5L, false), createMemory(2L, 5L, true)));
+        mockMvc.perform(get("/api/memories/agent/5").with(withUserIdOnly(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(2));
+    }
+
+    @Test
+    void getMemoriesByAgentId_shouldReturnPublicOnly_whenNotOwner() throws Exception {
+        when(memoryService.findByAgentIdAndPublic(5L, true)).thenReturn(List.of(createMemory(2L, 5L, true)));
+        mockMvc.perform(get("/api/memories/agent/5").with(withUserIdOnly(99L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(1));
     }
 }

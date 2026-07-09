@@ -112,6 +112,28 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectByUserIdAndPublic" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId} AND is_public = #{isPublic}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByAgentIdAndPublic" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE agent_id = #{agentId} AND is_public = #{isPublic}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="searchPublicByKeyword" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE is_public = TRUE
+        AND MATCH(title, content, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+        ORDER BY created_at DESC
+    </select>
+
     <delete id="batchDelete">
         DELETE FROM memories WHERE id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">

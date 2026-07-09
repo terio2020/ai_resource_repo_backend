@@ -14,6 +14,7 @@
         <result column="type" property="type" jdbcType="VARCHAR"/>
         <result column="enabled" property="enabled" jdbcType="BOOLEAN"/>
         <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
+        <result column="share_id" property="shareId" jdbcType="VARCHAR"/>
         <result column="repo_path" property="repoPath" jdbcType="VARCHAR"/>
         <result column="parent_id" property="parentId" jdbcType="BIGINT"/>
         <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
@@ -24,17 +25,17 @@
 
     <sql id="Base_Column_List">
         id, agent_id, user_id, skill_name, version, description, tags, category, type,
-        enabled, is_public, repo_path, parent_id, download_count, like_count,
+        enabled, is_public, share_id, repo_path, parent_id, download_count, like_count,
         created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.SkillRepository" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO skill_repositories
             (agent_id, user_id, skill_name, version, description, tags, category, type,
-             enabled, is_public, repo_path, parent_id, download_count, like_count)
+             enabled, is_public, share_id, repo_path, parent_id, download_count, like_count)
         VALUES
             (#{agentId}, #{userId}, #{skillName}, #{version}, #{description}, #{tags}, #{category}, #{type},
-             #{enabled}, #{isPublic}, #{repoPath}, #{parentId}, #{downloadCount}, #{likeCount})
+             #{enabled}, #{isPublic}, #{shareId}, #{repoPath}, #{parentId}, #{downloadCount}, #{likeCount})
     </insert>
 
     <update id="updateMetadata" parameterType="com.ai.repo.entity.SkillRepository">
@@ -134,22 +135,56 @@
     <select id="selectByCategory" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
-        WHERE category = #{category}
+        WHERE is_public = TRUE AND category = #{category}
         ORDER BY like_count DESC
     </select>
 
     <select id="selectByType" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
-        WHERE type = #{type}
+        WHERE is_public = TRUE AND type = #{type}
         ORDER BY created_at DESC
     </select>
 
     <select id="searchByKeyword" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
+        WHERE is_public = TRUE
+        AND MATCH(skill_name, description, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+        ORDER BY like_count DESC
+    </select>
+
+    <select id="selectByCategoryAll" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skill_repositories
+        WHERE category = #{category}
+        ORDER BY like_count DESC
+    </select>
+
+    <select id="selectByTypeAll" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skill_repositories
+        WHERE type = #{type}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="searchByKeywordAll" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skill_repositories
         WHERE MATCH(skill_name, description, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
         ORDER BY like_count DESC
     </select>
+
+    <select id="selectByShareId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skill_repositories
+        WHERE share_id = #{shareId}
+    </select>
+
+    <update id="updateShareId">
+        UPDATE skill_repositories
+        SET share_id = #{shareId}
+        WHERE id = #{id} AND (share_id IS NULL OR share_id = '')
+    </update>
 
 </mapper>

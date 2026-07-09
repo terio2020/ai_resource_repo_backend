@@ -57,9 +57,9 @@ public class AgentController {
     private ApiKeyUtil apiKeyUtil;
 
     @PostMapping
-    @ApiKeyAuth
+    @RequireAuth
     @Operation(summary = "Create a new agent", description = "Create a new agent for the authenticated user")
-    public ResponseEntity<Result<Agent>> createAgent(@RequestBody AgentCreateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<AgentCreateResponse>> createAgent(@RequestBody AgentCreateRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Agent agent = new Agent();
         agent.setUserId(userId);
@@ -71,7 +71,19 @@ public class AgentController {
         agent.setSyncEnabled(false);
         agent.setApiKey(apiKeyUtil.generateApiKey());
         Agent createdAgent = agentService.create(agent);
-        return Result.ok(createdAgent);
+
+        AgentCreateResponse response = new AgentCreateResponse();
+        response.setId(createdAgent.getId());
+        response.setUserId(createdAgent.getUserId());
+        response.setName(createdAgent.getName());
+        response.setCode(createdAgent.getCode());
+        response.setStatus(createdAgent.getStatus());
+        response.setType(createdAgent.getType());
+        response.setConfig(createdAgent.getConfig());
+        response.setApiKey(createdAgent.getApiKey());
+        response.setApiKeyHash(createdAgent.getApiKeyHash());
+        response.setChallengeVerified(createdAgent.getChallengeVerified());
+        return Result.ok(response);
     }
 
     @PutMapping("/{id}")
@@ -79,7 +91,12 @@ public class AgentController {
     @Operation(summary = "Update an agent", description = "Update an existing agent's information")
     public ResponseEntity<Result<Agent>> updateAgent(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody Agent agent) {
+            @Valid @RequestBody Agent agent,
+            HttpServletRequest httpRequest) {
+        Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(id)) {
+            throw new BusinessException(403, "Only the owning agent can update this agent");
+        }
         agent.setId(id);
         Agent updatedAgent = agentService.update(agent);
         return Result.ok(updatedAgent);
@@ -131,7 +148,12 @@ public class AgentController {
     @Operation(summary = "Send agent heartbeat", description = "Update agent heartbeat status")
     public ResponseEntity<Result<Void>> heartbeat(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody HeartbeatRequest request) {
+            @Valid @RequestBody HeartbeatRequest request,
+            HttpServletRequest httpRequest) {
+        Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(id)) {
+            throw new BusinessException(403, "Only the owning agent can send heartbeat");
+        }
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         agentService.updateHeartbeat(id, request.getStatus(), now);
         return Result.ok();
@@ -142,7 +164,12 @@ public class AgentController {
     @Operation(summary = "Update agent status", description = "Update the status of an agent")
     public ResponseEntity<Result<Void>> updateStatus(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody StatusUpdateRequest request) {
+            @Valid @RequestBody StatusUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(id)) {
+            throw new BusinessException(403, "Only the owning agent can update status");
+        }
         agentService.updateStatusOnly(id, request.getStatus());
         return Result.ok();
     }
@@ -152,7 +179,12 @@ public class AgentController {
     @Operation(summary = "Update agent config", description = "Update the configuration of an agent")
     public ResponseEntity<Result<Void>> updateConfig(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody ConfigUpdateRequest request) {
+            @Valid @RequestBody ConfigUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(id)) {
+            throw new BusinessException(403, "Only the owning agent can update config");
+        }
         agentService.updateConfigOnly(id, request.getConfig());
         return Result.ok();
     }
@@ -270,7 +302,12 @@ public class AgentController {
     @Operation(summary = "Sync agent data", description = "Synchronize agent data since a specific timestamp")
     public ResponseEntity<Result<AgentSyncResponse>> syncData(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @Parameter(description = "Since timestamp (ISO format)") @RequestParam(required = false) String since) {
+            @Parameter(description = "Since timestamp (ISO format)") @RequestParam(required = false) String since,
+            HttpServletRequest httpRequest) {
+        Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(id)) {
+            throw new BusinessException(403, "Only the owning agent can sync data");
+        }
         AgentSyncResponse response = agentService.syncData(id, since);
         return Result.ok(response);
     }

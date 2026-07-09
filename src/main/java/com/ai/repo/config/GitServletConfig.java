@@ -7,6 +7,7 @@ import com.ai.repo.service.AgentService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.http.server.GitServlet;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
@@ -24,12 +25,13 @@ import org.springframework.context.annotation.Configuration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
  * Registers JGit's GitServlet to serve smart-HTTP git operations
- * (clone, fetch, push) at the /git/* path.
+ * (clone, fetch, push) at the /api/git/* path.
  *
  * Access control (clone/fetch):
  * - Public repositories: any authenticated agent can clone
@@ -55,7 +57,7 @@ public class GitServletConfig {
     public ServletRegistrationBean<GitServlet> gitServlet() {
         GitServlet gitServlet = new GitServlet();
 
-        gitServlet.setRepositoryResolver(new SkillRepositoryResolver(gitRootPath));
+        gitServlet.setRepositoryResolver(new SkillRepositoryResolver(gitRootPath, skillRepositoryMapper));
 
         gitServlet.setUploadPackFactory(new UploadPackFactory<HttpServletRequest>() {
             @Override
@@ -72,7 +74,6 @@ public class GitServletConfig {
                     return new UploadPack(repo);
                 }
 
-                // Private repository — require authentication
                 Long agentId = authenticateAgent(req);
                 if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
                     throw new ServiceNotAuthorizedException();
@@ -93,7 +94,6 @@ public class GitServletConfig {
                     throw new ServiceNotEnabledException("Repository not registered");
                 }
 
-                // Push always requires authentication as the owning agent
                 Long agentId = authenticateAgent(req);
                 if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
                     throw new ServiceNotAuthorizedException();
@@ -105,20 +105,12 @@ public class GitServletConfig {
             }
         });
 
-        ServletRegistrationBean<GitServlet> registration = new ServletRegistrationBean<>(gitServlet, "/git/*");
+        ServletRegistrationBean<GitServlet> registration = new ServletRegistrationBean<>(gitServlet, "/api/git/*");
         registration.setName("gitServlet");
         registration.setLoadOnStartup(1);
         return registration;
     }
 
-    /**
-     * Authenticate an agent from the HTTP request.
-     *
-     * Checks the Authorization header (Bearer token) and the
-     * agent-auth-api-key header for API key credentials.
-     *
-     * @return the authenticated agent's ID, or null if not authenticated
-     */
     private Long authenticateAgent(HttpServletRequest req) {
         String apiKey = extractApiKey(req);
         if (apiKey == null) {
@@ -129,13 +121,6 @@ public class GitServletConfig {
         return agent != null ? agent.getId() : null;
     }
 
-    /**
-     * Extract an API key from the request headers.
-     *
-     * Checks, in order:
-     * 1. Authorization: Bearer <token>
-     * 2. agent-auth-api-key header
-     */
     private String extractApiKey(HttpServletRequest req) {
         String authHeader = req.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -148,16 +133,21 @@ public class GitServletConfig {
      * Resolves a repository path from the HTTP request URL to a bare JGit
      * Repository on the local filesystem.
      *
-     * URL structure: /git/{relative-repo-path}
-     * Example: /git/agent_101/weather_skill.git resolves to
+     * URL structure: /api/git/{relative-repo-path}
+     * Example: /api/git/agent_101/weather_skill.git resolves to
      * <git-root-path>/agent_101/weather_skill.git
+     *
+     * If the repository directory does not exist on disk but the database
+     * record exists, it auto-initializes a bare Git repository (lazy-init).
      */
-    private static class SkillRepositoryResolver implements RepositoryResolver<HttpServletRequest> {
+    private class SkillRepositoryResolver implements RepositoryResolver<HttpServletRequest> {
 
         private final String gitRootPath;
+        private final SkillRepositoryMapper mapper;
 
-        SkillRepositoryResolver(String gitRootPath) {
+        SkillRepositoryResolver(String gitRootPath, SkillRepositoryMapper mapper) {
             this.gitRootPath = gitRootPath;
+            this.mapper = mapper;
         }
 
         @Override
@@ -166,7 +156,6 @@ public class GitServletConfig {
 
             Path repoPath = Paths.get(gitRootPath, name).normalize();
 
-            // Path traversal prevention: ensure resolved path stays within gitRootPath
             try {
                 String canonicalRoot = new File(gitRootPath).getCanonicalPath();
                 String canonicalRepo = repoPath.toFile().getCanonicalPath();
@@ -182,8 +171,22 @@ public class GitServletConfig {
 
             File gitDir = repoPath.toFile();
             if (!gitDir.exists()) {
-                log.warn("Repository not found: {}", repoPath);
-                throw new ServiceNotEnabledException("Repository not found");
+                String repoPathStr = repoPath.toAbsolutePath().toString();
+                SkillRepository dbRepo = mapper.selectByRepoPath(repoPathStr);
+                if (dbRepo != null) {
+                    try {
+                        Files.createDirectories(repoPath.getParent());
+                        try (Repository repo = Git.init().setBare(true).setDirectory(gitDir).call().getRepository()) {
+                            log.info("Lazy-initialized bare Git repository at {}", repoPath);
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to lazy-init Git repository at {}: {}", repoPath, e.getMessage());
+                        throw new ServiceNotEnabledException("Repository not found");
+                    }
+                } else {
+                    log.warn("Repository not found: {}", repoPath);
+                    throw new ServiceNotEnabledException("Repository not found");
+                }
             }
 
             try {

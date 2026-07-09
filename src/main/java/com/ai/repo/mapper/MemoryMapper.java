@@ -18,7 +18,10 @@ public interface MemoryMapper {
     List<Memory> selectByAgentId(Long agentId);
     List<Memory> selectByCategory(String category);
     List<Memory> selectByPublic(Boolean isPublic);
+    List<Memory> selectByUserIdAndPublic(@Param("userId") Long userId, @Param("isPublic") Boolean isPublic);
+    List<Memory> selectByAgentIdAndPublic(@Param("agentId") Long agentId, @Param("isPublic") Boolean isPublic);
     List<Memory> searchByKeyword(String keyword);
+    List<Memory> searchPublicByKeyword(String keyword);
     int batchDelete(@Param("ids") List<Long> ids);
     Memory selectByUserIdAndAgentIdAndTitle(@Param("userId") Long userId, @Param("agentId") Long agentId, @Param("title") String title);
     int updateByCompositeKey(Memory memory);

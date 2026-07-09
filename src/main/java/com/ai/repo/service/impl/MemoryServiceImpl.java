@@ -70,8 +70,23 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     @Override
+    public List<Memory> findByUserIdAndPublic(Long userId, Boolean isPublic) {
+        return memoryMapper.selectByUserIdAndPublic(userId, isPublic);
+    }
+
+    @Override
+    public List<Memory> findByAgentIdAndPublic(Long agentId, Boolean isPublic) {
+        return memoryMapper.selectByAgentIdAndPublic(agentId, isPublic);
+    }
+
+    @Override
     public List<Memory> searchByKeyword(String keyword) {
         return memoryMapper.searchByKeyword(keyword);
+    }
+
+    @Override
+    public List<Memory> searchPublicByKeyword(String keyword) {
+        return memoryMapper.searchPublicByKeyword(keyword);
     }
 
     @Override

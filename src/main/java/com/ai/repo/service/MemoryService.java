@@ -14,7 +14,10 @@ public interface MemoryService {
     List<Memory> findByAgentId(Long agentId);
     List<Memory> findByCategory(String category);
     List<Memory> findByPublic(Boolean isPublic);
+    List<Memory> findByUserIdAndPublic(Long userId, Boolean isPublic);
+    List<Memory> findByAgentIdAndPublic(Long agentId, Boolean isPublic);
     List<Memory> searchByKeyword(String keyword);
+    List<Memory> searchPublicByKeyword(String keyword);
     int batchDelete(List<Long> ids);
     Memory upsert(Memory memory);
     boolean incrementDownloadCount(Long id);

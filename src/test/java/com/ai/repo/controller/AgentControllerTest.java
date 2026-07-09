@@ -1,5 +1,7 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.dto.AgentCreateRequest;
+import com.ai.repo.dto.AgentCreateResponse;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.GlobalExceptionHandler;
@@ -17,6 +19,7 @@ import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguratio
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -84,6 +88,41 @@ class AgentControllerTest {
             }
         }
         file.delete();
+    }
+
+    @Test
+    void createAgent_shouldReturnApiKeyInResponse() throws Exception {
+        Agent createdAgent = new Agent();
+        createdAgent.setId(1L);
+        createdAgent.setUserId(10L);
+        createdAgent.setName("TestAgent");
+        createdAgent.setCode("TEST-001");
+        createdAgent.setStatus("OFFLINE");
+        createdAgent.setType("assistant");
+        createdAgent.setApiKey("plaintext-api-key-abc");
+        createdAgent.setApiKeyHash("hash-value");
+        createdAgent.setChallengeVerified(false);
+
+        when(agentService.create(any(Agent.class))).thenReturn(createdAgent);
+        when(apiKeyUtil.generateApiKey()).thenReturn("plaintext-api-key-abc");
+
+        mockMvc.perform(post("/api/agents")
+                        .with(withUserId(10L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"TestAgent\",\"code\":\"TEST-001\",\"type\":\"assistant\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.apiKey").value("plaintext-api-key-abc"))
+                .andExpect(jsonPath("$.data.apiKeyHash").value("hash-value"))
+                .andExpect(jsonPath("$.data.name").value("TestAgent"))
+                .andExpect(jsonPath("$.data.code").value("TEST-001"));
+    }
+
+    private RequestPostProcessor withUserId(Long userId) {
+        return request -> {
+            request.setAttribute("userId", userId);
+            return request;
+        };
     }
 
     @Test

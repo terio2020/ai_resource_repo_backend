@@ -1,10 +1,12 @@
 package com.ai.repo.controller;
 
+import com.ai.repo.dto.FileTreeEntry;
 import com.ai.repo.dto.LoginResponse;
 import com.ai.repo.dto.SkillRatingRequest;
 import com.ai.repo.dto.SkillRatingResponse;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.GlobalExceptionHandler;
+import com.ai.repo.service.AgentService;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.service.SkillRepositoryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,11 +24,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import com.ai.repo.entity.Agent;
 import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -53,6 +57,9 @@ class SkillRepositoryControllerTest {
     @MockBean
     private RepoRatingService repoRatingService;
 
+    @MockBean
+    private AgentService agentService;
+
     private RequestPostProcessor withUserId(Long userId) {
         return request -> {
             request.setAttribute("userId", userId);
@@ -74,7 +81,21 @@ class SkillRepositoryControllerTest {
         repo.setSkillName("test-repo");
         repo.setVersion("1.0");
         repo.setIsPublic(true);
+        repo.setUserId(1L);
         return repo;
+    }
+
+    private SkillRepository createPrivateRepo(Long id, Long agentId) {
+        SkillRepository repo = createRepo(id, agentId);
+        repo.setIsPublic(false);
+        return repo;
+    }
+
+    private Agent createAgent(Long id, Long userId) {
+        Agent agent = new Agent();
+        agent.setId(id);
+        agent.setUserId(userId);
+        return agent;
     }
 
     @Test
@@ -86,8 +107,93 @@ class SkillRepositoryControllerTest {
                 .andExpect(jsonPath("$.data.id").value(1));
     }
 
+    // ── Access control: visibility checks ──
+
+    @Test
+    void getById_shouldReturn404_whenPrivateAndNotOwner() throws Exception {
+        SkillRepository repo = createPrivateRepo(1L, 1L);
+        repo.setUserId(99L);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        mockMvc.perform(get("/api/skill-repos/1").with(withUserId(2L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(404));
+    }
+
+    @Test
+    void getById_shouldReturn200_whenPrivateAndUserOwner() throws Exception {
+        SkillRepository repo = createPrivateRepo(1L, 1L);
+        repo.setUserId(1L);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        mockMvc.perform(get("/api/skill-repos/1").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(1));
+    }
+
+    @Test
+    void getById_shouldReturn200_whenPrivateAndAgentOwner() throws Exception {
+        SkillRepository repo = createPrivateRepo(1L, 1L);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        mockMvc.perform(get("/api/skill-repos/1").with(withAgentId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(1));
+    }
+
+    @Test
+    void getByShareId_shouldReturnPublicRepo() throws Exception {
+        SkillRepository repo = createRepo(1L, 1L);
+        repo.setShareId("abc123");
+        when(skillRepositoryService.findByShareId("abc123")).thenReturn(repo);
+        mockMvc.perform(get("/api/skill-repos/shared/abc123").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.shareId").value("abc123"));
+    }
+
+    @Test
+    void getByShareId_shouldReturn404_whenPrivate() throws Exception {
+        SkillRepository repo = createPrivateRepo(1L, 1L);
+        repo.setShareId("private-share");
+        when(skillRepositoryService.findByShareId("private-share")).thenReturn(repo);
+        mockMvc.perform(get("/api/skill-repos/shared/private-share").with(withUserId(1L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(404));
+    }
+
+    @Test
+    void getByAgentId_shouldReturnPublicOnly_whenCallerNotOwner() throws Exception {
+        when(skillRepositoryService.findPublicReposByAgentId(1L)).thenReturn(List.of(createRepo(1L, 1L)));
+        mockMvc.perform(get("/api/skill-repos/agent/1").with(withUserId(99L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].id").value(1));
+    }
+
+    @Test
+    void getByAgentId_shouldReturnAll_whenJwtUserOwnsAgent() throws Exception {
+        when(agentService.findById(1L)).thenReturn(createAgent(1L, 1L));
+        when(skillRepositoryService.findByAgentId(1L)).thenReturn(List.of(
+                createPrivateRepo(1L, 1L), createRepo(2L, 1L)));
+        mockMvc.perform(get("/api/skill-repos/agent/1").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(2));
+    }
+
+    @Test
+    void getByAgentId_shouldReturnAll_whenAgentIsCaller() throws Exception {
+        when(skillRepositoryService.findByAgentId(1L)).thenReturn(List.of(
+                createPrivateRepo(1L, 1L), createRepo(2L, 1L)));
+        mockMvc.perform(get("/api/skill-repos/agent/1").with(withAgentId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(2));
+    }
+
     @Test
     void getByAgentId_shouldReturnRepos() throws Exception {
+        when(agentService.findById(1L)).thenReturn(createAgent(1L, 1L));
         when(skillRepositoryService.findByAgentId(1L)).thenReturn(List.of(createRepo(1L, 1L)));
         mockMvc.perform(get("/api/skill-repos/agent/1").with(withUserId(1L)))
                 .andExpect(status().isOk())
@@ -96,7 +202,55 @@ class SkillRepositoryControllerTest {
     }
 
     @Test
+    void createRepository_shouldReturnCreatedRepo() throws Exception {
+        SkillRepository created = createRepo(10L, 2L);
+        when(skillRepositoryService.create(any(SkillRepository.class))).thenReturn(created);
+
+        mockMvc.perform(post("/api/skill-repos")
+                        .with(withAgentId(2L))
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skillName\":\"test-repo\",\"version\":\"1.0\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(10));
+    }
+
+    @Test
+    void createRepository_shouldReturn403_whenNoAgentId() throws Exception {
+        mockMvc.perform(post("/api/skill-repos")
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skillName\":\"test-repo\"}"))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void deleteRepository_shouldReturnOk_whenOwnedByAgent() throws Exception {
+        SkillRepository repo = createRepo(5L, 2L);
+        when(skillRepositoryService.findById(5L)).thenReturn(repo);
+        doNothing().when(skillRepositoryService).delete(5L);
+
+        mockMvc.perform(delete("/api/skill-repos/5").with(withAgentId(2L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void deleteRepository_shouldReturn403_whenNotOwned() throws Exception {
+        SkillRepository repo = createRepo(5L, 2L);
+        when(skillRepositoryService.findById(5L)).thenReturn(repo);
+
+        mockMvc.perform(delete("/api/skill-repos/5").with(withAgentId(3L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
     void forkRepository_shouldReturnForkedRepo() throws Exception {
+        SkillRepository source = createRepo(1L, 1L);
+        when(skillRepositoryService.findById(1L)).thenReturn(source);
         SkillRepository forked = createRepo(2L, 2L);
         forked.setParentId(1L);
         when(skillRepositoryService.forkRepository(2L, null, 1L)).thenReturn(forked);
@@ -109,15 +263,21 @@ class SkillRepositoryControllerTest {
 
     @Test
     void getFileTree_shouldReturnPaths() throws Exception {
-        when(skillRepositoryService.getFileTree(1L)).thenReturn(List.of("manifest.json", "skill.md"));
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
+        when(skillRepositoryService.getFileTree(1L)).thenReturn(List.of(
+                FileTreeEntry.builder().path("manifest.json").size(100).build(),
+                FileTreeEntry.builder().path("skill.md").size(200).build()
+        ));
         mockMvc.perform(get("/api/skill-repos/1/tree").with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data[0]").value("manifest.json"));
+                .andExpect(jsonPath("$.data[0].path").value("manifest.json"))
+                .andExpect(jsonPath("$.data[0].size").value(100));
     }
 
     @Test
     void getFileContent_shouldReturnContent() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
         when(skillRepositoryService.getFileContent(1L, "manifest.json")).thenReturn("{\"name\":\"test\"}");
         mockMvc.perform(get("/api/skill-repos/1/file?path=manifest.json").with(withUserId(1L)))
                 .andExpect(status().isOk())
@@ -131,6 +291,29 @@ class SkillRepositoryControllerTest {
         mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=true").with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void setVisibility_shouldSucceed_whenMakePrivate() throws Exception {
+        doNothing().when(skillRepositoryService).setVisibility(1L, 1L, false);
+        mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=false").with(withUserId(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void setVisibility_shouldReturn400_whenIsPublicMissing() throws Exception {
+        mockMvc.perform(patch("/api/skill-repos/1/visibility").with(withUserId(1L)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void setVisibility_shouldReturn500_whenServiceThrows() throws Exception {
+        doThrow(new com.ai.repo.exception.BusinessException(403, "Only the owning user can change visibility"))
+                .when(skillRepositoryService).setVisibility(1L, 2L, true);
+        mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=true").with(withUserId(2L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
     }
 
     @Test
@@ -167,6 +350,7 @@ class SkillRepositoryControllerTest {
 
     @Test
     void incrementDownloadCount_shouldSucceed() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
         doNothing().when(skillRepositoryService).incrementDownloadCount(1L);
         mockMvc.perform(post("/api/skill-repos/1/download").with(withAgentId(1L)))
                 .andExpect(status().isOk())
@@ -175,6 +359,7 @@ class SkillRepositoryControllerTest {
 
     @Test
     void incrementLikeCount_shouldSucceed() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
         doNothing().when(skillRepositoryService).incrementLikeCount(1L);
         mockMvc.perform(post("/api/skill-repos/1/like").with(withAgentId(1L)))
                 .andExpect(status().isOk())
@@ -237,6 +422,7 @@ class SkillRepositoryControllerTest {
 
     @Test
     void rateRepository_shouldSucceed() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
         com.ai.repo.dto.SkillRatingResponse response = new com.ai.repo.dto.SkillRatingResponse();
         response.setSkillId(1L);
         response.setRating(4);
@@ -256,6 +442,7 @@ class SkillRepositoryControllerTest {
 
     @Test
     void getRatingSummary_shouldReturnSummary() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
         com.ai.repo.dto.SkillRatingAverageResponse summary = new com.ai.repo.dto.SkillRatingAverageResponse();
         summary.setSkillId(1L);
         summary.setAverageRating(4.5);
@@ -269,6 +456,7 @@ class SkillRepositoryControllerTest {
 
     @Test
     void getRatings_shouldReturnList() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
         com.ai.repo.dto.SkillRatingResponse r = new com.ai.repo.dto.SkillRatingResponse();
         r.setSkillId(1L);
         r.setRating(5);
