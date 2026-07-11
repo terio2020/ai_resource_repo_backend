@@ -80,8 +80,7 @@
     </select>
 
     <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Column_List"/>
-        FROM repo_ratings
+        SELECT * FROM repo_ratings
         WHERE uid = #{uid}
     </select>
 

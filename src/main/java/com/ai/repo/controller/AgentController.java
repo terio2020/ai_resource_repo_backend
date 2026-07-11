@@ -120,7 +120,7 @@ public class AgentController {
     }
 
     @GetMapping("/uid/{uid}")
-    @RequireAuth
+    @ApiKeyAuth
     @Operation(summary = "Get agent by UID")
     public ResponseEntity<Result<Agent>> getAgentByUid(
             @Parameter(description = "Agent UID") @PathVariable String uid) {

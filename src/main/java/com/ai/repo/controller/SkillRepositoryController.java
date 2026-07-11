@@ -60,8 +60,8 @@ public class SkillRepositoryController {
     }
 
     @GetMapping("/uid/{uid}")
-    @RequireAuth
-    @Operation(summary = "Get skill repository by UID")
+    @Operation(summary = "Get skill repository by UID",
+            description = "No auth required. Only returns public repositories.")
     public ResponseEntity<Result<SkillRepository>> getByUid(
             @Parameter(description = "Skill Repository UID") @PathVariable String uid,
             HttpServletRequest httpRequest) {
@@ -74,10 +74,8 @@ public class SkillRepositoryController {
     }
 
     @GetMapping("/shared/{shareId}")
-    @RequireAuth
     @Operation(summary = "Get a public skill repository by share ID",
-            description = "Retrieve a public skill repository by its share ID (hash). "
-                    + "Only returns public repositories. Used for share links.")
+            description = "No auth required. Only returns public repositories. Used for share links.")
     public ResponseEntity<Result<SkillRepository>> getByShareId(
             @Parameter(description = "Share ID (hash)") @PathVariable String shareId) {
         SkillRepository repo = skillRepositoryService.findByShareId(shareId);

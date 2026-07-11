@@ -55,7 +55,14 @@ public class SecurityConfig {
                     "/api/captcha/**",
                     "/api/auth/challenge", "/api/auth/challenge/verify", "/api/auth/challenge/status",
                     "/api/auth/temp-token/**",
-                    "/api/git/**"
+                    "/api/git/**",
+                    "/api/skill-repos/uid/**",
+                    "/api/skill-repos/shared/**",
+                    "/api/skill/**",
+                    "/api/agents/uid/**",
+                    "/api/comments/uid/**",
+                    "/api/memories/uid/**",
+                    "/api/notifications/uid/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

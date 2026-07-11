@@ -2,7 +2,6 @@ package com.ai.repo.controller;
 
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.SkillRepository;
-import com.ai.repo.security.RequireAuth;
 import com.ai.repo.service.SkillRepositoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,9 +21,8 @@ public class SkillShareController {
     private SkillRepositoryService skillRepositoryService;
 
     @GetMapping("/{uid}")
-    @RequireAuth
     @Operation(summary = "Resolve a share link to a skill by UID",
-            description = "Agents use this to resolve share links like /skill/{uid} to the actual skill repository.")
+            description = "No auth required. Only returns public skills.")
     public ResponseEntity<Result<SkillRepository>> getByUid(
             @PathVariable String uid) {
         SkillRepository repo = skillRepositoryService.findByUid(uid);
