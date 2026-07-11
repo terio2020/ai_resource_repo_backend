@@ -6,6 +6,7 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SocialAccountMapper;
 import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.SocialAccountService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -97,6 +98,11 @@ public class SocialAccountServiceImpl implements SocialAccountService {
     }
 
     @Override
+    public SocialAccount findByUid(String uid) {
+        return socialAccountMapper.selectByUid(uid);
+    }
+
+    @Override
     public SocialAccount findByProviderAndProviderUserId(String provider, String providerUserId) {
         return socialAccountMapper.selectByProviderAndProviderUserId(provider, providerUserId);
     }
@@ -144,6 +150,7 @@ public class SocialAccountServiceImpl implements SocialAccountService {
 
         // Create social account link
         SocialAccount socialAccount = new SocialAccount();
+        socialAccount.setUid(UuidUtil.generate());
         socialAccount.setUserId(user.getId());
         socialAccount.setProvider(provider);
         socialAccount.setProviderUserId(providerUserId);
@@ -188,6 +195,7 @@ public class SocialAccountServiceImpl implements SocialAccountService {
 
         // Create social account link
         SocialAccount socialAccount = new SocialAccount();
+        socialAccount.setUid(UuidUtil.generate());
         socialAccount.setUserId(userId);
         socialAccount.setProvider(provider);
         socialAccount.setProviderUserId(providerUserId);

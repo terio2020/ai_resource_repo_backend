@@ -9,6 +9,8 @@ public interface SkillRepositoryService {
 
     SkillRepository findById(Long id);
 
+    SkillRepository findByUid(String uid);
+
     List<SkillRepository> findByAgentId(Long agentId);
 
     SkillRepository create(SkillRepository skillRepository);

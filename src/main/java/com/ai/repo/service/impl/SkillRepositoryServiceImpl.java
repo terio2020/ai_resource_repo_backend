@@ -7,6 +7,7 @@ import com.ai.repo.exception.FileNotAllowedException;
 import com.ai.repo.exception.RepositoryNotFoundException;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.SkillRepositoryService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
@@ -55,6 +56,11 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
         }
         ensureShareId(repo);
         return repo;
+    }
+
+    @Override
+    public SkillRepository findByUid(String uid) {
+        return skillRepositoryMapper.selectByUid(uid);
     }
 
     @Override
@@ -115,6 +121,9 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
             throw new BusinessException(500, "Failed to initialize Git repository");
         }
 
+        if (skillRepository.getUid() == null || skillRepository.getUid().isEmpty()) {
+            skillRepository.setUid(UuidUtil.generate());
+        }
         skillRepository.setCreatedAt(LocalDateTime.now());
         skillRepositoryMapper.insert(skillRepository);
         return skillRepository;

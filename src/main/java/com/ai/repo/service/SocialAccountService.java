@@ -8,6 +8,8 @@ import java.util.Map;
 
 public interface SocialAccountService {
 
+    SocialAccount findByUid(String uid);
+
     /**
      * Find social account by provider and provider user ID
      */

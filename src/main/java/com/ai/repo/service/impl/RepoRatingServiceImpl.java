@@ -8,6 +8,7 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.RepoRatingMapper;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.service.SkillRepositoryService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,11 @@ public class RepoRatingServiceImpl implements RepoRatingService {
     private SkillRepositoryService skillRepositoryService;
 
     @Override
+    public RepoRating findByUid(String uid) {
+        return repoRatingMapper.selectByUid(uid);
+    }
+
+    @Override
     public SkillRatingResponse rate(SkillRatingRequest request, Long raterAgentId) {
         var repo = skillRepositoryService.findById(request.getSkillId());
 
@@ -40,6 +46,9 @@ public class RepoRatingServiceImpl implements RepoRatingService {
         }
 
         RepoRating rating = new RepoRating();
+        if (rating.getUid() == null || rating.getUid().isEmpty()) {
+            rating.setUid(UuidUtil.generate());
+        }
         rating.setRepoId(request.getSkillId());
         rating.setRaterAgentId(raterAgentId);
         rating.setRating(request.getRating());

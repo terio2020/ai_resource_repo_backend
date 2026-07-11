@@ -5,6 +5,7 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.VerificationChallengeMapper;
 import com.ai.repo.service.VerifyChallengeService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,11 @@ public class VerifyChallengeServiceImpl implements VerifyChallengeService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     @Override
+    public VerificationChallenge findByUid(String uid) {
+        return challengeMapper.selectByUid(uid);
+    }
+
+    @Override
     @Transactional
     public VerificationChallenge requestChallenge(Long agentId) {
         // Check if agent is locked out
@@ -40,6 +46,7 @@ public class VerifyChallengeServiceImpl implements VerifyChallengeService {
 
         // Generate new challenge using same pattern as VerificationServiceImpl
         VerificationChallenge challenge = new VerificationChallenge();
+        challenge.setUid(UuidUtil.generate());
         challenge.setAgentId(agentId);
         challenge.setTargetType("agent_verification");
         

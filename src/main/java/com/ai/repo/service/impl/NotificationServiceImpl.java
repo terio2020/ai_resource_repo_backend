@@ -3,6 +3,7 @@ package com.ai.repo.service.impl;
 import com.ai.repo.entity.Notification;
 import com.ai.repo.mapper.NotificationMapper;
 import com.ai.repo.service.NotificationService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,9 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public Notification create(Notification notification) {
+        if (notification.getUid() == null || notification.getUid().isEmpty()) {
+            notification.setUid(UuidUtil.generate());
+        }
         notification.setIsRead(false);
         notification.setCreatedAt(LocalDateTime.now());
         notificationMapper.insert(notification);
@@ -34,6 +38,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public Notification findById(Long id) {
         return notificationMapper.selectById(id);
+    }
+
+    @Override
+    public Notification findByUid(String uid) {
+        return notificationMapper.selectByUid(uid);
     }
 
     @Override

@@ -8,6 +8,7 @@ import com.ai.repo.service.ContentModerationService;
 import com.ai.repo.service.PackageContributionService;
 import com.ai.repo.service.PackageStorageService;
 import com.ai.repo.util.StoragePathResolver;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -84,6 +85,7 @@ public class PackageContributionServiceImpl implements PackageContributionServic
         moderateMultipartFiles(files);
 
         PackageContribution pc = new PackageContribution();
+        pc.setUid(UuidUtil.generate());
         pc.setPackageId(packageId);
         pc.setSourceVersionId(sourceVersionId);
         pc.setContributorUserId(userId);
@@ -233,6 +235,11 @@ public class PackageContributionServiceImpl implements PackageContributionServic
         return toResponse(pc, contributionFileMapper.selectByContributionId(contributionId),
                           ap, packageVersionMapper.selectById(pc.getSourceVersionId()),
                           pc.getTargetVersionId() != null ? packageVersionMapper.selectById(pc.getTargetVersionId()) : null);
+    }
+
+    @Override
+    public PackageContribution findByUid(String uid) {
+        return packageContributionMapper.selectByUid(uid);
     }
 
     @Override

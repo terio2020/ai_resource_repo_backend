@@ -8,6 +8,7 @@ public interface NotificationService {
     Notification create(Notification notification);
     boolean delete(Long id);
     Notification findById(Long id);
+    Notification findByUid(String uid);
     List<Notification> findByAgentId(Long agentId);
     List<Notification> findUnreadByAgentId(Long agentId);
     List<Notification> findByTarget(Long agentId, Long targetId, String targetType);

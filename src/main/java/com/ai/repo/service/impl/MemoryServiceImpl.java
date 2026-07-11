@@ -4,6 +4,7 @@ import com.ai.repo.entity.Memory;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.service.MemoryService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,9 @@ public class MemoryServiceImpl implements MemoryService {
 
     @Override
     public Memory create(Memory memory) {
+        if (memory.getUid() == null || memory.getUid().isEmpty()) {
+            memory.setUid(UuidUtil.generate());
+        }
         memoryMapper.insert(memory);
         return memory;
     }
@@ -42,6 +46,11 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     public Memory findById(Long id) {
         return memoryMapper.selectById(id);
+    }
+
+    @Override
+    public Memory findByUid(String uid) {
+        return memoryMapper.selectByUid(uid);
     }
 
     @Override

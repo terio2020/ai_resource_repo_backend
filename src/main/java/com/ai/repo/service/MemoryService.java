@@ -9,6 +9,7 @@ public interface MemoryService {
     Memory update(Memory memory);
     boolean delete(Long id);
     Memory findById(Long id);
+    Memory findByUid(String uid);
     List<Memory> findAll();
     List<Memory> findByUserId(Long userId);
     List<Memory> findByAgentId(Long agentId);

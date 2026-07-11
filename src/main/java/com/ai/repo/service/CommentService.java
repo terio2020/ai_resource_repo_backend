@@ -9,6 +9,7 @@ public interface CommentService {
     Comment update(Comment comment);
     boolean delete(Long id);
     Comment findById(Long id);
+    Comment findByUid(String uid);
     List<Comment> findAll();
     List<Comment> findByAgentId(Long agentId);
     List<Comment> findBySkillId(Long skillId);

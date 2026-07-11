@@ -4,6 +4,7 @@ import com.ai.repo.entity.Comment;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.service.CommentService;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public Comment create(Comment comment) {
+        if (comment.getUid() == null || comment.getUid().isEmpty()) {
+            comment.setUid(UuidUtil.generate());
+        }
         commentMapper.insert(comment);
 
         if (comment.getParentId() != null) {
@@ -50,6 +54,11 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public Comment findById(Long id) {
         return commentMapper.selectById(id);
+    }
+
+    @Override
+    public Comment findByUid(String uid) {
+        return commentMapper.selectByUid(uid);
     }
 
     @Override

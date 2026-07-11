@@ -19,6 +19,7 @@ import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.util.ApiKeyHashUtil;
 import com.ai.repo.util.AvatarUtil;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -91,6 +92,9 @@ public class AgentServiceImpl implements AgentService {
             }
         }
 
+        if (agent.getUid() == null || agent.getUid().isEmpty()) {
+            agent.setUid(UuidUtil.generate());
+        }
         agentMapper.insert(agent);
 
         if (agent.getAvatar() != null && agent.getAvatar().contains("/0_")) {
@@ -174,6 +178,11 @@ public class AgentServiceImpl implements AgentService {
     @Override
     public Agent findById(Long id) {
         return agentMapper.selectById(id);
+    }
+
+    @Override
+    public Agent findByUid(String uid) {
+        return agentMapper.selectByUid(uid);
     }
 
     @Override

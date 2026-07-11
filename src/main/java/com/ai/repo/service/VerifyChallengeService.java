@@ -3,6 +3,8 @@ package com.ai.repo.service;
 import com.ai.repo.entity.VerificationChallenge;
 
 public interface VerifyChallengeService {
+    VerificationChallenge findByUid(String uid);
+
     /**
      * Request a new challenge for the agent.
      * Checks for lockout before generating.

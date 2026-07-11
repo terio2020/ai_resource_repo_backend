@@ -8,6 +8,7 @@ import com.ai.repo.jwt.JwtProvider;
 import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
+import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +37,9 @@ public class UserServiceImpl implements UserService {
         }
         if (passwordEncoderUtil.needsEncoding(user.getPassword())) {
             user.setPassword(passwordEncoderUtil.encode(user.getPassword()));
+        }
+        if (user.getUid() == null || user.getUid().isEmpty()) {
+            user.setUid(UuidUtil.generate());
         }
         userMapper.insert(user);
         return user;
@@ -103,6 +107,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public User findById(Long id) {
         return userMapper.selectById(id);
+    }
+
+    @Override
+    public User findByUid(String uid) {
+        return userMapper.selectByUid(uid);
     }
 
     @Override

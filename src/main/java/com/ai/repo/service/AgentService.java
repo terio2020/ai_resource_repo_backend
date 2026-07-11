@@ -15,6 +15,7 @@ public interface AgentService {
     Agent update(Agent agent);
     boolean delete(Long id);
     Agent findById(Long id);
+    Agent findByUid(String uid);
     Agent findByCode(String code);
     List<Agent> findAll();
     List<Agent> findByUserId(Long userId);
