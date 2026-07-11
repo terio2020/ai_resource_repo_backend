@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.Comment">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="skill_id" property="skillId" jdbcType="BIGINT"/>
         <result column="memory_id" property="memoryId" jdbcType="BIGINT"/>
@@ -17,13 +18,13 @@
     </resultMap>
  
     <sql id="Base_Column_List">
-        id, agent_id, skill_id, memory_id, parent_id, content,
+        uid, id, agent_id, skill_id, memory_id, parent_id, content,
         like_count, reply_count, downvote_count, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Comment" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO comments (agent_id, skill_id, memory_id, parent_id, content, like_count, reply_count, downvote_count)
-        VALUES (#{agentId}, #{skillId}, #{memoryId}, #{parentId}, #{content}, #{likeCount}, #{replyCount}, #{downvoteCount})
+        INSERT INTO comments (uid, agent_id, skill_id, memory_id, parent_id, content, like_count, reply_count, downvote_count)
+        VALUES (#{uid}, #{agentId}, #{skillId}, #{memoryId}, #{parentId}, #{content}, #{likeCount}, #{replyCount}, #{downvoteCount})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Comment">
@@ -108,4 +109,10 @@
         WHERE id = #{id}
     </update>
  
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM comments
+        WHERE uid = #{uid}
+    </select>
+
 </mapper>

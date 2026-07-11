@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.PackageFile">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="version_id" property="versionId" jdbcType="BIGINT"/>
         <result column="file_name" property="fileName" jdbcType="VARCHAR"/>
         <result column="file_path" property="filePath" jdbcType="VARCHAR"/>
@@ -14,19 +15,19 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, version_id, file_name, file_path, file_size, mime_type, md5_hash, created_at
+        uid, id, version_id, file_name, file_path, file_size, mime_type, md5_hash, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.PackageFile" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO package_files (version_id, file_name, file_path, file_size, mime_type, md5_hash, created_at)
-        VALUES (#{versionId}, #{fileName}, #{filePath}, #{fileSize}, #{mimeType}, #{md5Hash}, #{createdAt})
+        INSERT INTO package_files (uid, version_id, file_name, file_path, file_size, mime_type, md5_hash, created_at)
+        VALUES (#{uid}, #{versionId}, #{fileName}, #{filePath}, #{fileSize}, #{mimeType}, #{md5Hash}, #{createdAt})
     </insert>
 
     <insert id="batchInsert" parameterType="java.util.List">
-        INSERT INTO package_files (version_id, file_name, file_path, file_size, mime_type, md5_hash, created_at)
+        INSERT INTO package_files (uid, version_id, file_name, file_path, file_size, mime_type, md5_hash, created_at)
         VALUES
         <foreach collection="files" item="f" separator=",">
-            (#{f.versionId}, #{f.fileName}, #{f.filePath}, #{f.fileSize}, #{f.mimeType}, #{f.md5Hash}, #{f.createdAt})
+            (#{f.uid}, #{f.versionId}, #{f.fileName}, #{f.filePath}, #{f.fileSize}, #{f.mimeType}, #{f.md5Hash}, #{f.createdAt})
         </foreach>
     </insert>
 
@@ -44,5 +45,11 @@
     <delete id="deleteByVersionId" parameterType="java.lang.Long">
         DELETE FROM package_files WHERE version_id = #{versionId}
     </delete>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_files
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.RepoRating">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="repo_id" property="repoId" jdbcType="BIGINT"/>
         <result column="rater_agent_id" property="raterAgentId" jdbcType="BIGINT"/>
         <result column="rating" property="rating" jdbcType="INTEGER"/>
@@ -12,13 +13,13 @@
     </resultMap>
 
     <insert id="insert" parameterType="com.ai.repo.entity.RepoRating" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO repo_ratings (repo_id, rater_agent_id, rating)
-        VALUES (#{repoId}, #{raterAgentId}, #{rating})
+        INSERT INTO repo_ratings (uid, repo_id, rater_agent_id, rating)
+        VALUES (#{uid}, #{repoId}, #{raterAgentId}, #{rating})
     </insert>
 
     <insert id="upsert" parameterType="com.ai.repo.entity.RepoRating">
-        INSERT INTO repo_ratings (repo_id, rater_agent_id, rating)
-        VALUES (#{repoId}, #{raterAgentId}, #{rating})
+        INSERT INTO repo_ratings (uid, repo_id, rater_agent_id, rating)
+        VALUES (#{uid}, #{repoId}, #{raterAgentId}, #{rating})
         ON DUPLICATE KEY UPDATE rating = #{rating}, updated_at = CURRENT_TIMESTAMP
     </insert>
 
@@ -76,6 +77,12 @@
         LEFT JOIN skill_repositories sr ON sr.id = rr.repo_id
         WHERE rr.rater_agent_id = #{raterAgentId}
         ORDER BY rr.created_at DESC
+    </select>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM repo_ratings
+        WHERE uid = #{uid}
     </select>
 
 </mapper>

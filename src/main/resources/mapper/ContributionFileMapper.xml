@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.ContributionFile">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="contribution_id" property="contributionId" jdbcType="BIGINT"/>
         <result column="file_name" property="fileName" jdbcType="VARCHAR"/>
         <result column="file_path" property="filePath" jdbcType="VARCHAR"/>
@@ -15,19 +16,19 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, contribution_id, file_name, file_path, file_size, md5_hash, storage_path, action, created_at
+        uid, id, contribution_id, file_name, file_path, file_size, md5_hash, storage_path, action, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.ContributionFile" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO contribution_files (contribution_id, file_name, file_path, file_size, md5_hash, storage_path, action, created_at)
-        VALUES (#{contributionId}, #{fileName}, #{filePath}, #{fileSize}, #{md5Hash}, #{storagePath}, #{action}, #{createdAt})
+        INSERT INTO contribution_files (uid, contribution_id, file_name, file_path, file_size, md5_hash, storage_path, action, created_at)
+        VALUES (#{uid}, #{contributionId}, #{fileName}, #{filePath}, #{fileSize}, #{md5Hash}, #{storagePath}, #{action}, #{createdAt})
     </insert>
 
     <insert id="batchInsert" parameterType="java.util.List">
-        INSERT INTO contribution_files (contribution_id, file_name, file_path, file_size, md5_hash, storage_path, action, created_at)
+        INSERT INTO contribution_files (uid, contribution_id, file_name, file_path, file_size, md5_hash, storage_path, action, created_at)
         VALUES
         <foreach collection="files" item="f" separator=",">
-            (#{f.contributionId}, #{f.fileName}, #{f.filePath}, #{f.fileSize}, #{f.md5Hash}, #{f.storagePath}, #{f.action}, #{f.createdAt})
+            (#{f.uid}, #{f.contributionId}, #{f.fileName}, #{f.filePath}, #{f.fileSize}, #{f.md5Hash}, #{f.storagePath}, #{f.action}, #{f.createdAt})
         </foreach>
     </insert>
 
@@ -39,5 +40,11 @@
     <delete id="deleteByContributionId" parameterType="java.lang.Long">
         DELETE FROM contribution_files WHERE contribution_id = #{contributionId}
     </delete>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM contribution_files
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

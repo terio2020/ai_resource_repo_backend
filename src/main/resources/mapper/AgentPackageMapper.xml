@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.AgentPackage">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="package_type" property="packageType" jdbcType="VARCHAR"/>
@@ -18,14 +19,14 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, agent_id, package_type, name, description, tags, is_public,
+        uid, id, user_id, agent_id, package_type, name, description, tags, is_public,
         current_version_id, download_count, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.AgentPackage" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO agent_packages (user_id, agent_id, package_type, name, description, tags, is_public,
+        INSERT INTO agent_packages (uid, user_id, agent_id, package_type, name, description, tags, is_public,
                                     current_version_id, download_count, created_at)
-        VALUES (#{userId}, #{agentId}, #{packageType}, #{name}, #{description}, #{tags}, #{isPublic},
+        VALUES (#{uid}, #{userId}, #{agentId}, #{packageType}, #{name}, #{description}, #{tags}, #{isPublic},
                 #{currentVersionId}, #{downloadCount}, #{createdAt})
     </insert>
 
@@ -109,5 +110,11 @@
         SET current_version_id = #{versionId}, updated_at = NOW()
         WHERE id = #{id}
     </update>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agent_packages
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

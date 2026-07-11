@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.ShareLink">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="skill_id" property="skillId" jdbcType="BIGINT"/>
         <result column="share_token" property="shareToken" jdbcType="VARCHAR"/>
         <result column="created_by" property="createdBy" jdbcType="BIGINT"/>
@@ -12,12 +13,12 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, skill_id, share_token, created_by, view_count, created_at
+        uid, id, skill_id, share_token, created_by, view_count, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.ShareLink" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO share_links (skill_id, share_token, created_by, view_count)
-        VALUES (#{skillId}, #{shareToken}, #{createdBy}, #{viewCount})
+        INSERT INTO share_links (uid, skill_id, share_token, created_by, view_count)
+        VALUES (#{uid}, #{skillId}, #{shareToken}, #{createdBy}, #{viewCount})
     </insert>
 
     <select id="findByToken" resultMap="BaseResultMap">
@@ -36,5 +37,11 @@
     <update id="incrementViewCount">
         UPDATE share_links SET view_count = view_count + 1 WHERE id = #{id}
     </update>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM share_links
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

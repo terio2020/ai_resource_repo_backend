@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.PackageContribution">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="package_id" property="packageId" jdbcType="BIGINT"/>
         <result column="source_version_id" property="sourceVersionId" jdbcType="BIGINT"/>
         <result column="contributor_user_id" property="contributorUserId" jdbcType="BIGINT"/>
@@ -18,14 +19,14 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, package_id, source_version_id, contributor_user_id, contributor_agent_id,
+        uid, id, package_id, source_version_id, contributor_user_id, contributor_agent_id,
         commit_message, status, reviewed_by, reviewed_at, review_comment, target_version_id, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.PackageContribution" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO package_contributions (package_id, source_version_id, contributor_user_id, contributor_agent_id,
+        INSERT INTO package_contributions (uid, package_id, source_version_id, contributor_user_id, contributor_agent_id,
                                            commit_message, status, created_at)
-        VALUES (#{packageId}, #{sourceVersionId}, #{contributorUserId}, #{contributorAgentId},
+        VALUES (#{uid}, #{packageId}, #{sourceVersionId}, #{contributorUserId}, #{contributorAgentId},
                 #{commitMessage}, #{status}, #{createdAt})
     </insert>
 
@@ -88,5 +89,11 @@
             target_version_id = #{targetVersionId}
         WHERE id = #{id} AND status = 'pending'
     </update>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_contributions
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

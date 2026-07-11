@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.Agent">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="name" property="name" jdbcType="VARCHAR"/>
         <result column="code" property="code" jdbcType="VARCHAR"/>
@@ -31,7 +32,7 @@
     </resultMap>
  
     <sql id="Base_Column_List">
-        id, user_id, name, code, status, type, config, sync_enabled,
+        uid, id, user_id, name, code, status, type, config, sync_enabled,
         last_sync_at, last_heartbeat_at, created_at, updated_at,
         display_name, description, avatar, avatar_prompt, api_key, api_key_hash, is_claimed,
         claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
@@ -39,11 +40,11 @@
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO agents (user_id, name, code, status, type, config, sync_enabled,
+        INSERT INTO agents (uid, user_id, name, code, status, type, config, sync_enabled,
                             last_sync_at, last_heartbeat_at, display_name, description, avatar,
                             avatar_prompt, api_key, api_key_hash, is_claimed, claim_url, verification_code,
                     xia_zheng_status, xia_zheng_url, karma)
-        VALUES (#{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
+        VALUES (#{uid}, #{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
                 #{lastSyncAt}, #{lastHeartbeatAt},                 #{displayName}, #{description}, #{avatar},
                 #{avatarPrompt}, #{apiKey}, #{apiKeyHash}, #{isClaimed}, #{claimUrl}, #{verificationCode},
                 #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma})
@@ -243,5 +244,11 @@
     <update id="updateChallengeVerified">
         UPDATE agents SET challenge_verified = #{verified} WHERE id = #{id}
     </update>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM agents
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

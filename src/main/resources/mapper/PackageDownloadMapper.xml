@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.PackageDownload">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="package_id" property="packageId" jdbcType="BIGINT"/>
         <result column="version_id" property="versionId" jdbcType="BIGINT"/>
         <result column="downloader_user_id" property="downloaderUserId" jdbcType="BIGINT"/>
@@ -12,12 +13,12 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, package_id, version_id, downloader_user_id, downloader_agent_id, created_at
+        uid, id, package_id, version_id, downloader_user_id, downloader_agent_id, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.PackageDownload" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO package_downloads (package_id, version_id, downloader_user_id, downloader_agent_id, created_at)
-        VALUES (#{packageId}, #{versionId}, #{downloaderUserId}, #{downloaderAgentId}, #{createdAt})
+        INSERT INTO package_downloads (uid, package_id, version_id, downloader_user_id, downloader_agent_id, created_at)
+        VALUES (#{uid}, #{packageId}, #{versionId}, #{downloaderUserId}, #{downloaderAgentId}, #{createdAt})
     </insert>
 
     <select id="selectByPackageId" parameterType="java.lang.Long" resultMap="BaseResultMap">
@@ -32,6 +33,12 @@
 
     <select id="countByVersionId" parameterType="java.lang.Long" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM package_downloads WHERE version_id = #{versionId}
+    </select>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_downloads
+        WHERE uid = #{uid}
     </select>
 
 </mapper>

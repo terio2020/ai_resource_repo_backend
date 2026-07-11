@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.FileUploadLog">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="original_file_name" property="originalFileName" jdbcType="VARCHAR"/>
@@ -16,14 +17,14 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, agent_id, original_file_name, stored_file_name, file_path,
+        uid, id, user_id, agent_id, original_file_name, stored_file_name, file_path,
         file_type, file_size, upload_time, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.FileUploadLog" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO file_upload_logs (user_id, agent_id, original_file_name, stored_file_name,
+        INSERT INTO file_upload_logs (uid, user_id, agent_id, original_file_name, stored_file_name,
                                         file_path, file_type, file_size, upload_time)
-        VALUES (#{userId}, #{agentId}, #{originalFileName}, #{storedFileName},
+        VALUES (#{uid}, #{userId}, #{agentId}, #{originalFileName}, #{storedFileName},
                 #{filePath}, #{fileType}, #{fileSize}, #{uploadTime})
     </insert>
 
@@ -59,6 +60,12 @@
         FROM file_upload_logs
         WHERE agent_id = #{agentId}
           AND file_type = #{fileType}
+    </select>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM file_upload_logs
+        WHERE uid = #{uid}
     </select>
 
 </mapper>

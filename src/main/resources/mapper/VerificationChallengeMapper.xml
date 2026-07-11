@@ -4,6 +4,7 @@
  
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.VerificationChallenge">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="target_id" property="targetId" jdbcType="BIGINT"/>
         <result column="target_type" property="targetType" jdbcType="VARCHAR"/>
@@ -20,16 +21,16 @@
     </resultMap>
  
     <sql id="Base_Column_List">
-        id, agent_id, target_id, target_type, verification_code, challenge_text,
+        uid, id, agent_id, target_id, target_type, verification_code, challenge_text,
         answer, attempt_count, max_attempts, expires_at, status, created_at,
         consecutive_failures, locked_until
     </sql>
  
     <insert id="insert" parameterType="com.ai.repo.entity.VerificationChallenge" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO verification_challenges (agent_id, target_id, target_type, verification_code, challenge_text,
+        INSERT INTO verification_challenges (uid, agent_id, target_id, target_type, verification_code, challenge_text,
                                         answer, attempt_count, max_attempts, expires_at, status,
                                         consecutive_failures, locked_until)
-        VALUES (#{agentId}, #{targetId}, #{targetType}, #{verificationCode}, #{challengeText},
+        VALUES (#{uid}, #{agentId}, #{targetId}, #{targetType}, #{verificationCode}, #{challengeText},
                 #{answer}, #{attemptCount}, #{maxAttempts}, #{expiresAt}, #{status},
                 #{consecutiveFailures}, #{lockedUntil})
     </insert>
@@ -72,4 +73,10 @@
         WHERE agent_id = #{agentId} AND status = 'locked' AND locked_until > NOW()
     </select>
  
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM verification_challenges
+        WHERE uid = #{uid}
+    </select>
+
 </mapper>

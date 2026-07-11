@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.PackageVersion">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="package_id" property="packageId" jdbcType="BIGINT"/>
         <result column="version_tag" property="versionTag" jdbcType="VARCHAR"/>
         <result column="storage_path" property="storagePath" jdbcType="VARCHAR"/>
@@ -16,14 +17,14 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, package_id, version_tag, storage_path, file_count, total_size,
+        uid, id, package_id, version_tag, storage_path, file_count, total_size,
         commit_message, status, source_contribution_id, created_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.PackageVersion" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO package_versions (package_id, version_tag, storage_path, file_count, total_size,
+        INSERT INTO package_versions (uid, package_id, version_tag, storage_path, file_count, total_size,
                                       commit_message, status, source_contribution_id, created_at)
-        VALUES (#{packageId}, #{versionTag}, #{storagePath}, #{fileCount}, #{totalSize},
+        VALUES (#{uid}, #{packageId}, #{versionTag}, #{storagePath}, #{fileCount}, #{totalSize},
                 #{commitMessage}, #{status}, #{sourceContributionId}, #{createdAt})
     </insert>
 
@@ -51,5 +52,11 @@
     <update id="updateStatus">
         UPDATE package_versions SET status = #{status} WHERE id = #{id}
     </update>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM package_versions
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

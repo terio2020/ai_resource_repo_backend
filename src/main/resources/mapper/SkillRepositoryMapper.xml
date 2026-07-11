@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.SkillRepository">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="skill_name" property="skillName" jdbcType="VARCHAR"/>
@@ -24,17 +25,17 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, agent_id, user_id, skill_name, version, description, tags, category, type,
+        uid, id, agent_id, user_id, skill_name, version, description, tags, category, type,
         enabled, is_public, share_id, repo_path, parent_id, download_count, like_count,
         created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.SkillRepository" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO skill_repositories
-            (agent_id, user_id, skill_name, version, description, tags, category, type,
+            (uid, agent_id, user_id, skill_name, version, description, tags, category, type,
              enabled, is_public, share_id, repo_path, parent_id, download_count, like_count)
         VALUES
-            (#{agentId}, #{userId}, #{skillName}, #{version}, #{description}, #{tags}, #{category}, #{type},
+            (#{uid}, #{agentId}, #{userId}, #{skillName}, #{version}, #{description}, #{tags}, #{category}, #{type},
              #{enabled}, #{isPublic}, #{shareId}, #{repoPath}, #{parentId}, #{downloadCount}, #{likeCount})
     </insert>
 
@@ -186,5 +187,11 @@
         SET share_id = #{shareId}
         WHERE id = #{id} AND (share_id IS NULL OR share_id = '')
     </update>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skill_repositories
+        WHERE uid = #{uid}
+    </select>
 
 </mapper>

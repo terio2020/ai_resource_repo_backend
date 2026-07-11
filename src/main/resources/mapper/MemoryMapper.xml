@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.Memory">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
         <result column="title" property="title" jdbcType="VARCHAR"/>
@@ -24,14 +25,14 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, agent_id, title, content, version, description, file_path, file_size,
+        uid, id, user_id, agent_id, title, content, version, description, file_path, file_size,
         mime_type, tags, category, is_public, download_count, like_count, metadata, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Memory" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO memories (user_id, agent_id, title, content, version, description, file_path, file_size,
+        INSERT INTO memories (uid, user_id, agent_id, title, content, version, description, file_path, file_size,
                            mime_type, tags, category, is_public, download_count, like_count, metadata)
-        VALUES (#{userId}, #{agentId}, #{title}, #{content}, #{version}, #{description}, #{filePath}, #{fileSize},
+        VALUES (#{uid}, #{userId}, #{agentId}, #{title}, #{content}, #{version}, #{description}, #{filePath}, #{fileSize},
                 #{mimeType}, #{tags}, #{category}, #{isPublic}, #{downloadCount}, #{likeCount}, #{metadata})
     </insert>
 
@@ -184,6 +185,12 @@
             #{id}
         </foreach>
         GROUP BY agent_id
+    </select>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE uid = #{uid}
     </select>
 
 </mapper>

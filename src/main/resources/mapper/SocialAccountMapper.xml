@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="com.ai.repo.entity.SocialAccount">
         <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="user_id" property="userId" jdbcType="BIGINT"/>
         <result column="provider" property="provider" jdbcType="VARCHAR"/>
         <result column="provider_user_id" property="providerUserId" jdbcType="VARCHAR"/>
@@ -18,14 +19,14 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, provider, provider_user_id, access_token, refresh_token,
+        uid, id, user_id, provider, provider_user_id, access_token, refresh_token,
         email, nickname, avatar, token_expires_at, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.SocialAccount" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO social_accounts (user_id, provider, provider_user_id, access_token, refresh_token,
+        INSERT INTO social_accounts (uid, user_id, provider, provider_user_id, access_token, refresh_token,
                                           email, nickname, avatar, token_expires_at, created_at, updated_at)
-        VALUES (#{userId}, #{provider}, #{providerUserId}, #{accessToken}, #{refreshToken},
+        VALUES (#{uid}, #{userId}, #{provider}, #{providerUserId}, #{accessToken}, #{refreshToken},
                 #{email}, #{nickname}, #{avatar}, #{tokenExpiresAt}, NOW(), NOW())
     </insert>
 
@@ -79,6 +80,12 @@
         FROM social_accounts
         WHERE provider = #{provider}
         ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM social_accounts
+        WHERE uid = #{uid}
     </select>
 
 </mapper>
