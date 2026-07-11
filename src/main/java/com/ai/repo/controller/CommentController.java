@@ -66,6 +66,15 @@ public class CommentController {
         return Result.ok(comment);
     }
 
+    @GetMapping("/uid/{uid}")
+    @ApiKeyAuth
+    @Operation(summary = "Get comment by UID")
+    public ResponseEntity<Result<Comment>> getCommentByUid(
+            @Parameter(description = "Comment UID") @PathVariable String uid) {
+        Comment comment = commentService.findByUid(uid);
+        return Result.ok(comment);
+    }
+
     @GetMapping
     @ApiKeyAuth
     @Operation(summary = "Get all comments", description = "Retrieve all available comments")

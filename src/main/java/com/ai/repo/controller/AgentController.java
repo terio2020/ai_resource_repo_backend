@@ -119,6 +119,18 @@ public class AgentController {
         return Result.ok(agent);
     }
 
+    @GetMapping("/uid/{uid}")
+    @RequireAuth
+    @Operation(summary = "Get agent by UID")
+    public ResponseEntity<Result<Agent>> getAgentByUid(
+            @Parameter(description = "Agent UID") @PathVariable String uid) {
+        Agent agent = agentService.findByUid(uid);
+        if (agent == null) {
+            throw new BusinessException("Agent not found");
+        }
+        return Result.ok(agent);
+    }
+
     @GetMapping("/code/{code}")
     @RequireAuth
     @Operation(summary = "Get agent by code", description = "Retrieve a specific agent by its code")

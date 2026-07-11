@@ -45,6 +45,26 @@ public class NotificationController {
         return Result.ok(notification);
     }
 
+    @GetMapping("/uid/{uid}")
+    @ApiKeyAuth
+    @Operation(summary = "Get notification by UID")
+    public ResponseEntity<Result<Notification>> getNotificationByUid(
+            @Parameter(description = "Notification UID") @PathVariable String uid,
+            HttpServletRequest httpRequest) {
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        Notification notification = notificationService.findByUid(uid);
+
+        if (notification == null) {
+            return Result.fail(404, "Notification not found");
+        }
+
+        if (!notification.getAgentId().equals(agentId)) {
+            return Result.fail(403, "Access denied");
+        }
+
+        return Result.ok(notification);
+    }
+
     @GetMapping
     @ApiKeyAuth
     @Operation(summary = "Get notifications", description = "Retrieve notifications for authenticated agent")

@@ -59,6 +59,20 @@ public class SkillRepositoryController {
         return Result.ok(repo);
     }
 
+    @GetMapping("/uid/{uid}")
+    @RequireAuth
+    @Operation(summary = "Get skill repository by UID")
+    public ResponseEntity<Result<SkillRepository>> getByUid(
+            @Parameter(description = "Skill Repository UID") @PathVariable String uid,
+            HttpServletRequest httpRequest) {
+        SkillRepository repo = skillRepositoryService.findByUid(uid);
+        if (repo == null) {
+            throw new com.ai.repo.exception.RepositoryNotFoundException("Skill not found");
+        }
+        requireViewAccess(repo, httpRequest);
+        return Result.ok(repo);
+    }
+
     @GetMapping("/shared/{shareId}")
     @RequireAuth
     @Operation(summary = "Get a public skill repository by share ID",

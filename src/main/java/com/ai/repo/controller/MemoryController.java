@@ -127,6 +127,26 @@ public class MemoryController {
         return Result.ok(memory);
     }
 
+    @GetMapping("/uid/{uid}")
+    @ApiKeyAuth
+    @Operation(summary = "Get memory by UID")
+    public ResponseEntity<Result<Memory>> getMemoryByUid(
+            @Parameter(description = "Memory UID") @PathVariable String uid,
+            HttpServletRequest httpRequest) {
+        Memory memory = memoryService.findByUid(uid);
+        if (memory == null) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        boolean isOwner = (callerUserId != null && callerUserId.equals(memory.getUserId()))
+                || (callerAgentId != null && callerAgentId.equals(memory.getAgentId()));
+        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
+        return Result.ok(memory);
+    }
+
     @PutMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
