@@ -24,6 +24,8 @@ public interface SkillRepositoryMapper {
 
     SkillRepository selectById(Long id);
 
+    SkillRepository selectByUid(@Param("uid") String uid);
+
     SkillRepository selectByRepoPath(@Param("repoPath") String repoPath);
 
     List<SkillRepository> selectByAgentId(Long agentId);

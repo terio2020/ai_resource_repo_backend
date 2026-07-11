@@ -13,6 +13,7 @@ public interface AgentPackageMapper {
     int deleteById(Long id);
     int deleteByAgentId(@Param("agentId") Long agentId);
     AgentPackage selectById(Long id);
+    AgentPackage selectByUid(@Param("uid") String uid);
     List<AgentPackage> selectByAgentId(@Param("agentId") Long agentId);
     List<AgentPackage> selectByUserId(@Param("userId") Long userId);
     List<AgentPackage> selectPublic();

@@ -2,6 +2,7 @@ package com.ai.repo.mapper;
 
 import com.ai.repo.entity.Comment;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -12,6 +13,7 @@ public interface CommentMapper {
     int deleteById(Long id);
     int deleteByAgentId(Long agentId);
     Comment selectById(Long id);
+    Comment selectByUid(@Param("uid") String uid);
     List<Comment> selectAll();
     List<Comment> selectByAgentId(Long agentId);
     List<Comment> selectBySkillId(Long skillId);

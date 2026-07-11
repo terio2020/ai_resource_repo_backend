@@ -9,6 +9,7 @@ import java.util.List;
 @Mapper
 public interface PackageDownloadMapper {
     int insert(PackageDownload download);
+    PackageDownload selectByUid(@Param("uid") String uid);
     List<PackageDownload> selectByPackageId(@Param("packageId") Long packageId);
     int countByPackageId(@Param("packageId") Long packageId);
     int countByVersionId(@Param("versionId") Long versionId);

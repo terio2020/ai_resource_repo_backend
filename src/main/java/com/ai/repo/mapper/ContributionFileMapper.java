@@ -9,6 +9,7 @@ import java.util.List;
 @Mapper
 public interface ContributionFileMapper {
     int insert(ContributionFile contributionFile);
+    ContributionFile selectByUid(@Param("uid") String uid);
     int batchInsert(@Param("files") List<ContributionFile> files);
     List<ContributionFile> selectByContributionId(@Param("contributionId") Long contributionId);
     int deleteByContributionId(@Param("contributionId") Long contributionId);

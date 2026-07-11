@@ -10,6 +10,7 @@ import java.util.List;
 public interface PackageVersionMapper {
     int insert(PackageVersion packageVersion);
     PackageVersion selectById(Long id);
+    PackageVersion selectByUid(@Param("uid") String uid);
     List<PackageVersion> selectByPackageId(@Param("packageId") Long packageId);
     PackageVersion selectLatestByPackageId(@Param("packageId") Long packageId);
     int selectMaxVersionNum(@Param("packageId") Long packageId);

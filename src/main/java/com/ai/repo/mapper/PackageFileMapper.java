@@ -11,6 +11,7 @@ public interface PackageFileMapper {
     int insert(PackageFile packageFile);
     int batchInsert(@Param("files") List<PackageFile> files);
     PackageFile selectById(Long id);
+    PackageFile selectByUid(@Param("uid") String uid);
     List<PackageFile> selectByVersionId(@Param("versionId") Long versionId);
     int deleteByVersionId(@Param("versionId") Long versionId);
 }

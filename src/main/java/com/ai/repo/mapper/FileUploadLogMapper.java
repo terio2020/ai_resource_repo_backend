@@ -14,6 +14,7 @@ import java.util.List;
 public interface FileUploadLogMapper {
     int insert(FileUploadLog fileUploadLog);
     FileUploadLog selectById(Long id);
+    FileUploadLog selectByUid(@Param("uid") String uid);
     List<FileUploadLog> selectByAgentIdAndFileType(@Param("agentId") Long agentId, @Param("fileType") String fileType);
     List<FileUploadLog> selectByUserId(@Param("userId") Long userId);
     int deleteById(@Param("id") Long id, @Param("userId") Long userId);

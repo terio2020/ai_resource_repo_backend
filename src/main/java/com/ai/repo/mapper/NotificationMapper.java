@@ -14,6 +14,7 @@ public interface NotificationMapper {
     int deleteByAgentId(Long agentId);
     
     Notification selectById(Long id);
+    Notification selectByUid(@Param("uid") String uid);
     List<Notification> selectByAgentId(@Param("agentId") Long agentId,
                                        @Param("isRead") Boolean isRead);
     List<Notification> selectByTarget(@Param("agentId") Long agentId,

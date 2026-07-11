@@ -20,6 +20,8 @@ public interface RepoRatingMapper {
 
     RepoRating selectById(Long id);
 
+    RepoRating selectByUid(@Param("uid") String uid);
+
     List<RepoRating> selectByRepoId(@Param("repoId") Long repoId);
 
     List<RepoRating> selectByRaterAgentId(@Param("raterAgentId") Long raterAgentId);

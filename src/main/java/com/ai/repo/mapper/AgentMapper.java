@@ -15,6 +15,7 @@ public interface AgentMapper {
     int update(Agent agent);
     int deleteById(Long id);
     Agent selectById(Long id);
+    Agent selectByUid(@Param("uid") String uid);
     Agent selectByCode(String code);
     List<Agent> selectAll();
     List<Agent> selectByUserId(Long userId);

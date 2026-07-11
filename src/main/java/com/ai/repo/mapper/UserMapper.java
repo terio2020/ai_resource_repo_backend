@@ -2,6 +2,7 @@ package com.ai.repo.mapper;
 
 import com.ai.repo.entity.User;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -11,6 +12,7 @@ public interface UserMapper {
     int update(User user);
     int deleteById(Long id);
     User selectById(Long id);
+    User selectByUid(@Param("uid") String uid);
     User selectByUsername(String username);
     User selectByEmail(String email);
     List<User> selectAll();

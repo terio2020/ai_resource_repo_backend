@@ -10,6 +10,7 @@ import java.util.List;
 @Mapper
 public interface VerificationChallengeMapper {
     int insert(VerificationChallenge challenge);
+    VerificationChallenge selectByUid(@Param("uid") String uid);
     VerificationChallenge selectByCode(String verificationCode);
     List<VerificationChallenge> selectByAgentId(Long agentId);
     

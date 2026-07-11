@@ -13,6 +13,7 @@ public interface MemoryMapper {
     int deleteById(Long id);
     int deleteByAgentId(@Param("agentId") Long agentId);
     Memory selectById(Long id);
+    Memory selectByUid(@Param("uid") String uid);
     List<Memory> selectAll();
     List<Memory> selectByUserId(Long userId);
     List<Memory> selectByAgentId(Long agentId);

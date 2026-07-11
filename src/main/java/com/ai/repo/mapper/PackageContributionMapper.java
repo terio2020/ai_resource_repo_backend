@@ -11,6 +11,7 @@ public interface PackageContributionMapper {
     int insert(PackageContribution contribution);
     int update(PackageContribution contribution);
     PackageContribution selectById(Long id);
+    PackageContribution selectByUid(@Param("uid") String uid);
     List<PackageContribution> selectByPackageId(@Param("packageId") Long packageId);
     List<PackageContribution> selectByContributorUserId(@Param("userId") Long userId);
     List<PackageContribution> selectByContributorAgentId(@Param("agentId") Long agentId);

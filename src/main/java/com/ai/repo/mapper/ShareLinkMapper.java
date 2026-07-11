@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface ShareLinkMapper {
     int insert(ShareLink shareLink);
+    ShareLink selectByUid(@Param("uid") String uid);
     ShareLink findByToken(@Param("token") String token);
     ShareLink findBySkillAndCreator(@Param("skillId") Long skillId, @Param("createdBy") Long createdBy);
     int incrementViewCount(@Param("id") Long id);

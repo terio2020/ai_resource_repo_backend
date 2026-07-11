@@ -13,6 +13,7 @@ public interface SocialAccountMapper {
     int deleteById(Long id);
     int deleteByUserId(Long userId);
     SocialAccount selectById(Long id);
+    SocialAccount selectByUid(@Param("uid") String uid);
     SocialAccount selectByProviderAndProviderUserId(@Param("provider") String provider, @Param("providerUserId") String providerUserId);
     SocialAccount selectByUserIdAndProvider(@Param("userId") Long userId, @Param("provider") String provider);
     List<SocialAccount> selectByUserId(Long userId);
