@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class PackageDownload {
     private Long id;
+    private String uid;
     private Long packageId;
     private Long versionId;
     private Long downloaderUserId;

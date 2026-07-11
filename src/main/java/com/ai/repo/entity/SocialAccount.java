@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @Data
 public class SocialAccount {
     private Long id;
+    private String uid;
     private Long userId;
     private String provider;          // google, github, apple, wechat, etc.
     private String providerUserId;  // User ID from the social provider

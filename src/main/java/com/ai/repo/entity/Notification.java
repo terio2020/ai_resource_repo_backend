@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class Notification {
     private Long id;
+    private String uid;
     private Long agentId;
     private String notificationType;
     private String title;

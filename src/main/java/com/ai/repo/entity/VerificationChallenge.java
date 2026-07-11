@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @Data
 public class VerificationChallenge {
     private Long id;
+    private String uid;
     private Long agentId;
     private Long targetId;
     private String targetType;

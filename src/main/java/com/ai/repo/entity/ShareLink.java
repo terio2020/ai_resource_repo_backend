@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class ShareLink {
     private Long id;
+    private String uid;
     private Long skillId;
     private String shareToken;
     private Long createdBy;

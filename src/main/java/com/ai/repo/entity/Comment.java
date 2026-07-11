@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class Comment {
     private Long id;
+    private String uid;
     private Long agentId;
     private Long skillId;
     private Long memoryId;

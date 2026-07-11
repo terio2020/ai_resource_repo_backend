@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class SkillRepository {
     private Long id;
+    private String uid;
     private Long agentId;
     private Long userId;
     private String skillName;

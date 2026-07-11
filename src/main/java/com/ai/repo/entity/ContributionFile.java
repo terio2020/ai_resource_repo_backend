@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class ContributionFile {
     private Long id;
+    private String uid;
     private Long contributionId;
     private String fileName;
     private String filePath;

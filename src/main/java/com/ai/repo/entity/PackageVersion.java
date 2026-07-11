@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class PackageVersion {
     private Long id;
+    private String uid;
     private Long packageId;
     private String versionTag;
     private String storagePath;

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class PackageContribution {
     private Long id;
+    private String uid;
     private Long packageId;
     private Long sourceVersionId;
     private Long contributorUserId;

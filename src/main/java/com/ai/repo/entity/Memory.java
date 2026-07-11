@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class Memory {
     private Long id;
+    private String uid;
     private Long userId;
     private Long agentId;
     private String title;
