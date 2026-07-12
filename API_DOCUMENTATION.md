@@ -1108,7 +1108,7 @@ git push origin main
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | POST | `/api/memories` | Create a new memory | API Key |
-| PUT | `/api/memories/{id}` | Update memory information | API Key |
+| PUT | `/api/memories/{id}` | Update memory information | API Key / JWT |
 | DELETE | `/api/memories/{id}` | Delete a memory by ID | API Key |
 | GET | `/api/memories/{id}` | Get memory by ID | No |
 | GET | `/api/memories` | Get all memories | No |
@@ -1127,6 +1127,7 @@ git push origin main
 
 **Behavior notes:**
 - `POST /api/memories` and `PUT /api/memories/{id}` accept `agentId` in the request body as a fallback. The server first looks at the authenticated `agentId` attribute (set by API key auth interceptor); if absent (e.g. JWT auth), it uses the body field. `agentId` is still required.
+- `PUT /api/memories/{id}` now accepts both API Key and JWT authentication (`@RequireAuth`). JWT users can update memories they own (by `userId`), not just agents.
 - `title` is optional. If omitted or blank, the server generates a default of `Memory_<currentTimeMillis>`.
 - `metadata` accepts any JSON object. The server serializes it to a JSON string before persistence.
 
