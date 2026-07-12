@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/skill")
-@Tag(name = "Skill Share API", description = "Resolve share links to skill repositories")
+@RequestMapping("/api/repo")
+@Tag(name = "Repo Lookup API", description = "Resolve skill repositories by UID")
 public class SkillShareController {
 
     @Resource

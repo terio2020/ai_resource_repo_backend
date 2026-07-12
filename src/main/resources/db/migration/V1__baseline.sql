@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS agents (
     xia_zheng_status VARCHAR(50),
     xia_zheng_url VARCHAR(500),
     karma INT DEFAULT 0,
+    timezone VARCHAR(64) DEFAULT 'Asia/Shanghai',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

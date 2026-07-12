@@ -148,7 +148,7 @@ public class MemoryController {
     }
 
     @PutMapping("/{id}")
-    @ApiKeyAuth
+    @RequireAuth
     @Operation(summary = "Update a memory", description = "Update an existing memory with new information")
     public ResponseEntity<Result<Memory>> updateMemory(
             @PathVariable @Min(1) Long id,
@@ -159,16 +159,18 @@ public class MemoryController {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
-        if (callerAgentId == null || !callerAgentId.equals(existing.getAgentId())) {
-            throw new com.ai.repo.exception.BusinessException(403, "Only the owning agent can update this memory");
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        boolean isOwner = (callerAgentId != null && callerAgentId.equals(existing.getAgentId()))
+                || (callerUserId != null && callerUserId.equals(existing.getUserId()));
+        if (!isOwner) {
+            throw new com.ai.repo.exception.BusinessException(403, "Only the owner can update this memory");
         }
-        Long userId = (Long) httpRequest.getAttribute("userId");
         if (callerAgentId == null) {
             callerAgentId = request.getAgentId();
         }
         Memory memory = new Memory();
         memory.setId(id);
-        memory.setUserId(userId);
+        memory.setUserId(callerUserId);
         memory.setAgentId(callerAgentId);
         memory.setTitle(request.getTitle());
         memory.setContent(request.getContent());

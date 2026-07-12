@@ -1,8 +1,8 @@
 package com.ai.repo.service.impl;
 
-import com.ai.repo.dto.SkillRatingAverageResponse;
-import com.ai.repo.dto.SkillRatingRequest;
-import com.ai.repo.dto.SkillRatingResponse;
+import com.ai.repo.dto.RepoRatingAverageResponse;
+import com.ai.repo.dto.RepoRatingRequest;
+import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.entity.RepoRating;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.BusinessException;
@@ -53,9 +53,9 @@ class RepoRatingServiceImplTest {
         return r;
     }
 
-    private SkillRatingRequest createRequest(Long repoId, Integer rating) {
-        SkillRatingRequest req = new SkillRatingRequest();
-        req.setSkillId(repoId);
+    private RepoRatingRequest createRequest(Long repoId, Integer rating) {
+        RepoRatingRequest req = new RepoRatingRequest();
+        req.setRepoId(repoId);
         req.setRating(rating);
         return req;
     }
@@ -67,12 +67,12 @@ class RepoRatingServiceImplTest {
         SkillRepository repo = createSampleRepo(1L, 10L, true);
         when(skillRepositoryService.findById(1L)).thenReturn(repo);
 
-        SkillRatingRequest request = createRequest(1L, 5);
-        SkillRatingResponse result = service.rate(request, 20L);
+        RepoRatingRequest request = createRequest(1L, 5);
+        RepoRatingResponse result = service.rate(request, 20L);
 
         assertNotNull(result);
         assertEquals(5, result.getRating());
-        assertEquals(1L, result.getSkillId());
+        assertEquals(1L, result.getRepoId());
         verify(repoRatingMapper).upsert(any(RepoRating.class));
     }
 
@@ -99,8 +99,8 @@ class RepoRatingServiceImplTest {
         SkillRepository repo = createSampleRepo(1L, 10L, true);
         when(skillRepositoryService.findById(1L)).thenReturn(repo);
 
-        SkillRatingRequest request = createRequest(1L, 3);
-        SkillRatingResponse result = service.rate(request, 20L);
+        RepoRatingRequest request = createRequest(1L, 3);
+        RepoRatingResponse result = service.rate(request, 20L);
 
         assertNotNull(result);
         assertEquals(3, result.getRating());
@@ -113,7 +113,7 @@ class RepoRatingServiceImplTest {
         when(skillRepositoryService.findById(1L)).thenReturn(repo);
         when(repoRatingMapper.selectByRepoIdWithAgent(1L)).thenReturn(List.of());
 
-        List<SkillRatingResponse> result = service.getRatingsByRepoId(1L);
+        List<RepoRatingResponse> result = service.getRatingsByRepoId(1L);
 
         assertTrue(result.isEmpty());
     }
@@ -122,7 +122,7 @@ class RepoRatingServiceImplTest {
     void getRatingsByAgentId_shouldReturnEmpty_whenNoRatings() {
         when(repoRatingMapper.selectByRaterAgentIdWithAgent(99L)).thenReturn(List.of());
 
-        List<SkillRatingResponse> result = service.getRatingsByAgentId(99L);
+        List<RepoRatingResponse> result = service.getRatingsByAgentId(99L);
 
         assertTrue(result.isEmpty());
     }
@@ -140,7 +140,7 @@ class RepoRatingServiceImplTest {
         when(repoRatingMapper.selectDistributionByRepoId(1L)).thenReturn(List.of());
 
         assertDoesNotThrow(() -> {
-            SkillRatingAverageResponse result = service.getAverageByRepoId(1L);
+            RepoRatingAverageResponse result = service.getAverageByRepoId(1L);
             assertEquals(0.0, result.getAverageRating(), 0.001);
             assertEquals(0, result.getTotalRatings());
         });
@@ -153,9 +153,9 @@ class RepoRatingServiceImplTest {
         when(repoRatingMapper.selectAvgByRepoId(1L)).thenReturn(null);
         when(repoRatingMapper.selectDistributionByRepoId(1L)).thenReturn(List.of());
 
-        SkillRatingAverageResponse result = service.getAverageByRepoId(1L);
+        RepoRatingAverageResponse result = service.getAverageByRepoId(1L);
 
-        assertEquals(1L, result.getSkillId());
+        assertEquals(1L, result.getRepoId());
         assertEquals(0.0, result.getAverageRating(), 0.001);
         assertEquals(0, result.getTotalRatings());
         assertEquals(5, result.getDistribution().size());
@@ -171,7 +171,7 @@ class RepoRatingServiceImplTest {
         when(repoRatingMapper.selectDistributionByRepoId(1L))
                 .thenReturn(List.of(Map.of("rating", 4, "count", 1), Map.of("rating", 5, "count", 1)));
 
-        SkillRatingAverageResponse result = service.getAverageByRepoId(1L);
+        RepoRatingAverageResponse result = service.getAverageByRepoId(1L);
 
         assertEquals(4.0, result.getAverageRating(), 0.001);
         assertEquals(2, result.getTotalRatings());
@@ -192,7 +192,7 @@ class RepoRatingServiceImplTest {
                         "created_at", "2026-01-01T00:00:00"
                 )));
 
-        List<SkillRatingResponse> result = service.getRatingsByRepoId(1L);
+        List<RepoRatingResponse> result = service.getRatingsByRepoId(1L);
 
         assertEquals(1, result.size());
         assertEquals(5, result.get(0).getRating());
@@ -209,7 +209,7 @@ class RepoRatingServiceImplTest {
                         "rating", 4, "created_at", "2026-01-01T00:00:00"
                 )));
 
-        List<SkillRatingResponse> result = service.getRatingsByAgentId(20L);
+        List<RepoRatingResponse> result = service.getRatingsByAgentId(20L);
 
         assertEquals(1, result.size());
         assertEquals(4, result.get(0).getRating());

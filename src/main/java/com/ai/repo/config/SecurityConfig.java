@@ -58,7 +58,7 @@ public class SecurityConfig {
                     "/api/git/**",
                     "/api/skill-repos/uid/**",
                     "/api/skill-repos/shared/**",
-                    "/api/skill/**",
+                    "/api/repo/**",
                     "/api/agents/uid/**",
                     "/api/comments/uid/**",
                     "/api/memories/uid/**",

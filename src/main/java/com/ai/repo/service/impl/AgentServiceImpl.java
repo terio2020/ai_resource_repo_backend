@@ -260,7 +260,7 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt) {
+    public boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt, String timezone) {
         if (agentMapper.selectById(id) == null) {
             throw new BusinessException("Agent not found");
         }
@@ -268,7 +268,7 @@ public class AgentServiceImpl implements AgentService {
             throw new BusinessException(400, "Invalid status: " + status + 
                 ". Valid values are: ACTIVE, IDLE, BUSY, OFFLINE");
         }
-        return agentMapper.updateHeartbeat(id, status, lastHeartbeatAt) > 0;
+        return agentMapper.updateHeartbeat(id, status, lastHeartbeatAt, timezone) > 0;
     }
 
     @Override

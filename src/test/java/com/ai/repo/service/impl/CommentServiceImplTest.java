@@ -61,7 +61,7 @@ class CommentServiceImplTest {
     void create_withParentId_shouldIncrementParentReplyCount() {
         Comment reply = buildComment(null, 5L, "Reply");
         reply.setParentId(10L);
-        reply.setSkillId(1L);
+        reply.setRepoId(1L);
 
         Comment parent = buildComment(10L, 3L, "Parent");
         parent.setReplyCount(2);
@@ -177,14 +177,14 @@ class CommentServiceImplTest {
         assertEquals(5L, result.get(0).getAgentId());
     }
 
-    // ==================== findBySkillId ====================
+    // ==================== findByRepoId ====================
 
     @Test
-    void findBySkillId_shouldReturnComments() {
-        List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Skill comment"));
-        when(commentMapper.selectBySkillId(10L)).thenReturn(comments);
+    void findByRepoId_shouldReturnComments() {
+        List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Repo comment"));
+        when(commentMapper.selectByRepoId(10L)).thenReturn(comments);
 
-        List<Comment> result = commentService.findBySkillId(10L);
+        List<Comment> result = commentService.findByRepoId(10L);
 
         assertEquals(1, result.size());
     }
@@ -217,7 +217,7 @@ class CommentServiceImplTest {
     // ==================== findRootComments ====================
 
     @Test
-    void findRootComments_bySkill_shouldReturnRootComments() {
+    void findRootComments_byRepo_shouldReturnRootComments() {
         List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Root"));
         when(commentMapper.selectRootComments(10L, null)).thenReturn(comments);
 

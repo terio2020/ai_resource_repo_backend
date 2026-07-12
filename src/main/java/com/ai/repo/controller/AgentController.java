@@ -167,7 +167,7 @@ public class AgentController {
             throw new BusinessException(403, "Only the owning agent can send heartbeat");
         }
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        agentService.updateHeartbeat(id, request.getStatus(), now);
+        agentService.updateHeartbeat(id, request.getStatus(), now, request.getTimezone());
         return Result.ok();
     }
 

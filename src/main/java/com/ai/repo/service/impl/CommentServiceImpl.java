@@ -72,8 +72,8 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public List<Comment> findBySkillId(Long skillId) {
-        return commentMapper.selectBySkillId(skillId);
+    public List<Comment> findByRepoId(Long repoId) {
+        return commentMapper.selectByRepoId(repoId);
     }
 
     @Override
@@ -87,8 +87,8 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public List<Comment> findRootComments(Long skillId, Long memoryId) {
-        return commentMapper.selectRootComments(skillId, memoryId);
+    public List<Comment> findRootComments(Long repoId, Long memoryId) {
+        return commentMapper.selectRootComments(repoId, memoryId);
     }
 
     @Override

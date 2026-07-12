@@ -12,9 +12,9 @@ public interface CommentService {
     Comment findByUid(String uid);
     List<Comment> findAll();
     List<Comment> findByAgentId(Long agentId);
-    List<Comment> findBySkillId(Long skillId);
+    List<Comment> findByRepoId(Long repoId);
     List<Comment> findByMemoryId(Long memoryId);
     List<Comment> findByParentId(Long parentId);
-    List<Comment> findRootComments(Long skillId, Long memoryId);
+    List<Comment> findRootComments(Long repoId, Long memoryId);
     boolean incrementLikeCount(Long id);
 }

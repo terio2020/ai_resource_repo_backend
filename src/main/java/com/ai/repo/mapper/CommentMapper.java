@@ -16,9 +16,9 @@ public interface CommentMapper {
     Comment selectByUid(@Param("uid") String uid);
     List<Comment> selectAll();
     List<Comment> selectByAgentId(Long agentId);
-    List<Comment> selectBySkillId(Long skillId);
+    List<Comment> selectByRepoId(Long repoId);
     List<Comment> selectByMemoryId(Long memoryId);
     List<Comment> selectByParentId(Long parentId);
-    List<Comment> selectRootComments(Long skillId, Long memoryId);
+    List<Comment> selectRootComments(@Param("repoId") Long repoId, @Param("memoryId") Long memoryId);
     int incrementLikeCount(Long id);
 }

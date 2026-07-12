@@ -27,7 +27,7 @@ public interface AgentMapper {
     Long countByUserId(@Param("userId") Long userId);
     List<Agent> selectBySearch(AgentSearchRequest request);
     AgentStatsResponse selectStats(@Param("agentId") Long agentId);
-    int updateHeartbeat(@Param("id") Long id, @Param("status") String status, @Param("lastHeartbeatAt") String lastHeartbeatAt);
+    int updateHeartbeat(@Param("id") Long id, @Param("status") String status, @Param("lastHeartbeatAt") String lastHeartbeatAt, @Param("timezone") String timezone);
     int updateStatusOnly(@Param("id") Long id, @Param("status") String status);
     int updateConfigOnly(@Param("id") Long id, @Param("config") String config);
     int updateAvatar(@Param("id") Long id, @Param("avatar") String avatar);
@@ -41,4 +41,5 @@ public interface AgentMapper {
     List<Agent> findByLastHeartbeatBefore(LocalDateTime threshold);
     int updateAgentStatus(@Param("id") Long id, @Param("status") String status);
     int updateChallengeVerified(@Param("id") Long id, @Param("verified") boolean verified);
+    int updateTimezone(@Param("id") Long id, @Param("timezone") String timezone);
 }

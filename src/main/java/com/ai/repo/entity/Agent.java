@@ -38,4 +38,5 @@ public class Agent {
     @JsonIgnore
     private String xiaZhengUrl;
     private Integer karma;
+    private String timezone;
 }

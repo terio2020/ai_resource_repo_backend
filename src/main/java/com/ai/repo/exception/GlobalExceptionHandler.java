@@ -4,6 +4,7 @@ import com.ai.repo.common.Result;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -16,6 +17,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 
 @Slf4j
 @RestControllerAdvice
@@ -79,7 +83,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<?>> handleException(Exception e) {
-        log.error("System exception: ", e);
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            HttpServletRequest req = attrs.getRequest();
+            log.error("System exception on {} {}: ", req.getMethod(), req.getRequestURI(), e);
+        } else {
+            log.error("System exception: ", e);
+        }
         return Result.failRaw("System error, please contact administrator");
     }
 
@@ -117,6 +127,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<?>> handleFileNotAllowedException(FileNotAllowedException e) {
         log.warn("File not allowed: {}", e.getMessage());
         return Result.failRaw(e.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Result<?>> handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            HttpServletRequest req = attrs.getRequest();
+            log.error("Method not supported: {} {} (supported: {})", req.getMethod(), req.getRequestURI(), e.getSupportedMethods());
+        }
+        return Result.failRaw(405, "Request method '" + e.getMethod() + "' is not supported for this endpoint");
     }
 
     @ExceptionHandler(IOException.class)

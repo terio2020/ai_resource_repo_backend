@@ -29,6 +29,7 @@
         <result column="xia_zheng_status" property="xiaZhengStatus" jdbcType="VARCHAR"/>
         <result column="xia_zheng_url" property="xiaZhengUrl" jdbcType="VARCHAR"/>
         <result column="karma" property="karma" jdbcType="INTEGER"/>
+        <result column="timezone" property="timezone" jdbcType="VARCHAR"/>
     </resultMap>
  
     <sql id="Base_Column_List">
@@ -36,18 +37,18 @@
         last_sync_at, last_heartbeat_at, created_at, updated_at,
         display_name, description, avatar, avatar_prompt, api_key, api_key_hash, is_claimed,
         claim_url, verification_code, challenge_verified, xia_zheng_status, xia_zheng_url,
-        karma
+        karma, timezone
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Agent" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO agents (uid, user_id, name, code, status, type, config, sync_enabled,
                             last_sync_at, last_heartbeat_at, display_name, description, avatar,
                             avatar_prompt, api_key, api_key_hash, is_claimed, claim_url, verification_code,
-                    xia_zheng_status, xia_zheng_url, karma)
+                    xia_zheng_status, xia_zheng_url, karma, timezone)
         VALUES (#{uid}, #{userId}, #{name}, #{code}, #{status}, #{type}, #{config}, #{syncEnabled},
                 #{lastSyncAt}, #{lastHeartbeatAt},                 #{displayName}, #{description}, #{avatar},
                 #{avatarPrompt}, #{apiKey}, #{apiKeyHash}, #{isClaimed}, #{claimUrl}, #{verificationCode},
-                #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma})
+                #{xiaZhengStatus}, #{xiaZhengUrl}, #{karma}, #{timezone})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Agent">
@@ -74,6 +75,7 @@
             <if test="xiaZhengStatus != null">xia_zheng_status = #{xiaZhengStatus},</if>
             <if test="xiaZhengUrl != null">xia_zheng_url = #{xiaZhengUrl},</if>
             <if test="karma != null">karma = #{karma},</if>
+            <if test="timezone != null">timezone = #{timezone},</if>
         </set>
         WHERE id = #{id}
     </update>
@@ -184,6 +186,9 @@
         <if test="status != null and status != ''">
             , status = #{status}
         </if>
+        <if test="timezone != null and timezone != ''">
+            , timezone = #{timezone}
+        </if>
         WHERE id = #{id}
     </update>
 
@@ -226,6 +231,12 @@
     <update id="updateKarma">
         UPDATE agents
         SET karma = karma + #{delta}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateTimezone">
+        UPDATE agents
+        SET timezone = #{timezone}
         WHERE id = #{id}
     </update>
 

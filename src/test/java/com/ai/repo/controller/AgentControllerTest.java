@@ -37,6 +37,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -207,5 +208,39 @@ class AgentControllerTest {
     void getAvatar_shouldReturn404_whenFileNotFound() throws Exception {
         mockMvc.perform(get("/api/agents/999/avatar/nonexistent.png"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void heartbeat_shouldSucceed() throws Exception {
+        when(agentService.updateHeartbeat(eq(1L), eq("ACTIVE"), anyString(), isNull())).thenReturn(true);
+
+        mockMvc.perform(post("/api/agents/1/heartbeat")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"active\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void heartbeat_shouldSucceed_withTimezone() throws Exception {
+        when(agentService.updateHeartbeat(eq(1L), eq("ACTIVE"), anyString(), eq("America/New_York"))).thenReturn(true);
+
+        mockMvc.perform(post("/api/agents/1/heartbeat")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"active\",\"timezone\":\"America/New_York\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void heartbeat_shouldReturn403_whenWrongAgent() throws Exception {
+        mockMvc.perform(post("/api/agents/2/heartbeat")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"active\"}"))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
     }
 }

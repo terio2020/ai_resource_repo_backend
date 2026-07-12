@@ -435,18 +435,29 @@ class AgentServiceImplTest {
 
     @Test
     void updateHeartbeat_shouldSucceed_whenValidStatus() {
-        // Given
         Agent agent = new Agent();
         agent.setId(1L);
         String timestamp = LocalDateTime.now().toString();
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
-        when(agentMapper.updateHeartbeat(eq(1L), eq("ACTIVE"), anyString())).thenReturn(1);
+        when(agentMapper.updateHeartbeat(eq(1L), eq("ACTIVE"), anyString(), isNull())).thenReturn(1);
 
-        // When
-        boolean result = agentService.updateHeartbeat(1L, "ACTIVE", timestamp);
+        boolean result = agentService.updateHeartbeat(1L, "ACTIVE", timestamp, null);
 
-        // Then
+        assertTrue(result);
+    }
+
+    @Test
+    void updateHeartbeat_shouldSaveTimezone_whenProvided() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+        String timestamp = LocalDateTime.now().toString();
+
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(agentMapper.updateHeartbeat(eq(1L), eq("ACTIVE"), anyString(), eq("America/New_York"))).thenReturn(1);
+
+        boolean result = agentService.updateHeartbeat(1L, "ACTIVE", timestamp, "America/New_York");
+
         assertTrue(result);
     }
 
@@ -461,7 +472,7 @@ class AgentServiceImplTest {
 
         // When/Then
         BusinessException exception = assertThrows(BusinessException.class, () -> {
-            agentService.updateHeartbeat(1L, "INVALID_STATUS", timestamp);
+            agentService.updateHeartbeat(1L, "INVALID_STATUS", timestamp, null);
         });
         assertTrue(exception.getMessage().contains("Invalid status"));
     }
@@ -475,7 +486,7 @@ class AgentServiceImplTest {
 
         // When/Then
         BusinessException exception = assertThrows(BusinessException.class, () -> {
-            agentService.updateHeartbeat(999L, "ACTIVE", timestamp);
+            agentService.updateHeartbeat(999L, "ACTIVE", timestamp, null);
         });
         assertTrue(exception.getMessage().contains("not found"));
     }

@@ -428,14 +428,42 @@ class MemoryControllerTest {
     }
 
     @Test
-    void updateMemory_shouldReturn403_whenNotOwner() throws Exception {
-        Memory m = createMemory(1L, 5L, false);
-        m.setAgentId(99L);
+    void updateMemory_shouldReturn403_whenNeitherAgentNorUserOwns() throws Exception {
+        Memory m = createMemory(1L, 99L, false);
+        m.setUserId(99L);
         when(memoryService.findById(1L)).thenReturn(m);
         mockMvc.perform(put("/api/memories/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Hacked\"}")
                         .with(withAgentId(5L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void updateMemory_shouldSucceed_whenJwtUserOwnsMemory() throws Exception {
+        Memory existing = createMemory(1L, 5L, false);
+        when(memoryService.findById(1L)).thenReturn(existing);
+        Memory updated = createMemory(1L, 5L, true);
+        when(memoryService.update(any(Memory.class))).thenReturn(updated);
+
+        mockMvc.perform(put("/api/memories/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPublic\":true}")
+                        .with(withUserIdOnly(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isPublic").value(true));
+    }
+
+    @Test
+    void updateMemory_shouldReturn403_whenJwtUserNotOwner() throws Exception {
+        Memory m = createMemory(1L, 5L, false);
+        m.setUserId(99L);
+        when(memoryService.findById(1L)).thenReturn(m);
+        mockMvc.perform(put("/api/memories/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPublic\":true}")
+                        .with(withUserIdOnly(2L)))
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }

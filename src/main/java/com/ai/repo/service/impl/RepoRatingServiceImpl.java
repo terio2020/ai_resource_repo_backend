@@ -1,8 +1,8 @@
 package com.ai.repo.service.impl;
 
-import com.ai.repo.dto.SkillRatingAverageResponse;
-import com.ai.repo.dto.SkillRatingRequest;
-import com.ai.repo.dto.SkillRatingResponse;
+import com.ai.repo.dto.RepoRatingAverageResponse;
+import com.ai.repo.dto.RepoRatingRequest;
+import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.entity.RepoRating;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.RepoRatingMapper;
@@ -34,8 +34,8 @@ public class RepoRatingServiceImpl implements RepoRatingService {
     }
 
     @Override
-    public SkillRatingResponse rate(SkillRatingRequest request, Long raterAgentId) {
-        var repo = skillRepositoryService.findById(request.getSkillId());
+    public RepoRatingResponse rate(RepoRatingRequest request, Long raterAgentId) {
+        var repo = skillRepositoryService.findById(request.getRepoId());
 
         if (!Boolean.TRUE.equals(repo.getIsPublic())) {
             throw new BusinessException(400, "Can only rate public repositories");
@@ -49,17 +49,17 @@ public class RepoRatingServiceImpl implements RepoRatingService {
         if (rating.getUid() == null || rating.getUid().isEmpty()) {
             rating.setUid(UuidUtil.generate());
         }
-        rating.setRepoId(request.getSkillId());
+        rating.setRepoId(request.getRepoId());
         rating.setRaterAgentId(raterAgentId);
         rating.setRating(request.getRating());
         repoRatingMapper.upsert(rating);
 
-        log.info("Agent {} rated repository {} with {}", raterAgentId, request.getSkillId(), request.getRating());
+        log.info("Agent {} rated repository {} with {}", raterAgentId, request.getRepoId(), request.getRating());
         return toResponse(rating, null);
     }
 
     @Override
-    public SkillRatingAverageResponse getAverageByRepoId(Long repoId) {
+    public RepoRatingAverageResponse getAverageByRepoId(Long repoId) {
         skillRepositoryService.findById(repoId);
 
         Map<String, Object> avg = repoRatingMapper.selectAvgByRepoId(repoId);
@@ -74,8 +74,8 @@ public class RepoRatingServiceImpl implements RepoRatingService {
                     ((Number) row.get("count")).intValue());
         }
 
-        SkillRatingAverageResponse response = new SkillRatingAverageResponse();
-        response.setSkillId(repoId);
+        RepoRatingAverageResponse response = new RepoRatingAverageResponse();
+        response.setRepoId(repoId);
         response.setAverageRating(avg != null && avg.get("avg_rating") != null ? ((Number) avg.get("avg_rating")).doubleValue() : 0.0);
         response.setTotalRatings(avg != null && avg.get("total") != null ? ((Number) avg.get("total")).intValue() : 0);
         response.setDistribution(distribution);
@@ -83,10 +83,10 @@ public class RepoRatingServiceImpl implements RepoRatingService {
     }
 
     @Override
-    public List<SkillRatingResponse> getRatingsByRepoId(Long repoId) {
+    public List<RepoRatingResponse> getRatingsByRepoId(Long repoId) {
         skillRepositoryService.findById(repoId);
         List<Map<String, Object>> rows = repoRatingMapper.selectByRepoIdWithAgent(repoId);
-        List<SkillRatingResponse> result = new ArrayList<>();
+        List<RepoRatingResponse> result = new ArrayList<>();
         for (Map<String, Object> row : rows) {
             result.add(toResponseFromMap(row));
         }
@@ -94,20 +94,20 @@ public class RepoRatingServiceImpl implements RepoRatingService {
     }
 
     @Override
-    public List<SkillRatingResponse> getRatingsByAgentId(Long raterAgentId) {
+    public List<RepoRatingResponse> getRatingsByAgentId(Long raterAgentId) {
         List<Map<String, Object>> rows = repoRatingMapper.selectByRaterAgentIdWithAgent(raterAgentId);
-        List<SkillRatingResponse> result = new ArrayList<>();
+        List<RepoRatingResponse> result = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            SkillRatingResponse resp = toResponseFromMap(row);
+            RepoRatingResponse resp = toResponseFromMap(row);
             result.add(resp);
         }
         return result;
     }
 
-    private SkillRatingResponse toResponse(RepoRating rating, String raterName) {
-        SkillRatingResponse resp = new SkillRatingResponse();
+    private RepoRatingResponse toResponse(RepoRating rating, String raterName) {
+        RepoRatingResponse resp = new RepoRatingResponse();
         resp.setId(rating.getId());
-        resp.setSkillId(rating.getRepoId());
+        resp.setRepoId(rating.getRepoId());
         resp.setRaterAgentId(rating.getRaterAgentId());
         resp.setRating(rating.getRating());
         resp.setRaterAgentName(raterName);
@@ -116,10 +116,10 @@ public class RepoRatingServiceImpl implements RepoRatingService {
     }
 
     @SuppressWarnings("unchecked")
-    private SkillRatingResponse toResponseFromMap(Map<String, Object> map) {
-        SkillRatingResponse resp = new SkillRatingResponse();
+    private RepoRatingResponse toResponseFromMap(Map<String, Object> map) {
+        RepoRatingResponse resp = new RepoRatingResponse();
         resp.setId(((Number) map.get("id")).longValue());
-        resp.setSkillId(((Number) map.get("repo_id")).longValue());
+        resp.setRepoId(((Number) map.get("repo_id")).longValue());
         resp.setRaterAgentId(((Number) map.get("rater_agent_id")).longValue());
         resp.setRating(((Number) map.get("rating")).intValue());
 

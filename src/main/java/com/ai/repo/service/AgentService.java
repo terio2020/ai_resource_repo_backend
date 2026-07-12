@@ -25,7 +25,7 @@ public interface AgentService {
     PageResult<Agent> findPageByUserId(Long userId, Integer page, Integer size);
     List<Agent> findBySearch(AgentSearchRequest request);
     AgentStatsResponse getStats(Long agentId);
-    boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt);
+    boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt, String timezone);
     boolean updateStatusOnly(Long id, String status);
     boolean updateConfigOnly(Long id, String config);
     boolean updateAvatar(Long id, String avatarUrl);
