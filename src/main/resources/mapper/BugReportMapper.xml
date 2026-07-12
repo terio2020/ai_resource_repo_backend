@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.BugReportMapper">
+
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.BugReport">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="uid" property="uid" jdbcType="VARCHAR"/>
+        <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="LONGVARCHAR"/>
+        <result column="severity" property="severity" jdbcType="VARCHAR"/>
+        <result column="source" property="source" jdbcType="VARCHAR"/>
+        <result column="environment" property="environment" jdbcType="LONGVARCHAR"/>
+        <result column="steps_to_reproduce" property="stepsToReproduce" jdbcType="LONGVARCHAR"/>
+        <result column="expected_behavior" property="expectedBehavior" jdbcType="LONGVARCHAR"/>
+        <result column="actual_behavior" property="actualBehavior" jdbcType="LONGVARCHAR"/>
+        <result column="stack_trace" property="stackTrace" jdbcType="LONGVARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        uid, id, agent_id, title, description, severity, source, environment,
+        steps_to_reproduce, expected_behavior, actual_behavior, stack_trace,
+        status, category, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.BugReport" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO bug_reports (uid, agent_id, title, description, severity, source, environment,
+                                 steps_to_reproduce, expected_behavior, actual_behavior, stack_trace,
+                                 status, category)
+        VALUES (#{uid}, #{agentId}, #{title}, #{description}, #{severity}, #{source}, #{environment},
+                #{stepsToReproduce}, #{expectedBehavior}, #{actualBehavior}, #{stackTrace},
+                #{status}, #{category})
+    </insert>
+
+    <update id="update" parameterType="com.ai.repo.entity.BugReport">
+        UPDATE bug_reports
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="severity != null">severity = #{severity},</if>
+            <if test="source != null">source = #{source},</if>
+            <if test="environment != null">environment = #{environment},</if>
+            <if test="stepsToReproduce != null">steps_to_reproduce = #{stepsToReproduce},</if>
+            <if test="expectedBehavior != null">expected_behavior = #{expectedBehavior},</if>
+            <if test="actualBehavior != null">actual_behavior = #{actualBehavior},</if>
+            <if test="stackTrace != null">stack_trace = #{stackTrace},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="category != null">category = #{category},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE bug_reports SET status = #{status} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM bug_reports WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM bug_reports
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM bug_reports
+        WHERE uid = #{uid}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM bug_reports
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM bug_reports
+        WHERE agent_id = #{agentId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectWithFilters" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM bug_reports
+        <where>
+            <if test="agentId != null">
+                AND agent_id = #{agentId}
+            </if>
+            <if test="severity != null and severity != ''">
+                AND severity = #{severity}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>
