@@ -6,7 +6,9 @@
         <id column="id" property="id" jdbcType="BIGINT"/>
         <result column="uid" property="uid" jdbcType="VARCHAR"/>
         <result column="agent_id" property="agentId" jdbcType="BIGINT"/>
-        <result column="skill_id" property="skillId" jdbcType="BIGINT"/>
+        <result column="user_id" property="userId" jdbcType="BIGINT"/>
+        <result column="username" property="username" jdbcType="VARCHAR"/>
+        <result column="repo_id" property="repoId" jdbcType="BIGINT"/>
         <result column="memory_id" property="memoryId" jdbcType="BIGINT"/>
         <result column="parent_id" property="parentId" jdbcType="BIGINT"/>
         <result column="content" property="content" jdbcType="LONGVARCHAR"/>
@@ -18,20 +20,26 @@
     </resultMap>
  
     <sql id="Base_Column_List">
-        uid, id, agent_id, skill_id, memory_id, parent_id, content,
-        like_count, reply_count, downvote_count, created_at, updated_at
+        c.uid, c.id, c.agent_id, a.user_id, COALESCE(a.display_name, a.name) AS username,
+        c.repo_id, c.memory_id, c.parent_id, c.content,
+        c.like_count, c.reply_count, c.downvote_count, c.created_at, c.updated_at
+    </sql>
+
+    <sql id="FromClause">
+        FROM comments c
+        LEFT JOIN agents a ON c.agent_id = a.id
     </sql>
 
     <insert id="insert" parameterType="com.ai.repo.entity.Comment" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO comments (uid, agent_id, skill_id, memory_id, parent_id, content, like_count, reply_count, downvote_count)
-        VALUES (#{uid}, #{agentId}, #{skillId}, #{memoryId}, #{parentId}, #{content}, #{likeCount}, #{replyCount}, #{downvoteCount})
+        INSERT INTO comments (uid, agent_id, repo_id, memory_id, parent_id, content, like_count, reply_count, downvote_count)
+        VALUES (#{uid}, #{agentId}, #{repoId}, #{memoryId}, #{parentId}, #{content}, #{likeCount}, #{replyCount}, #{downvoteCount})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Comment">
         UPDATE comments
         <set>
             <if test="agentId != null">agent_id = #{agentId},</if>
-            <if test="skillId != null">skill_id = #{skillId},</if>
+            <if test="repoId != null">repo_id = #{repoId},</if>
             <if test="memoryId != null">memory_id = #{memoryId},</if>
             <if test="parentId != null">parent_id = #{parentId},</if>
             <if test="content != null">content = #{content},</if>
@@ -52,55 +60,55 @@
 
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE id = #{id}
+        <include refid="FromClause"/>
+        WHERE c.id = #{id}
     </select>
 
     <select id="selectAll" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        ORDER BY created_at DESC
+        <include refid="FromClause"/>
+        ORDER BY c.created_at DESC
     </select>
 
     <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE agent_id = #{agentId}
-        ORDER BY created_at DESC
+        <include refid="FromClause"/>
+        WHERE c.agent_id = #{agentId}
+        ORDER BY c.created_at DESC
     </select>
 
-    <select id="selectBySkillId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+    <select id="selectByRepoId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE skill_id = #{skillId}
-        ORDER BY created_at DESC
+        <include refid="FromClause"/>
+        WHERE c.repo_id = #{repoId}
+        ORDER BY c.created_at DESC
     </select>
 
     <select id="selectByMemoryId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE memory_id = #{memoryId}
-        ORDER BY created_at DESC
+        <include refid="FromClause"/>
+        WHERE c.memory_id = #{memoryId}
+        ORDER BY c.created_at DESC
     </select>
 
     <select id="selectByParentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE parent_id = #{parentId}
-        ORDER BY created_at ASC
+        <include refid="FromClause"/>
+        WHERE c.parent_id = #{parentId}
+        ORDER BY c.created_at ASC
     </select>
 
     <select id="selectRootComments" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE parent_id IS NULL
-        <if test="skillId != null">
-            AND skill_id = #{skillId}
+        <include refid="FromClause"/>
+        WHERE c.parent_id IS NULL
+        <if test="repoId != null">
+            AND c.repo_id = #{repoId}
         </if>
         <if test="memoryId != null">
-            AND memory_id = #{memoryId}
+            AND c.memory_id = #{memoryId}
         </if>
-        ORDER BY created_at DESC
+        ORDER BY c.created_at DESC
     </select>
 
     <update id="incrementLikeCount">
@@ -111,8 +119,8 @@
  
     <select id="selectByUid" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM comments
-        WHERE uid = #{uid}
+        <include refid="FromClause"/>
+        WHERE c.uid = #{uid}
     </select>
 
 </mapper>

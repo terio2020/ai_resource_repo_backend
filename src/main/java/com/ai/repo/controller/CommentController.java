@@ -59,7 +59,6 @@ public class CommentController {
     }
 
     @GetMapping("/{id}")
-    @ApiKeyAuth
     @Operation(summary = "Get comment by ID", description = "Retrieve a specific comment by its ID")
     public ResponseEntity<Result<Comment>> getCommentById(@Parameter(description = "Comment ID") @PathVariable @Min(1) Long id) {
         Comment comment = commentService.findById(id);
@@ -67,7 +66,6 @@ public class CommentController {
     }
 
     @GetMapping("/uid/{uid}")
-    @ApiKeyAuth
     @Operation(summary = "Get comment by UID")
     public ResponseEntity<Result<Comment>> getCommentByUid(
             @Parameter(description = "Comment UID") @PathVariable String uid) {
@@ -76,7 +74,6 @@ public class CommentController {
     }
 
     @GetMapping
-    @ApiKeyAuth
     @Operation(summary = "Get all comments", description = "Retrieve all available comments")
     public ResponseEntity<Result<List<Comment>>> getAllComments() {
         List<Comment> comments = commentService.findAll();
@@ -84,23 +81,20 @@ public class CommentController {
     }
 
     @GetMapping("/agent/{agentId}")
-    @ApiKeyAuth
     @Operation(summary = "Get comments by agent", description = "Retrieve all comments made by a specific agent")
     public ResponseEntity<Result<List<Comment>>> getCommentsByAgentId(@Parameter(description = "Agent ID") @PathVariable @Min(1) Long agentId) {
         List<Comment> comments = commentService.findByAgentId(agentId);
         return Result.ok(comments);
     }
 
-    @GetMapping("/skill/{skillId}")
-    @ApiKeyAuth
-    @Operation(summary = "Get comments by skill", description = "Retrieve all comments on a specific skill")
-    public ResponseEntity<Result<List<Comment>>> getCommentsBySkillId(@Parameter(description = "Skill ID") @PathVariable @Min(1) Long skillId) {
-        List<Comment> comments = commentService.findBySkillId(skillId);
+    @GetMapping("/repo/{repoId}")
+    @Operation(summary = "Get comments by repo", description = "Retrieve all comments on a specific skill repository")
+    public ResponseEntity<Result<List<Comment>>> getCommentsByRepoId(@Parameter(description = "Repo ID") @PathVariable @Min(1) Long repoId) {
+        List<Comment> comments = commentService.findByRepoId(repoId);
         return Result.ok(comments);
     }
 
     @GetMapping("/memory/{memoryId}")
-    @ApiKeyAuth
     @Operation(summary = "Get comments by memory", description = "Retrieve all comments on a specific memory")
     public ResponseEntity<Result<List<Comment>>> getCommentsByMemoryId(@Parameter(description = "Memory ID") @PathVariable @Min(1) Long memoryId) {
         List<Comment> comments = commentService.findByMemoryId(memoryId);
@@ -108,7 +102,6 @@ public class CommentController {
     }
 
     @GetMapping("/parent/{parentId}")
-    @ApiKeyAuth
     @Operation(summary = "Get replies to comment", description = "Retrieve all replies to a specific comment")
     public ResponseEntity<Result<List<Comment>>> getCommentsByParentId(@Parameter(description = "Parent comment ID") @PathVariable @Min(1) Long parentId) {
         List<Comment> comments = commentService.findByParentId(parentId);
@@ -116,12 +109,11 @@ public class CommentController {
     }
 
     @GetMapping("/root")
-    @ApiKeyAuth
     @Operation(summary = "Get root comments", description = "Retrieve root comments (no parent) for a skill or memory")
     public ResponseEntity<Result<List<Comment>>> getRootComments(
-            @Parameter(description = "Skill ID") @RequestParam(required = false) Long skillId,
+            @Parameter(description = "Repo ID") @RequestParam(required = false) Long repoId,
             @Parameter(description = "Memory ID") @RequestParam(required = false) Long memoryId) {
-        List<Comment> comments = commentService.findRootComments(skillId, memoryId);
+        List<Comment> comments = commentService.findRootComments(repoId, memoryId);
         return Result.ok(comments);
     }
 

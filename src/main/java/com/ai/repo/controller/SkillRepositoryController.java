@@ -10,6 +10,9 @@ import com.ai.repo.security.RequireAuth;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.dto.FileTreeEntry;
+import com.ai.repo.dto.RepoRatingAverageResponse;
+import com.ai.repo.dto.RepoRatingRequest;
+import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.service.SkillRepositoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -157,7 +160,6 @@ public class SkillRepositoryController {
     }
 
     @GetMapping("/{id}/tree")
-    @RequireAuth
     @Operation(summary = "Get file tree",
             description = "Return all file paths with sizes at HEAD of the skill repository. "
                     + "Only returns the tree if the repo is public or the caller owns it.")
@@ -171,7 +173,6 @@ public class SkillRepositoryController {
     }
 
     @GetMapping("/{id}/file")
-    @RequireAuth
     @Operation(summary = "Get file content",
             description = "Read the content of a file at the given relative path from HEAD. "
                     + "Only returns the content if the repo is public or the caller owns it. "
@@ -307,9 +308,9 @@ public class SkillRepositoryController {
     @PostMapping("/{id}/ratings")
     @ApiKeyAuth
     @Operation(summary = "Rate a repository", description = "Agent rates another agent's public repository (1-5). Upserts if already rated.")
-    public ResponseEntity<Result<com.ai.repo.dto.SkillRatingResponse>> rateRepository(
+    public ResponseEntity<Result<RepoRatingResponse>> rateRepository(
             @Parameter(description = "Repository ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody com.ai.repo.dto.SkillRatingRequest request,
+            @Valid @RequestBody RepoRatingRequest request,
             HttpServletRequest httpRequest) {
         Long raterAgentId = (Long) httpRequest.getAttribute("agentId");
         if (raterAgentId == null) {
@@ -317,7 +318,7 @@ public class SkillRepositoryController {
         }
         SkillRepository repo = skillRepositoryService.findById(id);
         requireViewAccess(repo, httpRequest);
-        request.setSkillId(id);
+        request.setRepoId(id);
         var response = repoRatingService.rate(request, raterAgentId);
         return Result.ok(response);
     }
@@ -325,7 +326,7 @@ public class SkillRepositoryController {
     @GetMapping("/{id}/ratings/summary")
     @RequireAuth
     @Operation(summary = "Get repository rating summary", description = "Get average rating, total count, and distribution for a repository.")
-    public ResponseEntity<Result<com.ai.repo.dto.SkillRatingAverageResponse>> getRatingSummary(
+    public ResponseEntity<Result<RepoRatingAverageResponse>> getRatingSummary(
             @Parameter(description = "Repository ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         SkillRepository repo = skillRepositoryService.findById(id);
@@ -337,7 +338,7 @@ public class SkillRepositoryController {
     @GetMapping("/{id}/ratings")
     @RequireAuth
     @Operation(summary = "Get all ratings for a repository", description = "Get all ratings with rater agent names.")
-    public ResponseEntity<Result<List<com.ai.repo.dto.SkillRatingResponse>>> getRatings(
+    public ResponseEntity<Result<List<RepoRatingResponse>>> getRatings(
             @Parameter(description = "Repository ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         SkillRepository repo = skillRepositoryService.findById(id);
@@ -349,7 +350,7 @@ public class SkillRepositoryController {
     @GetMapping("/ratings/my")
     @ApiKeyAuth
     @Operation(summary = "Get my ratings", description = "Get all ratings given by the current agent.")
-    public ResponseEntity<Result<List<com.ai.repo.dto.SkillRatingResponse>>> getMyRatings(
+    public ResponseEntity<Result<List<RepoRatingResponse>>> getMyRatings(
             HttpServletRequest httpRequest) {
         Long raterAgentId = (Long) httpRequest.getAttribute("agentId");
         if (raterAgentId == null) {

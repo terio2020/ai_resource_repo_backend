@@ -2,8 +2,8 @@ package com.ai.repo.controller;
 
 import com.ai.repo.dto.FileTreeEntry;
 import com.ai.repo.dto.LoginResponse;
-import com.ai.repo.dto.SkillRatingRequest;
-import com.ai.repo.dto.SkillRatingResponse;
+import com.ai.repo.dto.RepoRatingRequest;
+import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.GlobalExceptionHandler;
 import com.ai.repo.service.AgentService;
@@ -286,6 +286,34 @@ class SkillRepositoryControllerTest {
     }
 
     @Test
+    void getFileTree_withoutAuth_shouldSucceedForPublicRepo() throws Exception {
+        SkillRepository repo = createRepo(1L, 1L);
+        repo.setIsPublic(true);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        when(skillRepositoryService.getFileTree(1L)).thenReturn(List.of(
+                FileTreeEntry.builder().path("README.md").size(500).build()
+        ));
+
+        mockMvc.perform(get("/api/skill-repos/1/tree"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].path").value("README.md"));
+    }
+
+    @Test
+    void getFileContent_withoutAuth_shouldSucceedForPublicRepo() throws Exception {
+        SkillRepository repo = createRepo(1L, 1L);
+        repo.setIsPublic(true);
+        when(skillRepositoryService.findById(1L)).thenReturn(repo);
+        when(skillRepositoryService.getFileContent(1L, "README.md")).thenReturn("# Hello");
+
+        mockMvc.perform(get("/api/skill-repos/1/file?path=README.md"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data").value("# Hello"));
+    }
+
+    @Test
     void setVisibility_shouldSucceed() throws Exception {
         doNothing().when(skillRepositoryService).setVisibility(1L, 1L, true);
         mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=true").with(withUserId(1L)))
@@ -423,13 +451,13 @@ class SkillRepositoryControllerTest {
     @Test
     void rateRepository_shouldSucceed() throws Exception {
         when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
-        com.ai.repo.dto.SkillRatingResponse response = new com.ai.repo.dto.SkillRatingResponse();
-        response.setSkillId(1L);
+        RepoRatingResponse response = new RepoRatingResponse();
+        response.setRepoId(1L);
         response.setRating(4);
         when(repoRatingService.rate(any(), eq(2L))).thenReturn(response);
 
-        com.ai.repo.dto.SkillRatingRequest req = new com.ai.repo.dto.SkillRatingRequest();
-        req.setSkillId(1L);
+        RepoRatingRequest req = new RepoRatingRequest();
+        req.setRepoId(1L);
         req.setRating(4);
         mockMvc.perform(post("/api/skill-repos/1/ratings")
                         .with(withAgentId(2L))
@@ -443,8 +471,8 @@ class SkillRepositoryControllerTest {
     @Test
     void getRatingSummary_shouldReturnSummary() throws Exception {
         when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
-        com.ai.repo.dto.SkillRatingAverageResponse summary = new com.ai.repo.dto.SkillRatingAverageResponse();
-        summary.setSkillId(1L);
+        com.ai.repo.dto.RepoRatingAverageResponse summary = new com.ai.repo.dto.RepoRatingAverageResponse();
+        summary.setRepoId(1L);
         summary.setAverageRating(4.5);
         summary.setTotalRatings(2);
         when(repoRatingService.getAverageByRepoId(1L)).thenReturn(summary);
@@ -457,8 +485,8 @@ class SkillRepositoryControllerTest {
     @Test
     void getRatings_shouldReturnList() throws Exception {
         when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
-        com.ai.repo.dto.SkillRatingResponse r = new com.ai.repo.dto.SkillRatingResponse();
-        r.setSkillId(1L);
+        RepoRatingResponse r = new RepoRatingResponse();
+        r.setRepoId(1L);
         r.setRating(5);
         r.setRaterAgentName("AgentX");
         when(repoRatingService.getRatingsByRepoId(1L)).thenReturn(List.of(r));
@@ -470,8 +498,8 @@ class SkillRepositoryControllerTest {
 
     @Test
     void getMyRatings_shouldReturnList() throws Exception {
-        com.ai.repo.dto.SkillRatingResponse r = new com.ai.repo.dto.SkillRatingResponse();
-        r.setSkillId(1L);
+        RepoRatingResponse r = new RepoRatingResponse();
+        r.setRepoId(1L);
         r.setRating(3);
         when(repoRatingService.getRatingsByAgentId(2L)).thenReturn(List.of(r));
         mockMvc.perform(get("/api/skill-repos/ratings/my").with(withAgentId(2L)))

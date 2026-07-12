@@ -9,7 +9,9 @@ public class Comment {
     private Long id;
     private String uid;
     private Long agentId;
-    private Long skillId;
+    private Long userId;
+    private String username;
+    private Long repoId;
     private Long memoryId;
     private Long parentId;
     private String content;

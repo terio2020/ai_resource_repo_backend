@@ -53,6 +53,8 @@ class CommentControllerTest {
         Comment comment = new Comment();
         comment.setId(id);
         comment.setAgentId(agentId);
+        comment.setUserId(1L);
+        comment.setUsername("TestAgent");
         comment.setContent(content);
         comment.setLikeCount(0);
         comment.setReplyCount(0);
@@ -71,7 +73,7 @@ class CommentControllerTest {
 
         mockMvc.perform(post("/api/comments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"skillId\":10,\"content\":\"Great skill!\"}")
+                        .content("{\"repoId\":10,\"content\":\"Great skill!\"}")
                         .with(withAgentId(5L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -85,12 +87,12 @@ class CommentControllerTest {
     void createComment_withParentId_shouldSucceed() throws Exception {
         Comment reply = buildComment(2L, 5L, "Thanks!");
         reply.setParentId(1L);
-        reply.setSkillId(10L);
+        reply.setRepoId(10L);
         when(commentService.create(any(Comment.class))).thenReturn(reply);
 
         mockMvc.perform(post("/api/comments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"skillId\":10,\"parentId\":1,\"content\":\"Thanks!\"}")
+                        .content("{\"repoId\":10,\"parentId\":1,\"content\":\"Thanks!\"}")
                         .with(withAgentId(5L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -161,13 +163,25 @@ class CommentControllerTest {
         Comment comment = buildComment(1L, 5L, "Test");
         when(commentService.findById(1L)).thenReturn(comment);
 
-        mockMvc.perform(get("/api/comments/1")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.agentId").value(5))
+                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.username").value("TestAgent"))
                 .andExpect(jsonPath("$.data.content").value("Test"));
+    }
+
+    @Test
+    void getCommentById_withoutAuth_shouldSucceed() throws Exception {
+        Comment comment = buildComment(1L, 5L, "Public comment");
+        when(commentService.findById(1L)).thenReturn(comment);
+
+        mockMvc.perform(get("/api/comments/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.content").value("Public comment"));
     }
 
     // ==================== GET /api/comments ====================
@@ -180,8 +194,7 @@ class CommentControllerTest {
         );
         when(commentService.findAll()).thenReturn(comments);
 
-        mockMvc.perform(get("/api/comments")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(2));
@@ -196,23 +209,21 @@ class CommentControllerTest {
         );
         when(commentService.findByAgentId(5L)).thenReturn(comments);
 
-        mockMvc.perform(get("/api/comments/agent/5")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/agent/5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].agentId").value(5));
     }
 
-    // ==================== GET /api/comments/skill/{skillId} ====================
+    // ==================== GET /api/comments/repo/{repoId} ====================
 
     @Test
-    void getCommentsBySkillId_shouldReturnList() throws Exception {
-        List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Skill comment"));
-        when(commentService.findBySkillId(10L)).thenReturn(comments);
+    void getCommentsByRepoId_shouldReturnList() throws Exception {
+        List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Repo comment"));
+        when(commentService.findByRepoId(10L)).thenReturn(comments);
 
-        mockMvc.perform(get("/api/comments/skill/10")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/repo/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1));
@@ -225,8 +236,7 @@ class CommentControllerTest {
         List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Memory comment"));
         when(commentService.findByMemoryId(20L)).thenReturn(comments);
 
-        mockMvc.perform(get("/api/comments/memory/20")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/memory/20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1));
@@ -241,8 +251,7 @@ class CommentControllerTest {
         List<Comment> replies = Arrays.asList(reply);
         when(commentService.findByParentId(1L)).thenReturn(replies);
 
-        mockMvc.perform(get("/api/comments/parent/1")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/parent/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].parentId").value(1));
@@ -251,13 +260,12 @@ class CommentControllerTest {
     // ==================== GET /api/comments/root ====================
 
     @Test
-    void getRootComments_bySkill_shouldReturnList() throws Exception {
+    void getRootComments_byRepo_shouldReturnList() throws Exception {
         List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Root"));
         when(commentService.findRootComments(10L, null)).thenReturn(comments);
 
         mockMvc.perform(get("/api/comments/root")
-                        .param("skillId", "10")
-                        .with(withAgentId(5L)))
+                        .param("repoId", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1));
@@ -269,8 +277,7 @@ class CommentControllerTest {
         when(commentService.findRootComments(null, 20L)).thenReturn(comments);
 
         mockMvc.perform(get("/api/comments/root")
-                        .param("memoryId", "20")
-                        .with(withAgentId(5L)))
+                        .param("memoryId", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1));
@@ -281,8 +288,7 @@ class CommentControllerTest {
         List<Comment> comments = Arrays.asList(buildComment(1L, 5L, "Root"));
         when(commentService.findRootComments(null, null)).thenReturn(comments);
 
-        mockMvc.perform(get("/api/comments/root")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/root"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1));
@@ -318,8 +324,7 @@ class CommentControllerTest {
     void getAllComments_empty_shouldReturnEmptyList() throws Exception {
         when(commentService.findAll()).thenReturn(Arrays.asList());
 
-        mockMvc.perform(get("/api/comments")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(0));
@@ -329,8 +334,7 @@ class CommentControllerTest {
     void getCommentById_notFound_shouldReturnNull() throws Exception {
         when(commentService.findById(999L)).thenReturn(null);
 
-        mockMvc.perform(get("/api/comments/999")
-                        .with(withAgentId(5L)))
+        mockMvc.perform(get("/api/comments/999"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isEmpty());
