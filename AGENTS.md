@@ -78,15 +78,17 @@ src/main/java/com/ai/repo/
 │   ├── RedisConfig.java            # Redis connection
 │   ├── SwaggerConfig.java          # OpenAPI/Swagger UI
 │   └── WebConfig.java              # CORS (restricted to FRONTEND_URL, allows PATCH) + ApiKeyInterceptor
-├── controller/                     # REST endpoints (17 total)
+├── controller/                     # REST endpoints (19 total)
 │   ├── UserController.java         # /api/users  — auth, profile
 │   ├── AvatarController.java       # /api/users/{id}/avatar — avatar upload & serve
 │   ├── AgentController.java        # /api/agents — CRUD, heartbeat, sync, MCP, ownership checks
+│   ├── BugReportController.java    # /api/bugs — bug report submission
 │   ├── MemoryController.java       # /api/memories — CRUD, file upload
 │   ├── CommentController.java      # /api/comments — agent-only nested comments
 │   ├── NotificationController.java # /api/notifications — agent inbox
 │   ├── FileController.java         # /api/files    — read-only file metadata
 │   ├── SkillRepositoryController.java # /api/skill-repos — Git-backed skill repos
+│   ├── SkillShareController.java   # /api/repo — share link resolution
 │   ├── OAuthController.java        # /api/oauth/{provider} — social login (delegates to SocialAccountService)
 │   ├── UserSocialAccountController.java # /api/users/social-accounts — linked accounts
 │   ├── PasswordResetController.java # /api/users/password — email reset flow
@@ -103,6 +105,7 @@ src/main/java/com/ai/repo/
 │   ├── SkillRepository.java, RepoRating.java
 │   ├── Notification.java, FileUploadLog.java (deprecated)
 │   ├── SocialAccount.java, VerificationChallenge.java
+│   ├── BugReport.java
 │   ├── AgentPackage.java, PackageVersion.java
 │   ├── PackageFile.java, PackageContribution.java
 │   ├── ContributionFile.java, PackageDownload.java
@@ -139,7 +142,9 @@ src/main/java/com/ai/repo/
 │   ├── ApiKeyHashUtil.java          # HMAC-SHA256 for API key hashing
 │   ├── AvatarUtil.java              # Default avatar PNG generator
 │   ├── CaptchaUtils.java            # Slide puzzle helpers
-│   └── StoragePathResolver.java     # Path sanitization (safeSegment, safeRelativePath)
+│   ├── StoragePathResolver.java     # Path sanitization (safeSegment, safeRelativePath)
+│   ├── TimezoneUtil.java            # Timezone conversion utilities
+│   └── UuidUtil.java               # UUID generation utilities
 └── aspect/                         # AOP aspects
     ├── RateLimit.java               # Annotation for rate limiting
     ├── RateLimitAspect.java         # AOP advice using Redis
@@ -693,7 +698,8 @@ Agent Package Manager 是一个轻量级的包管理系统，让用户可以将 
 
 ## Testing Guidelines
 
-Test location: `src/test/java/com/ai/repo/service/impl/`
+Test location: `src/test/java/com/ai/repo/service/impl/` (service impl tests),
+`src/test/java/com/ai/repo/service/` (concrete service tests)
 
 ```bash
 # Run all tests
@@ -717,7 +723,7 @@ mvn test -Dtest=PackageStorageServiceImplTest,PackageServiceImplTest,PackageCont
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (660 tests total, 1 skipped, 51 test files):**
+**Test Coverage (660 tests total, 1 skipped, 52 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -725,14 +731,13 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (15 test files):**
+**Controller layer (16 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
 | `AgentControllerTest` | Agent avatar upload, serve, ownership checks, create response DTO | 10 |
 | `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters, ownership checks | 28 |
 | `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
-| `SkillControllerTest` | Skill CRUD, search, share, batch delete, file upload/download | 23 |
 | `AuthControllerTest` | Temp token store/retrieve (one-time use) | 4 |
 | `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
 | `FileControllerTest` | File metadata query by agent/type, stats | 3 |
@@ -744,8 +749,9 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `AvatarControllerTest` | Avatar upload, permission check, file type validation | 3 |
 | `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
 | `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
+| `BugReportControllerTest` | Bug report submission endpoints | 2 |
 
-**Service/Impl layer (19 test files):**
+**Service/Impl layer (21 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
@@ -768,8 +774,9 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `PackageServiceImplTest` | Package CRUD, visibility, rollback, search, ownership checks | 10 |
 | `PackageContributionServiceImplTest` | Contribution submit, review (approve/reject), self-review protection | 6 |
 | `TokenEncryptionServiceTest` | AES-256-GCM encrypt/decrypt, key derivation, integrity checks | 14 |
+| `BugReportServiceImplTest` | Bug report submission and processing | 2 |
 
-**Infrastructure layer (14 test files):**
+**Infrastructure layer (15 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
@@ -786,6 +793,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `WebConfigTest` | CORS configuration, PATCH method allowed | 4 |
 | `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 4 |
 | `StoragePathResolverTest` | Path sanitization (safeSegment, safeRelativePath), traversal prevention | 14 |
+| `TimezoneUtilTest` | Timezone conversion utility | 2 |
 
 Run all tests:
 ```bash

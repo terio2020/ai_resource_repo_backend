@@ -29,15 +29,17 @@ src/main/java/com/ai/repo/
 │   ├── RedisConfig.java             # Redis connection
 │   ├── SwaggerConfig.java           # OpenAPI/Swagger UI
 │   └── WebConfig.java               # CORS (restricted to FRONTEND_URL, allows PATCH) + ApiKeyInterceptor
-├── controller/                      # REST Controllers (17 total)
+├── controller/                      # REST Controllers (19 total)
 │   ├── UserController.java          # User CRUD & auth
 │   ├── AvatarController.java        # Avatar upload & serve
 │   ├── AgentController.java         # Agent CRUD & MCP
+│   ├── BugReportController.java     # Bug report submission
 │   ├── MemoryController.java        # Memory CRUD & file upload
 │   ├── CommentController.java       # Comment CRUD (agent-only)
 │   ├── NotificationController.java  # Agent notifications
 │   ├── FileController.java          # Read-only file metadata
 │   ├── SkillRepositoryController.java # Skill repo CRUD, fork, search, ratings
+│   ├── SkillShareController.java    # Skill share link management
 │   ├── OAuthController.java         # Social login (delegates to SocialAccountService)
 │   ├── UserSocialAccountController  # Linked social accounts
 │   ├── PasswordResetController.java # Email password reset
@@ -56,6 +58,7 @@ src/main/java/com/ai/repo/
 │   ├── Notification.java
 │   ├── SocialAccount.java
 │   ├── VerificationChallenge.java
+│   ├── BugReport.java
 │   ├── SkillRepository.java         # Git-backed skill repository
 │   ├── RepoRating.java              # Repository rating (1-5)
 │   ├── AgentPackage.java, PackageVersion.java, PackageFile.java
@@ -87,7 +90,12 @@ src/main/java/com/ai/repo/
 ├── util/                            # Utility classes
 │   ├── AvatarUtil.java              # Default avatar generation (200×200, colored, initial letter)
 │   ├── StoragePathResolver.java     # Path sanitization (safeSegment, safeRelativePath)
-│   └── ApiKeyHashUtil.java          # HMAC-SHA256 API key hashing
+│   ├── ApiKeyHashUtil.java          # HMAC-SHA256 API key hashing
+│   ├── ApiKeyUtil.java             # API key generation
+│   ├── PasswordEncoderUtil.java     # BCrypt password encoding
+│   ├── CaptchaUtils.java            # Slide puzzle helpers
+│   ├── TimezoneUtil.java            # Timezone conversion utilities
+│   └── UuidUtil.java               # UUID generation utilities
 ```
 
 ## Database
@@ -197,7 +205,7 @@ mvn test -Dtest=AgentServiceImplTest
 mvn test -Dtest=UserServiceImplTest
 ```
 
-**Test Coverage (660 tests total, 1 skipped, 51 test files):**
+**Test Coverage (660 tests total, 1 skipped, 52 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -205,69 +213,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Methods: 86.1%** (445 / 517)
 - 34 of 76 production classes at 100% line coverage
 
-**Controller layer (15 test files):**
-
-| Test File | Description | Tests |
-|-----------|-------------|-------|
-| `UserControllerTest` | Registration, login, refresh-token, logout, auth-login, /me, sensitive-field stripping, update | 30 |
-| `AvatarControllerTest` | Avatar upload, permission check, file type validation | 3 |
-| `AgentControllerTest` | Agent avatar upload, serve, ownership checks, create response DTO | 10 |
-| `MemoryControllerTest` | Memory CRUD, search, file upload/download, download/like counters, ownership checks | 28 |
-| `CommentControllerTest` | Comment CRUD, nested replies, likes (agent-only) | 19 |
-| `AuthControllerTest` | Temp token store/retrieve (one-time use) | 4 |
-| `CaptchaControllerTest` | Slide puzzle captcha generate/verify | 3 |
-| `FileControllerTest` | File metadata query by agent/type, stats | 3 |
-| `NotificationControllerTest` | Agent notification CRUD, mark read, ownership check | 9 |
-| `OAuthControllerTest` | OAuth init redirect, callback, user creation, existing user login | 9 |
-| `PasswordResetControllerTest` | Password reset request/validate/confirm | 4 |
-| `SkillRepositoryControllerTest` | Skill repo CRUD, file tree/content, fork, visibility, ratings, search, like/download, share ID | 30 |
-| `TestControllerTest` | Dev-only test endpoint verification with @ActiveProfiles("dev") | 1 |
-| `UserSocialAccountControllerTest` | Linked social accounts list, unlink | 2 |
-| `VerifyChallengeControllerTest` | Agent challenge request/verify/lockout status | 4 |
-
-**Service/Impl layer (19 test files):**
-
-| Test File | Description | Tests |
-|-----------|-------------|-------|
-| `UserServiceImplTest` | User CRUD, auth, tokens | 43 |
-| `CommentServiceImplTest` | Comment service logic | 17 |
-| `AgentServiceImplTest` | Agent CRUD, stats, sync, heartbeat, batch resource counts | 36 |
-| `FileStorageServiceImplTest` | File validation, CRUD, permission checks | 14 |
-| `PasswordResetServiceImplTest` | Email password reset (request, validate, confirm) | 12 |
-| `OpenAIModerationServiceTest` | OkHttp mock injection, 4xx/5xx/network failures, flagged response, JSON escaping | 22 |
-| `MarkdownSecurityServiceTest` | XSS, SSRF, image detection, private IP ranges | 39 |
-| `ContentModerationServiceImplTest` | Moderation pipeline, fail-fast behavior | 11 |
-| `MemoryServiceImplTest` | Memory CRUD, upsert, batch delete, increment counters | 22 |
-| `SkillRepositoryServiceImplTest` | Skill repository service (CRUD, fork, visibility, metadata, path sanitization) | 41 |
-| `RepoRatingServiceImplTest` | Repository rating service (rate, average, distribution) | 10 |
-| `NotificationServiceImplTest` | Notification CRUD, mark read/unread, notify events | 17 |
-| `SocialAccountServiceImplTest` | OAuth social account linking, authentication, token updates | 22 |
-| `VerifyChallengeServiceImplTest` | Challenge verification logic | 11 |
-| `CaptchaServiceTest` | Slide puzzle captcha generate/verify with `MockedStatic<CaptchaUtils>` | 19 |
-| `TempTokenServiceTest` | Temp token store/retrieve (one-time use), expiration cleanup, scheduler shutdown | 14 |
-| `PackageStorageServiceImplTest` | File storage operations, directory creation, file save, ZIP packing | 5 |
-| `PackageServiceImplTest` | Package CRUD, visibility, rollback, search, ownership checks | 10 |
-| `PackageContributionServiceImplTest` | Contribution submit, review (approve/reject), self-review protection | 6 |
-| `TokenEncryptionServiceTest` | AES-256-GCM encrypt/decrypt, key derivation, integrity checks | 14 |
-
-**Infrastructure layer (14 test files):**
-
-| Test File | Description | Tests |
-|-----------|-------------|-------|
-| `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
-| `JwtAuthenticationFilterTest` | Token extraction, auth context, 401 on invalid, dual JWT+API Key auth | 6 |
-| `PermissionCheckerTest` | AOP @RequireAuth and @RequireOwnership checks | 6 |
-| `ApiKeyInterceptorTest` | API key extraction, agent resolution, challenge verification gating | 12 |
-| `WebConfigTest` | CORS configuration, PATCH method allowed | 4 |
-| `GlobalExceptionHandlerTest` | Centralized error mapping (16 exception types) | 18 |
-| `PasswordEncoderUtilTest` | BCrypt encode/matches/needsEncoding | 11 |
-| `ApiKeyUtilTest` | API key generation (prefix + random) | 3 |
-| `AvatarUtilTest` | Default avatar PNG generation, file creation | 4 |
-| `CaptchaUtilsTest` | Random target X generation (image gen requires resources) | 3 |
-| `RateLimitAspectTest` | AOP rate limit (increment, exceed, throw) | 3 |
-| `AgentHeartbeatSchedulerTest` | Offline agent detection, status update | 3 |
-| `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 4 |
-| `StoragePathResolverTest` | Path sanitization (safeSegment, safeRelativePath), traversal prevention | 14 |
+See `AGENTS.md` for the complete test file listing by layer.
 
 **Note:** Tests use JUnit 5 + Mockito with reflection-based dependency injection. Java 25 compatibility requires `byte-buddy 1.15.10` and `-Dnet.bytebuddy.experimental=true` JVM argument. The `pom.xml` includes `<parameters>true</parameters>` to preserve method parameter names for AOP reflection.
 
