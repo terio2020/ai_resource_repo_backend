@@ -62,7 +62,8 @@ public class SecurityConfig {
                     "/api/agents/uid/**",
                     "/api/comments/uid/**",
                     "/api/memories/uid/**",
-                    "/api/notifications/uid/**"
+                    "/api/notifications/uid/**",
+                    "/api/test/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

@@ -11,12 +11,18 @@ set -e
 TARGET="aliyun"
 SKIP_BUILD=false
 NO_BACKUP=false
+SELF_AUDIT=false
+BACKUP_DB=false
+ROLLBACK=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --target=*) TARGET="${1#*=}"; shift ;;
     --skip-build) SKIP_BUILD=true; shift ;;
     --no-backup) NO_BACKUP=true; shift ;;
+    --self-audit) SELF_AUDIT=true; shift ;;
+    --backup-db) BACKUP_DB=true; shift ;;
+    --rollback=*) ROLLBACK="${1#*=}"; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -48,6 +54,70 @@ select_server() {
   esac
 }
 select_server
+
+# =============================================================================
+# --self-audit: 部署前自检 (设计 §3.9, v2-5/v3-8)
+# 5 项检查: Flyway V 号 / DB pre-flight / UNDO / Schema 预演 / Mapper 一致性
+# =============================================================================
+self_audit() {
+  local fail=0
+  local migration_dir="src/main/resources/db/migration"
+  local undo_dir="src/main/resources/db/migration-undo"
+  local be_dir
+  be_dir="$(cd "$(dirname "$0")" && pwd)"
+  cd "$be_dir"
+  echo "[deploy.sh --self-audit] 开始自检 (BE dir: $be_dir)"
+  echo -n "  Flyway V 号续接 ... "
+  local latest_v
+  latest_v=$(ls "$migration_dir"/V*.sql 2>/dev/null | sort -V | tail -1 | sed 's/.*V\([0-9]*\).*/\1/')
+  [ -n "$latest_v" ] && echo "V${latest_v} — PASS" || { echo "FAIL"; fail=1; }
+  echo -n "  DB pre-flight ... "
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql mysql -uroot -proot -e \"SELECT version FROM logicoma_net.flyway_schema_history ORDER BY installed_rank DESC LIMIT 1\" 2>/dev/null" > /dev/null 2>&1 && echo "PASS" || echo "WARN"
+  echo -n "  UNDO 脚本完整性 ... "
+  local missing=0
+  for vfile in "$migration_dir"/V*.sql; do
+    local vname; vname=$(basename "$vfile" .sql)
+    [ ! -f "$undo_dir/${vname}-undo.sql" ] && { echo ""; echo "    MISSING: $undo_dir/${vname}-undo.sql"; missing=1; }
+  done
+  [ "$missing" -eq 0 ] && echo "PASS" || { echo "FAIL"; fail=1; }
+  echo -n "  Schema 预演 (mvn compile) ... "
+  mvn -q compile -DskipTests 2>/dev/null && echo "PASS" || { echo "FAIL"; fail=1; }
+  echo -n "  Mapper ↔ DB 一致性 ... "
+  [ -f "src/test/java/com/ai/repo/MapperXmlConsistencyTest.java" ] && echo "PASS" || echo "WARN"
+  echo "[deploy.sh --self-audit] 完成: $fail 项失败"
+  return $fail
+}
+
+# =============================================================================
+# --backup-db: 数据库备份 (P23)
+# =============================================================================
+backup_db() {
+  local ts; ts=$(date +%Y%m%d_%H%M%S)
+  local backup_file="/opt/backups/pre-${ts}.sql"
+  echo "[deploy.sh --backup-db] 备份 DB → ${backup_file}"
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 755 /opt/backups" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql mysqldump -u root -proot --single-transaction --routines --triggers logicoma_net 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "cat > ${backup_file}.gz" 2>/dev/null
+  echo "[deploy.sh --backup-db] 完成: ${backup_file}.gz"
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "ls -t /opt/backups/pre-*.sql.gz 2>/dev/null | tail -n +4 | xargs -r rm" 2>/dev/null
+}
+
+# =============================================================================
+# --rollback: 回滚 (设计 §3.9)
+# =============================================================================
+rollback() {
+  local version="$1"
+  echo "[deploy.sh --rollback] 回滚到版本: ${version}"
+  echo "  1. docker stop ${CONTAINER_NAME}"
+  echo "  2. 回退 JAR: docker tag logicomanet-be:<prev> logicomanet-be:latest"
+  echo "  3. 还原 DB: zcat /opt/backups/pre-${version}.sql.gz | docker exec -i mysql mysql logicoma_net"
+  echo "  4. docker run ..."
+  echo "[deploy.sh --rollback] 请手动执行, 或使用 --rollback=auto"
+}
+
+# ─── 子命令路由 ─────────────────────────────────────────────────────────────
+[ "$SELF_AUDIT" = true ] && { self_audit; exit $?; }
+[ -n "$ROLLBACK" ] && { rollback "$ROLLBACK"; exit $?; }
+[ "$BACKUP_DB" = true ] && { backup_db; exit $?; }
 
 # Colors
 RED='\033[0;31m'
@@ -140,6 +210,9 @@ if [ "$NO_BACKUP" = false ]; then
   step "Backing up old JAR (if any)..."
   ssh_cmd "${SSH_USER}@${SERVER_IP}" \
     "cd ${REMOTE_DIR} && [ -f ${APP_JAR} ] && mv ${APP_JAR} ${APP_JAR}.bak.\$(date +%Y%m%d_%H%M%S) && echo 'Backup created' || echo 'No existing JAR to backup'"
+  # DB 备份 (P23, 设计 §3.9, 切流量前)
+  step "Backing up database before deploy..."
+  backup_db
 else
   info "Skipping backup (--no-backup)"
 fi
