@@ -247,7 +247,10 @@ Key features:
 `deploy.sh` supports CLI flags (all optional):
 - `--target <name>` or positional arg: target server profile (default `server1`)
 - `--skip-build`: skip Maven build step
-- `--no-backup`: skip old JAR backup before upload
+- `--no-backup`: skip old JAR backup and pre-deploy database backup
+- `--self-audit`: run 5 pre-deploy checks (Flyway V-number continuity, DB pre-flight, UNDO script completeness, schema dry-run via `mvn compile`, Mapper↔DB consistency)
+- `--backup-db`: dump the MySQL database (mysqldump via docker, gzipped) to `/opt/backups/pre-{ts}.sql.gz` on the remote server, keeping the last 3
+- `--rollback=<version>`: print rollback steps (stop container, revert JAR tag, restore DB dump)
 - `--help`: show usage
 
 It automatically:
@@ -259,6 +262,7 @@ It automatically:
 - Passes all env vars (DB, JWT, OAuth, SMTP, OpenAI) to the Docker container
 - Runs the container with `eclipse-temurin:17-jdk-alpine`
 - Creates a backup of the previous JAR (unless `--no-backup`)
+- Backs up the database before deploy (unless `--no-backup`), dumping a gzipped snapshot to `/opt/backups/pre-{ts}.sql.gz` and keeping the last 3
 - Restarts the container
 
 ## Common Response Format

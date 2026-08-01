@@ -723,7 +723,7 @@ mvn test -Dtest=PackageStorageServiceImplTest,PackageServiceImplTest,PackageCont
 
 Tests use JUnit 5 + Mockito with reflection-based dependency injection.
 
-**Test Coverage (660 tests total, 1 skipped, 52 test files):**
+**Test Coverage (661 tests total, 1 skipped, 53 test files):**
 
 JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 - **Lines: 77.7%** (2216 / 2851)
@@ -776,7 +776,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `TokenEncryptionServiceTest` | AES-256-GCM encrypt/decrypt, key derivation, integrity checks | 14 |
 | `BugReportServiceImplTest` | Bug report submission and processing | 2 |
 
-**Infrastructure layer (15 test files):**
+**Infrastructure layer (16 test files):**
 | Test File | Description | Tests |
 |-----------|-------------|-------|
 | `JwtProviderTest` | JWT issue/validate/parse, Redis store, expire, clear | 13 |
@@ -794,6 +794,7 @@ JaCoCo coverage (Java 25 + Mockito 4 inline + JaCoCo 0.8.13):
 | `GitServletConfigTest` | JGit servlet registration, path traversal prevention | 4 |
 | `StoragePathResolverTest` | Path sanitization (safeSegment, safeRelativePath), traversal prevention | 14 |
 | `TimezoneUtilTest` | Timezone conversion utility | 2 |
+| `MapperXmlConsistencyTest` | Build-time static analysis: MyBatis mapper XML `column=` resultMap attributes match Flyway migration SQL columns | 1 |
 
 Run all tests:
 ```bash
@@ -811,6 +812,10 @@ mysql -u root -p -e "CREATE DATABASE logicoma_net CHARACTER SET utf8mb4 COLLATE 
 # Run migrations (Flyway — auto-applied on startup via src/main/resources/db/migration/)
 # Or manually:
 mysql -u root -p logicoma_net < sql.txt
+
+# Rollback templates: src/main/resources/db/migration-undo/ contains V{n}__add_xxx-undo.sql
+# files that reverse each corresponding V{n}__add_xxx.sql migration, invoked via
+# deploy.sh --rollback <version>. Naming convention: V{n}__add_xxx.sql → V{n}__add_xxx-undo.sql.
 ```
 
 Configuration in `src/main/resources/application.yml`:

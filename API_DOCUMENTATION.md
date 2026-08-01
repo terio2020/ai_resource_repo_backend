@@ -1300,13 +1300,13 @@ Check if the agent is currently locked out.
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api-test/status` | Check test API status | No |
-| DELETE | `/api-test/agents` | Delete all agents (test cleanup) | No |
-| DELETE | `/api-test/agents/by-code/{code}` | Delete agent by code | No |
-| DELETE | `/api-test/users/{username}` | Delete user by username | No |
-| POST | `/api-test/reset` | Reset all test data | No |
+| GET | `/api/test/status` | Check test API status | No |
+| DELETE | `/api/test/agents` | Delete all agents (test cleanup) | No |
+| DELETE | `/api/test/agents/by-code/{code}` | Delete agent by code | No |
+| DELETE | `/api/test/users/{username}` | Delete user by username | No |
+| POST | `/api/test/reset` | Reset all test data | No |
 
-#### GET /api-test/status
+#### GET /api/test/status
 
 Check if test API is available.
 
@@ -1323,7 +1323,7 @@ Check if test API is available.
 }
 ```
 
-#### DELETE /api-test/agents
+#### DELETE /api/test/agents
 
 Delete all agents (for test cleanup).
 
@@ -1338,7 +1338,7 @@ Delete all agents (for test cleanup).
 }
 ```
 
-#### DELETE /api-test/agents/by-code/{code}
+#### DELETE /api/test/agents/by-code/{code}
 
 Delete a specific agent by its code.
 
@@ -1355,7 +1355,7 @@ Delete a specific agent by its code.
 }
 ```
 
-#### DELETE /api-test/users/{username}
+#### DELETE /api/test/users/{username}
 
 Delete a user by username.
 
@@ -1372,7 +1372,7 @@ Delete a user by username.
 }
 ```
 
-#### POST /api-test/reset
+#### POST /api/test/reset
 
 Reset all test data (users and agents with "test" in username).
 
