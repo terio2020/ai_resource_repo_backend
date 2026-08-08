@@ -73,6 +73,12 @@ The `JwtAuthenticationFilter` now supports both JWT and API key authentication:
 - 5 minute time limit, 3 attempts max
 - 30 minute lockout after 3 consecutive failures
 
+### 5. Admin Access (`@RequireAdmin`)
+- **Only** human JWT users with `role == "ADMIN"` and `status == "ACTIVE"` can access `/api/admin/*`
+- Agent API keys are **always** rejected with `403` (even if the agent belongs to an admin user) — enforced by the AOP `PermissionChecker.checkAdmin` which requires `agentId == null`
+- No credentials → `401`; authenticated but not admin → `403` (no role leakage)
+- All admin write operations emit an audit log line: `[AUDIT] admin={userId} action={...} targetId={...}`
+
 ## Data Types
 
 ### User Entity
@@ -1164,6 +1170,55 @@ Resolve a public skill repository by its share UID.
 | PUT | `/api/bugs/{id}` | Update bug report | No |
 | PATCH | `/api/bugs/{id}/status` | Update bug report status | No |
 | DELETE | `/api/bugs/{id}` | Delete a bug report | No |
+
+### Admin API (`/api/admin/*`)
+
+All admin endpoints require `@RequireAdmin` (human `ADMIN` JWT, `status == ACTIVE`). Agent API keys are rejected with `403`. Write operations are audit-logged.
+
+#### Admin Dashboard Statistics (`/api/admin/dashboard`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/dashboard/overview` | Platform overview: total users/agents/memories/skill-repos/packages/comments/bug-reports + recent signups |
+| GET | `/api/admin/dashboard/user-growth?days=30` | Daily new user registrations (`days` default 30, max 90; missing dates filled with 0) |
+| GET | `/api/admin/dashboard/activity?days=30` | Daily activity trend: logins / new memories / new agents (approx; missing dates filled with 0) |
+| GET | `/api/admin/dashboard/downloads?days=30` | Daily event-backed downloads. Package counts are exact; memory/repo remain 0 until dedicated event tables exist. |
+| GET | `/api/admin/dashboard/agents` | Agent counts grouped by status |
+| GET | `/api/admin/dashboard/top-agents?limit=10` | Agents ranked by memory count (`limit` default 10, max 50) |
+
+#### Admin User Management (`/api/admin/users`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/users?page=1&size=10&keyword=&role=&status=` | Paginated user list (keyword matches username/email/nickname; role `USER`/`ADMIN`; status `ACTIVE`/`DISABLED`; sensitive fields stripped) |
+| PATCH | `/api/admin/users/{id}/role` | Update user role (`USER` or `ADMIN`); cannot change own role |
+| PATCH | `/api/admin/users/{id}/status` | Enable/disable user (`ACTIVE`/`DISABLED`); disabling cascades to the user's agents; cannot disable self or the last active admin |
+
+#### Admin Agent Management (`/api/admin/agents`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/agents?page=1&size=10&keyword=&status=&type=` | Paginated agent list (keyword matches agent name; status `ACTIVE`/`IDLE`/`BUSY`/`OFFLINE`/`DISABLED`; apiKey/apiKeyHash/verificationCode stripped) |
+| PATCH | `/api/admin/agents/{id}/status` | Update agent status (incl. `DISABLED` — removes all agent capabilities) |
+
+#### Admin Content Governance & Bug Reports (`/api/admin/content`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/content/memories?page=1&size=10&keyword=&status=` | Paginated Memory moderation list (`VISIBLE`/`BANNED`) |
+| GET | `/api/admin/content/skill-repos?page=1&size=10&keyword=&status=` | Paginated Skill Repository moderation list |
+| GET | `/api/admin/content/packages?page=1&size=10&keyword=&status=` | Paginated Package moderation list |
+| PATCH | `/api/admin/content/memories/{id}/status` | Set memory status (`VISIBLE` or `BANNED`) |
+| PATCH | `/api/admin/content/skill-repos/{id}/status` | Set skill repository status (`VISIBLE` or `BANNED`) |
+| PATCH | `/api/admin/content/packages/{id}/status` | Set package status (`VISIBLE` or `BANNED`) |
+| GET | `/api/admin/content/bug-reports?page=1&size=10&status=&severity=` | Paginated bug report list (status `open`/`in_progress`/`resolved`/`closed`; severity `info`/`low`/`medium`/`high`/`critical`) |
+| GET | `/api/admin/content/bug-reports/{id}` | Admin-only bug report detail |
+| PATCH | `/api/admin/content/bug-reports/{id}/status` | Update bug report status (`open`/`in_progress`/`resolved`/`closed`) |
+
+**BANNED content enforcement** (status `BANNED` = soft-takedown, data retained, reversible):
+- Public lists/searches filter out `BANNED` rows (visible only to the owner/owning agent)
+- Single-item reads return `404` for non-owners (`MemoryController.findById/findByUid`, `SkillRepositoryController` view access + share-ID lookup, `PackageController.getById`, `PackageServiceImpl.checkDownloadPermission`)
+- `git clone`/`fetch` of a `BANNED` skill repo is denied for everyone except the owning agent; `git push` is always denied
 
 ### File Management (`/api/files`)
 

@@ -198,6 +198,13 @@
         WHERE id = #{id}
     </update>
 
+    <update id="disableByUserId">
+        UPDATE agents
+        SET status = 'DISABLED'
+        WHERE user_id = #{userId}
+        AND status != 'DISABLED'
+    </update>
+
     <update id="updateConfigOnly">
         UPDATE agents
         SET config = #{config}
@@ -245,11 +252,12 @@
         FROM agents
         WHERE last_heartbeat_at &lt; #{threshold}
         AND status != 'OFFLINE'
+        AND status != 'DISABLED'
     </select>
 
     <update id="updateAgentStatus">
         UPDATE agents SET status = #{status}, updated_at = NOW()
-        WHERE id = #{id} AND status != 'OFFLINE'
+        WHERE id = #{id} AND status != 'OFFLINE' AND status != 'DISABLED'
     </update>
 
     <update id="updateChallengeVerified">
@@ -260,6 +268,22 @@
         SELECT <include refid="Base_Column_List"/>
         FROM agents
         WHERE uid = #{uid}
+    </select>
+
+    <select id="adminCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM agents
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+        </where>
     </select>
 
 </mapper>

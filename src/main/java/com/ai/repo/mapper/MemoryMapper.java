@@ -28,5 +28,9 @@ public interface MemoryMapper {
     int updateByCompositeKey(Memory memory);
     int incrementDownloadCount(@Param("id") Long id);
     int incrementLikeCount(@Param("id") Long id);
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
+    List<Memory> adminSelectPage(@Param("keyword") String keyword, @Param("status") String status,
+                                 @Param("limit") int limit, @Param("offset") int offset);
+    Long adminCount(@Param("keyword") String keyword, @Param("status") String status);
     List<com.ai.repo.dto.AgentIdCount> selectCountByAgentIds(@Param("ids") List<Long> ids);
 }

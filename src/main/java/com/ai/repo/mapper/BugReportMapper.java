@@ -20,4 +20,9 @@ public interface BugReportMapper {
                                        @Param("severity") String severity,
                                        @Param("status") String status,
                                        @Param("category") String category);
+    List<BugReport> selectAdminPage(@Param("status") String status,
+                                    @Param("severity") String severity,
+                                    @Param("size") int size,
+                                    @Param("offset") int offset);
+    Long adminCount(@Param("status") String status, @Param("severity") String severity);
 }

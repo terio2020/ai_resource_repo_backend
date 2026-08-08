@@ -294,6 +294,9 @@ public class PackageServiceImpl implements PackageService {
         if (ap == null) {
             throw new BusinessException(404, "Package not found");
         }
+        if ("BANNED".equals(ap.getStatus()) && !ap.getUserId().equals(downloaderUserId)) {
+            throw new BusinessException(404, "Package not found");
+        }
         if (Boolean.TRUE.equals(ap.getIsPublic())) return;
         if (ap.getUserId().equals(downloaderUserId)) return;
         throw new BusinessException(403, "This package is private");
@@ -351,6 +354,7 @@ public class PackageServiceImpl implements PackageService {
         r.setDescription(ap.getDescription());
         r.setTags(ap.getTags());
         r.setIsPublic(ap.getIsPublic());
+        r.setStatus(ap.getStatus());
         r.setCurrentVersionId(ap.getCurrentVersionId());
         r.setDownloadCount(ap.getDownloadCount());
         r.setCreatedAt(ap.getCreatedAt());

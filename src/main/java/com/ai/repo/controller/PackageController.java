@@ -68,8 +68,16 @@ public class PackageController {
     @RequireAuth
     @Operation(summary = "Get package by ID", description = "Retrieve package metadata.")
     public ResponseEntity<Result<PackageResponse>> getById(
-            @Parameter(description = "Package ID") @PathVariable @Min(1) Long id) {
+            @Parameter(description = "Package ID") @PathVariable @Min(1) Long id,
+            HttpServletRequest httpRequest) {
         AgentPackage ap = packageService.findById(id);
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        boolean isOwner = ap.getUserId().equals(userId)
+                || (ap.getAgentId() != null && ap.getAgentId().equals(agentId));
+        if ("BANNED".equals(ap.getStatus()) && !isOwner) {
+            throw new com.ai.repo.exception.BusinessException(404, "Package not found");
+        }
         return Result.ok(toResponse(ap));
     }
 
@@ -214,6 +222,7 @@ public class PackageController {
         r.setDescription(ap.getDescription());
         r.setTags(ap.getTags());
         r.setIsPublic(ap.getIsPublic());
+        r.setStatus(ap.getStatus());
         r.setCurrentVersionId(ap.getCurrentVersionId());
         r.setDownloadCount(ap.getDownloadCount());
         r.setCreatedAt(ap.getCreatedAt());

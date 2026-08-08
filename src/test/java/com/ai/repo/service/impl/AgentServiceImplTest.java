@@ -7,6 +7,7 @@ import com.ai.repo.dto.AgentStatsResponse;
 import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.AgentPackageMapper;
@@ -61,6 +62,9 @@ class AgentServiceImplTest {
     @Mock
     private AgentPackageMapper agentPackageMapper;
 
+    @Mock
+    private com.ai.repo.mapper.UserMapper userMapper;
+
     private AgentServiceImpl agentService;
 
     private static final Path TEST_BASE_PATH = Paths.get("/tmp/test-agent-avatars");
@@ -96,6 +100,10 @@ class AgentServiceImplTest {
             java.lang.reflect.Field apField = AgentServiceImpl.class.getDeclaredField("agentPackageMapper");
             apField.setAccessible(true);
             apField.set(agentService, agentPackageMapper);
+
+            java.lang.reflect.Field userField = AgentServiceImpl.class.getDeclaredField("userMapper");
+            userField.setAccessible(true);
+            userField.set(agentService, userMapper);
 
             java.lang.reflect.Field basePathField = AgentServiceImpl.class.getDeclaredField("basePath");
             basePathField.setAccessible(true);
@@ -491,6 +499,25 @@ class AgentServiceImplTest {
         assertTrue(exception.getMessage().contains("not found"));
     }
 
+    @Test
+    void updateHeartbeat_shouldThrow403_whenAgentDisabled() {
+        // Given
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setStatus("DISABLED");
+        String timestamp = LocalDateTime.now().toString();
+
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+
+        // When/Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            agentService.updateHeartbeat(1L, "ACTIVE", timestamp, null);
+        });
+        assertEquals(403, exception.getCode());
+        assertTrue(exception.getMessage().contains("disabled"));
+        verify(agentMapper, never()).updateHeartbeat(anyLong(), anyString(), anyString(), any());
+    }
+
     // ========== syncData() Tests ==========
 
     @Test
@@ -661,6 +688,115 @@ class AgentServiceImplTest {
         assertNotNull(result);
         assertEquals("test-api-key", result.getApiKey());
         assertEquals("hashed_test-api-key", result.getApiKeyHash());
+    }
+
+    @Test
+    void findByApiKey_shouldReturnNull_whenAgentDisabled() {
+        // Given
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setStatus("DISABLED");
+        agent.setApiKeyHash("hashed_test-api-key");
+
+        when(agentMapper.selectByApiKeyHash("hashed_test-api-key")).thenReturn(agent);
+
+        // When
+        Agent result = agentService.findByApiKey("test-api-key");
+
+        // Then
+        assertNull(result);
+    }
+
+    @Test
+    void findByApiKey_shouldReturnNull_whenOwnerUserDisabled() {
+        // Given
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setStatus("ACTIVE");
+        agent.setUserId(10L);
+        agent.setApiKeyHash("hashed_test-api-key");
+
+        User owner = new User();
+        owner.setId(10L);
+        owner.setStatus("DISABLED");
+
+        when(agentMapper.selectByApiKeyHash("hashed_test-api-key")).thenReturn(agent);
+        when(userMapper.selectById(10L)).thenReturn(owner);
+
+        // When
+        Agent result = agentService.findByApiKey("test-api-key");
+
+        // Then
+        assertNull(result);
+    }
+
+    @Test
+    void findByApiKey_shouldReturnAgent_whenOwnerUserActive() {
+        // Given
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setStatus("ACTIVE");
+        agent.setUserId(10L);
+        agent.setApiKeyHash("hashed_test-api-key");
+
+        User owner = new User();
+        owner.setId(10L);
+        owner.setStatus("ACTIVE");
+
+        when(agentMapper.selectByApiKeyHash("hashed_test-api-key")).thenReturn(agent);
+        when(userMapper.selectById(10L)).thenReturn(owner);
+
+        // When
+        Agent result = agentService.findByApiKey("test-api-key");
+
+        // Then
+        assertNotNull(result);
+    }
+
+    @Test
+    void findByApiKey_shouldReturnAgent_whenOwnerUserNotFound() {
+        // Given
+        Agent agent = new Agent();
+        agent.setId(1L);
+        agent.setStatus("ACTIVE");
+        agent.setUserId(10L);
+        agent.setApiKeyHash("hashed_test-api-key");
+
+        when(agentMapper.selectByApiKeyHash("hashed_test-api-key")).thenReturn(agent);
+        when(userMapper.selectById(10L)).thenReturn(null);
+
+        // When
+        Agent result = agentService.findByApiKey("test-api-key");
+
+        // Then
+        assertNotNull(result);
+    }
+
+    @Test
+    void findByApiKey_shouldReturnNull_whenApiKeyHashNotFound() {
+        // Given
+        when(agentMapper.selectByApiKeyHash("hashed_unknown-key")).thenReturn(null);
+
+        // When
+        Agent result = agentService.findByApiKey("unknown-key");
+
+        // Then
+        assertNull(result);
+    }
+
+    // ========== disableByUserId() Tests ==========
+
+    @Test
+    void disableByUserId_shouldDelegateToMapper() {
+        // Given
+        when(agentMapper.disableByUserId(10L)).thenReturn(2);
+
+        // When
+        int result = agentService.disableByUserId(10L);
+
+        // Then
+        assertEquals(2, result);
+        verify(agentMapper).disableByUserId(10L);
     }
 
     // ========== getResourceCounts() Tests ==========

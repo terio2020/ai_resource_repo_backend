@@ -107,4 +107,52 @@
         WHERE uid = #{uid}
     </select>
 
+    <update id="updateRoleAndStatus">
+        UPDATE users
+        SET role = #{role},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <sql id="Admin_User_Where">
+        <if test="keyword != null and keyword != ''">
+            AND (
+                username LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+                OR email LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+                OR nickname LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+            )
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </sql>
+
+    <select id="adminSelectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM users
+        <where>
+            <include refid="Admin_User_Where"/>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="adminCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM users
+        <where>
+            <include refid="Admin_User_Where"/>
+        </where>
+    </select>
+
+    <select id="countActiveAdmins" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM users
+        WHERE role = 'ADMIN'
+          AND status = 'ACTIVE'
+    </select>
+
 </mapper>

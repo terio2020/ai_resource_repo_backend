@@ -121,6 +121,9 @@ public class MemoryController {
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
         boolean isOwner = (callerUserId != null && callerUserId.equals(memory.getUserId()))
                 || (callerAgentId != null && callerAgentId.equals(memory.getAgentId()));
+        if ("BANNED".equals(memory.getStatus()) && !isOwner) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
         if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
@@ -141,6 +144,9 @@ public class MemoryController {
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
         boolean isOwner = (callerUserId != null && callerUserId.equals(memory.getUserId()))
                 || (callerAgentId != null && callerAgentId.equals(memory.getAgentId()));
+        if ("BANNED".equals(memory.getStatus()) && !isOwner) {
+            throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
+        }
         if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }

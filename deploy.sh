@@ -96,9 +96,13 @@ backup_db() {
   local backup_file="/opt/backups/pre-${ts}.sql"
   echo "[deploy.sh --backup-db] 备份 DB → ${backup_file}"
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 755 /opt/backups" 2>/dev/null
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql mysqldump -u root -proot --single-transaction --routines --triggers logicoma_net 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "cat > ${backup_file}.gz" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql mysqldump -u '${DB_USER:-logicoma}' -p'${DB_PASSWORD:-logic@oma}' --single-transaction logicoma_net 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(stat -c%s '${backup_file}.gz') -gt 1024" || {
+    echo "[deploy.sh --backup-db] FAIL: backup is empty or invalid"
+    return 1
+  }
   echo "[deploy.sh --backup-db] 完成: ${backup_file}.gz"
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "ls -t /opt/backups/pre-*.sql.gz 2>/dev/null | tail -n +4 | xargs -r rm" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "ls -t /opt/backups/pre-*.sql.gz 2>/dev/null | tail -n +4 | xargs -r sudo rm" 2>/dev/null
 }
 
 # =============================================================================
@@ -113,11 +117,6 @@ rollback() {
   echo "  4. docker run ..."
   echo "[deploy.sh --rollback] 请手动执行, 或使用 --rollback=auto"
 }
-
-# ─── 子命令路由 ─────────────────────────────────────────────────────────────
-[ "$SELF_AUDIT" = true ] && { self_audit; exit $?; }
-[ -n "$ROLLBACK" ] && { rollback "$ROLLBACK"; exit $?; }
-[ "$BACKUP_DB" = true ] && { backup_db; exit $?; }
 
 # Colors
 RED='\033[0;31m'
@@ -182,6 +181,12 @@ MAIL_PASSWORD="${MAIL_PASSWORD:-}"
 MAIL_FROM="${MAIL_FROM:-noreply@logicoma.ai}"
 APP_BASE_URL="${APP_BASE_URL:-http://your-domain.com}"
 APP_FRONTEND_URL="${APP_FRONTEND_URL:-http://your-domain.com}"
+ADMIN_BOOTSTRAP_EMAILS="${ADMIN_BOOTSTRAP_EMAILS:-}"
+
+# ─── 子命令路由（helpers 与环境变量加载完成后执行） ────────────────────────
+[ "$SELF_AUDIT" = true ] && { self_audit; exit $?; }
+[ -n "$ROLLBACK" ] && { rollback "$ROLLBACK"; exit $?; }
+[ "$BACKUP_DB" = true ] && { backup_db; exit $?; }
 
 # --- Build ---
 if [ "$SKIP_BUILD" = false ]; then
@@ -278,6 +283,7 @@ ssh_cmd "${SSH_USER}@${SERVER_IP}" << EOF
     -e JWT_SECRET=${JWT_SECRET:-} \
     -e APP_OAUTH_STATE_SECRET=${APP_OAUTH_STATE_SECRET:-} \
     -e TOKEN_ENCRYPTION_SECRET=${TOKEN_ENCRYPTION_SECRET:-} \
+    -e ADMIN_BOOTSTRAP_EMAILS=${ADMIN_BOOTSTRAP_EMAILS} \
     -e FILE_STORAGE_PATH=${REMOTE_DIR} \
     -w ${REMOTE_DIR} \
     eclipse-temurin:17-jdk-alpine \

@@ -18,6 +18,8 @@ public interface SkillRepositoryMapper {
 
     int updateVisibility(@Param("id") Long id, @Param("isPublic") Boolean isPublic);
 
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
+
     int incrementDownloadCount(@Param("id") Long id);
 
     int incrementLikeCount(@Param("id") Long id);
@@ -51,4 +53,9 @@ public interface SkillRepositoryMapper {
     SkillRepository selectByShareId(@Param("shareId") String shareId);
 
     int updateShareId(@Param("id") Long id, @Param("shareId") String shareId);
+
+    List<SkillRepository> adminSelectPage(@Param("keyword") String keyword, @Param("status") String status,
+                                           @Param("limit") int limit, @Param("offset") int offset);
+
+    Long adminCount(@Param("keyword") String keyword, @Param("status") String status);
 }

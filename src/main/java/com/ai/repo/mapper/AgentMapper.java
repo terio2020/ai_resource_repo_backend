@@ -42,4 +42,7 @@ public interface AgentMapper {
     int updateAgentStatus(@Param("id") Long id, @Param("status") String status);
     int updateChallengeVerified(@Param("id") Long id, @Param("verified") boolean verified);
     int updateTimezone(@Param("id") Long id, @Param("timezone") String timezone);
+    int disableByUserId(@Param("userId") Long userId);
+
+    Long adminCount(@Param("keyword") String keyword, @Param("status") String status, @Param("type") String type);
 }

@@ -1,10 +1,12 @@
 package com.ai.repo.config;
 
+import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.transport.resolver.ServiceNotAuthorizedException;
 import org.eclipse.jgit.transport.resolver.ServiceNotEnabledException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,6 +110,104 @@ class GitServletConfigTest {
         assertTrue(Files.exists(repoPath.resolve("HEAD")), "HEAD should exist");
 
         ((Repository) repoObj).close();
+    }
+
+    @Test
+    void buildUploadPack_shouldAllowOwnerAgentForBannedRepo() throws Exception {
+        Path repoPath = tempDir.resolve("agent_5/my-skill.git");
+        String repoPathStr = repoPath.toAbsolutePath().toString();
+        createBareRepo(repoPath);
+
+        SkillRepository bannedRepo = new SkillRepository();
+        bannedRepo.setId(1L);
+        bannedRepo.setAgentId(5L);
+        bannedRepo.setStatus("BANNED");
+        bannedRepo.setIsPublic(Boolean.TRUE);
+
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer api-key-5");
+        Agent agent = new Agent();
+        agent.setId(5L);
+        when(agentService.findByApiKey("api-key-5")).thenReturn(agent);
+        try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
+            Object uploadPack = config.buildUploadPack(req, repo, bannedRepo);
+            assertNotNull(uploadPack);
+        }
+    }
+
+    @Test
+    void buildUploadPack_shouldRejectNonOwnerForBannedRepo() throws Exception {
+        Path repoPath = tempDir.resolve("agent_5/my-skill.git");
+        String repoPathStr = repoPath.toAbsolutePath().toString();
+        createBareRepo(repoPath);
+
+        SkillRepository bannedRepo = new SkillRepository();
+        bannedRepo.setId(1L);
+        bannedRepo.setAgentId(5L);
+        bannedRepo.setStatus("BANNED");
+        bannedRepo.setIsPublic(Boolean.TRUE);
+
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer api-key-other");
+        Agent agent = new Agent();
+        agent.setId(9L);
+        when(agentService.findByApiKey("api-key-other")).thenReturn(agent);
+
+        try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
+            assertThrows(ServiceNotAuthorizedException.class,
+                    () -> config.buildUploadPack(req, repo, bannedRepo));
+        }
+    }
+
+    @Test
+    void buildUploadPack_shouldRejectAnonymousForBannedRepo() throws Exception {
+        Path repoPath = tempDir.resolve("agent_5/my-skill.git");
+        String repoPathStr = repoPath.toAbsolutePath().toString();
+        createBareRepo(repoPath);
+
+        SkillRepository bannedRepo = new SkillRepository();
+        bannedRepo.setId(1L);
+        bannedRepo.setAgentId(5L);
+        bannedRepo.setStatus("BANNED");
+        bannedRepo.setIsPublic(Boolean.TRUE);
+
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+
+        try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
+            assertThrows(ServiceNotAuthorizedException.class,
+                    () -> config.buildUploadPack(req, repo, bannedRepo));
+        }
+    }
+
+    @Test
+    void buildUploadPack_shouldRejectBannedRepoNotRegistered() {
+        SkillRepository notRegistered = null;
+        assertThrows(ServiceNotEnabledException.class,
+                () -> config.buildUploadPack(null, null, notRegistered));
+    }
+
+    @Test
+    void buildReceivePack_shouldRejectBannedRepo() {
+        SkillRepository bannedRepo = new SkillRepository();
+        bannedRepo.setId(1L);
+        bannedRepo.setAgentId(5L);
+        bannedRepo.setStatus("BANNED");
+
+        assertThrows(ServiceNotEnabledException.class,
+                () -> config.buildReceivePack(null, null, bannedRepo));
+    }
+
+    private void createBareRepo(Path repoPath) throws Exception {
+        Files.createDirectories(repoPath);
+        try (org.eclipse.jgit.api.Git ignored = Git.init().setBare(true).setDirectory(repoPath.toFile()).call()) {
+            // bare repo created
+        }
     }
 
     private Object createResolver() throws Exception {

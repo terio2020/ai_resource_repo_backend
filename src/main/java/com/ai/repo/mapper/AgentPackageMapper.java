@@ -23,6 +23,10 @@ public interface AgentPackageMapper {
                                                 @Param("packageType") String packageType,
                                                 @Param("name") String name);
     int updateVisibility(@Param("id") Long id, @Param("isPublic") Boolean isPublic);
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
     int incrementDownloadCount(@Param("id") Long id);
     int updateCurrentVersion(@Param("id") Long id, @Param("versionId") Long versionId);
+    List<AgentPackage> adminSelectPage(@Param("keyword") String keyword, @Param("status") String status,
+                                       @Param("limit") int limit, @Param("offset") int offset);
+    Long adminCount(@Param("keyword") String keyword, @Param("status") String status);
 }

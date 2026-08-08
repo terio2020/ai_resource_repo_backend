@@ -97,7 +97,11 @@ src/main/java/com/ai/repo/
 │   ├── AuthController.java         # /api/auth    — temp tokens (path/query param, no @RequireAuth)
 │   ├── TestController.java         # /api-test    — dev/test helpers (@Profile("dev"))
 │   ├── PackageController.java      # /api/packages  — package CRUD, versions, files, download
-│   └── PackageContributionController.java # /api/packages/{id}/contributions — PR submit/review
+│   ├── PackageContributionController.java # /api/packages/{id}/contributions — PR submit/review
+│   ├── AdminDashboardController.java # /api/admin/dashboard — admin-only statistics
+│   ├── AdminUserController.java    # /api/admin/users — admin-only user management
+│   ├── AdminAgentController.java   # /api/admin/agents — admin-only agent management
+│   └── AdminContentController.java # /api/admin/content — content governance + bug report management
 ├── dto/                            # Request/Response DTOs (~50 files)
 ├── entity/                         # Database entities
 │   ├── User.java, Agent.java
@@ -319,6 +323,31 @@ if (user == null) {
 - API keys hashed with `ApiKeyHashUtil` (HMAC-SHA256); `Agent.findByApiKey()` queries by hash
 - OAuth access/refresh tokens encrypted via `TokenEncryptionService` (AES-256-GCM)
 - File paths sanitized via `StoragePathResolver.safeSegment()` / `safeRelativePath()` to prevent traversal
+
+### Admin Management Module (`/api/admin/*`)
+
+Admin-only backend: real-time statistics dashboard + soft management (ban-first, no physical delete). Controllers: `AdminDashboardController`, `AdminUserController`, `AdminAgentController`, `AdminContentController`.
+
+**`@RequireAdmin` semantics** (`com.ai.repo.security.RequireAdmin`, enforced by `PermissionChecker.checkAdmin`):
+- Only **human JWT** users with `role == "ADMIN"` and `status == "ACTIVE"` pass.
+- `agentId` must be `null` — Agent API keys are **always** `403`, even if the agent belongs to an admin user (API-key auth sets `userId = agent.getUserId()`, so the `agentId == null` check is mandatory).
+- No credentials → `401`; non-admin → `403` (no role leakage).
+
+**Admin bootstrap:** `AdminBootstrapRunner` (a `CommandLineRunner`) upserts `role='ADMIN'` for each email in `admin.bootstrap-emails` (comma-separated, from `application.yml`) at startup. Idempotent; no-op when empty.
+
+**Guardrails (service layer):**
+- Cannot change own role / disable self; cannot disable the last `ACTIVE` admin.
+- Disabling a user cascades to their agents (`DISABLED`).
+- `DISABLED` takes effect immediately at login, token refresh, and API-key resolution; `AgentHeartbeatScheduler` marks `DISABLED` agents offline-safe.
+- Admin lists strip sensitive fields: users hide `password`/`token`; agents hide `apiKey`/`apiKeyHash`/`verificationCode`.
+
+**Audit logging:** every admin write operation logs `log.warn("[AUDIT] admin={} action={} targetId={}")` (operator id read from `HttpServletRequest.getAttribute("userId")`).
+
+**Content governance (ban-first, soft-takedown):** `memories`/`skill_repositories`/`agent_packages` each carry a `status` column (default `'VISIBLE'`; `BANNED` = soft-takedown, data retained & reversible). Public lists/searches filter `AND status='VISIBLE'`; single-item reads/downloads/git clone return `404`/`403` for non-owners; owner still sees own content. Banned content is never physically deleted.
+
+Admin content moderation requires paginated list endpoints for all three content domains (`GET /api/admin/content/memories`, `/skill-repos`, `/packages`) with escaped keyword search and `VISIBLE`/`BANNED` filtering. Download trend SQL must use event records only; never infer downloads from entity `updated_at` timestamps.
+
+For Mockito tests on JDK 25, the surefire `argLine` enables dynamic agent loading (`-XX:+EnableDynamicAgentLoading`) so Mockito's default inline mock maker can self-attach and support static mocks (`MockedStatic`). Production remains Java 17.
 
 ### Challenge Verification for Agents
 

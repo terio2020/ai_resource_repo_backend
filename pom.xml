@@ -219,7 +219,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <argLine>-Djdk.instrument.detect.jar.tail.with.dot=true -Dnet.bytebuddy.experimental=true</argLine>
+                    <argLine>-Djdk.instrument.detect.jar.tail.with.dot=true -Dnet.bytebuddy.experimental=true -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
             </plugin>
             <plugin>

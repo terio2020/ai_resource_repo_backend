@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.AdminDashboardMapper">
+
+    <select id="selectOverview" resultType="com.ai.repo.dto.AdminOverviewResponse">
+        SELECT
+            (SELECT COUNT(*) FROM users) AS userCount,
+            (SELECT COUNT(*) FROM agents) AS agentCount,
+            (SELECT COUNT(*) FROM agents WHERE status IN ('ACTIVE','IDLE','BUSY')) AS activeAgentCount,
+            (SELECT COUNT(*) FROM memories) AS memoryCount,
+            (SELECT COUNT(*) FROM skill_repositories) AS skillRepoCount,
+            (SELECT COUNT(*) FROM agent_packages) AS packageCount,
+            (SELECT COUNT(*) FROM bug_reports) AS bugReportCount,
+            (SELECT COUNT(*) FROM comments) AS commentCount,
+            (SELECT COUNT(*) FROM users WHERE created_at &gt;= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)) AS recentSignups7d
+    </select>
+
+    <select id="selectUserGrowth" resultType="com.ai.repo.dto.DailyCount">
+        SELECT DATE(created_at) AS `date`, COUNT(*) AS `count`
+        FROM users
+        WHERE created_at &gt;= #{startDate}
+        GROUP BY DATE(created_at)
+        ORDER BY `date`
+    </select>
+
+    <select id="selectActivity" resultType="com.ai.repo.dto.ActivityTrendItem">
+        SELECT d.stat_date AS `date`,
+               CAST(SUM(d.logins) AS SIGNED) AS logins,
+               CAST(SUM(d.memories) AS SIGNED) AS memories,
+               CAST(SUM(d.agents) AS SIGNED) AS agents
+        FROM (
+            SELECT DATE(last_login_at) AS stat_date, COUNT(*) AS logins, 0 AS memories, 0 AS agents
+            FROM users
+            WHERE last_login_at &gt;= #{startDate}
+            GROUP BY DATE(last_login_at)
+            UNION ALL
+            SELECT DATE(created_at) AS stat_date, 0 AS logins, COUNT(*) AS memories, 0 AS agents
+            FROM memories
+            WHERE created_at &gt;= #{startDate}
+            GROUP BY DATE(created_at)
+            UNION ALL
+            SELECT DATE(created_at) AS stat_date, 0 AS logins, 0 AS memories, COUNT(*) AS agents
+            FROM agents
+            WHERE created_at &gt;= #{startDate}
+            GROUP BY DATE(created_at)
+        ) d
+        GROUP BY d.stat_date
+        ORDER BY d.stat_date
+    </select>
+
+    <select id="selectDownloads" resultType="com.ai.repo.dto.DownloadTrendItem">
+        SELECT d.stat_date AS `date`,
+               CAST(SUM(d.memoryDownloads) AS SIGNED) AS memoryDownloads,
+               CAST(SUM(d.packageDownloads) AS SIGNED) AS packageDownloads,
+               CAST(SUM(d.repoDownloads) AS SIGNED) AS repoDownloads
+        FROM (
+            SELECT DATE(created_at) AS stat_date, 0 AS memoryDownloads, COUNT(*) AS packageDownloads, 0 AS repoDownloads
+            FROM package_downloads
+            WHERE created_at &gt;= #{startDate}
+            GROUP BY DATE(created_at)
+        ) d
+        GROUP BY d.stat_date
+        ORDER BY d.stat_date
+    </select>
+
+    <select id="selectAgentStatusDistribution" resultType="com.ai.repo.dto.AgentStatusCount">
+        SELECT status, COUNT(*) AS `count`
+        FROM agents
+        GROUP BY status
+        ORDER BY `count` DESC
+    </select>
+
+    <select id="selectTopAgents" resultType="com.ai.repo.dto.TopAgentItem">
+        SELECT a.id AS agentId,
+               a.name AS agentName,
+               COUNT(m.id) AS memoryCount,
+               COALESCE(SUM(m.like_count), 0) AS likeCount,
+               COALESCE(SUM(m.download_count), 0) AS downloadCount
+        FROM agents a
+        LEFT JOIN memories m ON m.agent_id = a.id
+        GROUP BY a.id, a.name
+        ORDER BY memoryCount DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

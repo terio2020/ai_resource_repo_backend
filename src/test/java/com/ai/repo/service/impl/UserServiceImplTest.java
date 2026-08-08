@@ -746,6 +746,40 @@ class UserServiceImplTest {
         assertTrue(exception.getMessage().contains("User not found"));
     }
 
+    @Test
+    void generateTokens_shouldThrow401_whenUserDisabled() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setStatus("DISABLED");
+
+        when(userMapper.selectById(1L)).thenReturn(user);
+
+        // When/Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            userService.generateTokens(1L);
+        });
+        assertEquals(401, exception.getCode());
+        assertTrue(exception.getMessage().contains("Account disabled"));
+    }
+
+    @Test
+    void generateTokens_shouldNotCallJwtProvider_whenUserDisabled() {
+        // Given
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setStatus("DISABLED");
+
+        when(userMapper.selectById(1L)).thenReturn(user);
+
+        // When/Then
+        assertThrows(BusinessException.class, () -> userService.generateTokens(1L));
+        verify(jwtProvider, never()).generateAccessToken(anyLong(), anyString());
+        verify(jwtProvider, never()).generateRefreshToken(anyLong());
+    }
+
     // ===== refreshToken() tests =====
 
     @Test
@@ -794,6 +828,43 @@ class UserServiceImplTest {
             userService.refreshToken(refreshToken);
         });
         assertTrue(exception.getMessage().contains("User not found"));
+    }
+
+    @Test
+    void refreshToken_shouldThrow401_whenUserDisabled() {
+        // Given
+        String refreshToken = "validRefreshToken";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setStatus("DISABLED");
+
+        when(jwtProvider.validateRefreshToken(refreshToken)).thenReturn(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+
+        // When/Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            userService.refreshToken(refreshToken);
+        });
+        assertEquals(401, exception.getCode());
+        assertTrue(exception.getMessage().contains("Account disabled"));
+    }
+
+    @Test
+    void refreshToken_shouldNotGenerateAccessToken_whenUserDisabled() {
+        // Given
+        String refreshToken = "validRefreshToken";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setStatus("DISABLED");
+
+        when(jwtProvider.validateRefreshToken(refreshToken)).thenReturn(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+
+        // When/Then
+        assertThrows(BusinessException.class, () -> userService.refreshToken(refreshToken));
+        verify(jwtProvider, never()).generateAccessToken(anyLong(), anyString());
     }
 
     // ===== clearTokens() tests =====

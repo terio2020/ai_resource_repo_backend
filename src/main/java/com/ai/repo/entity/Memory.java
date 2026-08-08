@@ -20,6 +20,7 @@ public class Memory {
     private String tags;
     private String category;
     private Boolean isPublic;
+    private String status;
     private Integer downloadCount;
     private Integer likeCount;
     private String metadata;

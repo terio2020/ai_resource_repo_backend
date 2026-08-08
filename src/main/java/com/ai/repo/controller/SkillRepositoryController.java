@@ -82,7 +82,13 @@ public class SkillRepositoryController {
     public ResponseEntity<Result<SkillRepository>> getByShareId(
             @Parameter(description = "Share ID (hash)") @PathVariable String shareId) {
         SkillRepository repo = skillRepositoryService.findByShareId(shareId);
+        if (repo == null) {
+            throw new com.ai.repo.exception.RepositoryNotFoundException("Skill not found");
+        }
         if (!Boolean.TRUE.equals(repo.getIsPublic())) {
+            throw new com.ai.repo.exception.RepositoryNotFoundException("Skill not found");
+        }
+        if ("BANNED".equals(repo.getStatus())) {
             throw new com.ai.repo.exception.RepositoryNotFoundException("Skill not found");
         }
         return Result.ok(repo);
@@ -93,6 +99,10 @@ public class SkillRepositoryController {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         boolean isOwner = (userId != null && userId.equals(repo.getUserId()))
                 || (agentId != null && agentId.equals(repo.getAgentId()));
+        if ("BANNED".equals(repo.getStatus()) && !isOwner) {
+            throw new com.ai.repo.exception.RepositoryNotFoundException(
+                    "Repository not found: " + repo.getId());
+        }
         if (!Boolean.TRUE.equals(repo.getIsPublic()) && !isOwner) {
             throw new com.ai.repo.exception.RepositoryNotFoundException(
                     "Repository not found: " + repo.getId());

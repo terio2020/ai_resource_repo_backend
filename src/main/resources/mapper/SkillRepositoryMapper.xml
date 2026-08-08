@@ -15,6 +15,7 @@
         <result column="type" property="type" jdbcType="VARCHAR"/>
         <result column="enabled" property="enabled" jdbcType="BOOLEAN"/>
         <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
         <result column="share_id" property="shareId" jdbcType="VARCHAR"/>
         <result column="repo_path" property="repoPath" jdbcType="VARCHAR"/>
         <result column="parent_id" property="parentId" jdbcType="BIGINT"/>
@@ -26,7 +27,7 @@
 
     <sql id="Base_Column_List">
         uid, id, agent_id, user_id, skill_name, version, description, tags, category, type,
-        enabled, is_public, share_id, repo_path, parent_id, download_count, like_count,
+        enabled, is_public, status, share_id, repo_path, parent_id, download_count, like_count,
         created_at, updated_at
     </sql>
 
@@ -55,6 +56,12 @@
     <update id="updateVisibility">
         UPDATE skill_repositories
         SET is_public = #{isPublic}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE skill_repositories
+        SET status = #{status}
         WHERE id = #{id}
     </update>
 
@@ -112,6 +119,31 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="adminSelectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM skill_repositories
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (skill_name LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+                 OR description LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\')
+            </if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="adminCount" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM skill_repositories
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (skill_name LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+                 OR description LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\')
+            </if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+    </select>
+
     <select id="selectByParentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
@@ -122,28 +154,28 @@
     <select id="selectPublic" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
-        WHERE is_public = TRUE
+        WHERE is_public = TRUE AND status = 'VISIBLE'
         ORDER BY created_at DESC
     </select>
 
     <select id="selectPublicByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
-        WHERE agent_id = #{agentId} AND is_public = TRUE
+        WHERE agent_id = #{agentId} AND is_public = TRUE AND status = 'VISIBLE'
         ORDER BY created_at DESC
     </select>
 
     <select id="selectByCategory" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
-        WHERE is_public = TRUE AND category = #{category}
+        WHERE is_public = TRUE AND status = 'VISIBLE' AND category = #{category}
         ORDER BY like_count DESC
     </select>
 
     <select id="selectByType" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
-        WHERE is_public = TRUE AND type = #{type}
+        WHERE is_public = TRUE AND status = 'VISIBLE' AND type = #{type}
         ORDER BY created_at DESC
     </select>
 
@@ -151,6 +183,7 @@
         SELECT <include refid="Base_Column_List"/>
         FROM skill_repositories
         WHERE is_public = TRUE
+        AND status = 'VISIBLE'
         AND MATCH(skill_name, description, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
         ORDER BY like_count DESC
     </select>

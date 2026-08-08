@@ -163,6 +163,9 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BusinessException("User not found");
         }
+        if ("DISABLED".equals(user.getStatus())) {
+            throw new BusinessException(401, "Account disabled");
+        }
 
         String accessToken = jwtProvider.generateAccessToken(userId, user.getUsername());
         String refreshToken = jwtProvider.generateRefreshToken(userId);
@@ -202,6 +205,9 @@ public class UserServiceImpl implements UserService {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException("User not found");
+        }
+        if ("DISABLED".equals(user.getStatus())) {
+            throw new BusinessException(401, "Account disabled");
         }
 
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getUsername());

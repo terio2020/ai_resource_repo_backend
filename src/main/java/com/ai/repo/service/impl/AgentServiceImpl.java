@@ -9,6 +9,7 @@ import com.ai.repo.dto.AgentSyncResponse;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.entity.SkillRepository;
+import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.AgentMapper;
 import com.ai.repo.mapper.AgentPackageMapper;
@@ -16,6 +17,7 @@ import com.ai.repo.mapper.CommentMapper;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.NotificationMapper;
 import com.ai.repo.mapper.SkillRepositoryMapper;
+import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.util.ApiKeyHashUtil;
 import com.ai.repo.util.AvatarUtil;
@@ -65,6 +67,9 @@ public class AgentServiceImpl implements AgentService {
 
     @Resource
     private AgentPackageMapper agentPackageMapper;
+
+    @Resource
+    private UserMapper userMapper;
 
     @Override
     public Agent create(Agent agent) {
@@ -261,8 +266,12 @@ public class AgentServiceImpl implements AgentService {
 
     @Override
     public boolean updateHeartbeat(Long id, String status, String lastHeartbeatAt, String timezone) {
-        if (agentMapper.selectById(id) == null) {
+        Agent existing = agentMapper.selectById(id);
+        if (existing == null) {
             throw new BusinessException("Agent not found");
+        }
+        if ("DISABLED".equals(existing.getStatus())) {
+            throw new BusinessException(403, "Agent is disabled");
         }
         if (status != null && !VALID_STATUSES.contains(status.toUpperCase())) {
             throw new BusinessException(400, "Invalid status: " + status + 
@@ -331,7 +340,20 @@ public class AgentServiceImpl implements AgentService {
     @Override
     public Agent findByApiKey(String apiKey) {
         String hash = apiKeyHashUtil.hash(apiKey);
-        return agentMapper.selectByApiKeyHash(hash);
+        Agent agent = agentMapper.selectByApiKeyHash(hash);
+        if (agent == null) {
+            return null;
+        }
+        if ("DISABLED".equals(agent.getStatus())) {
+            return null;
+        }
+        if (agent.getUserId() != null) {
+            User user = userMapper.selectById(agent.getUserId());
+            if (user != null && "DISABLED".equals(user.getStatus())) {
+                return null;
+            }
+        }
+        return agent;
     }
 
     @Override
@@ -348,6 +370,12 @@ public class AgentServiceImpl implements AgentService {
             throw new BusinessException("Agent not found");
         }
         return agentMapper.updateKarma(id, delta) > 0;
+    }
+
+    @Override
+    @Transactional
+    public int disableByUserId(Long userId) {
+        return agentMapper.disableByUserId(userId);
     }
 
     @Override

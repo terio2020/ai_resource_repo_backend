@@ -12,6 +12,7 @@ import com.ai.repo.service.MemoryService;
 import com.ai.repo.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class PermissionCheckerTest {
 
     @Mock
     private JoinPoint joinPoint;
+
+    @Mock
+    private ProceedingJoinPoint proceedingJoinPoint;
 
     @Mock
     private MethodSignature methodSignature;
@@ -174,4 +178,105 @@ class PermissionCheckerTest {
 
     @SuppressWarnings("unused")
     public void dummyMethod(Long memoryId) {}
+
+    @Test
+    void checkAdmin_shouldPass_whenAdminActive() throws Throwable {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(1L);
+            when(request.getAttribute("agentId")).thenReturn(null);
+
+            User user = new User();
+            user.setId(1L);
+            user.setRole("ADMIN");
+            user.setStatus("ACTIVE");
+            when(userService.findById(1L)).thenReturn(user);
+            when(proceedingJoinPoint.proceed()).thenReturn("ok");
+
+            Object result = permissionChecker.checkAdmin(proceedingJoinPoint);
+            assertEquals("ok", result);
+        }
+    }
+
+    @Test
+    void checkAdmin_shouldThrow401_whenUserIdNull() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(null);
+
+            assertThrows(AuthenticationException.class,
+                    () -> permissionChecker.checkAdmin(proceedingJoinPoint));
+        }
+    }
+
+    @Test
+    void checkAdmin_shouldThrow403_whenAgentApiKey() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(1L);
+            when(request.getAttribute("agentId")).thenReturn(5L);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> permissionChecker.checkAdmin(proceedingJoinPoint));
+            assertEquals(403, ex.getCode());
+        }
+    }
+
+    @Test
+    void checkAdmin_shouldThrow403_whenRegularUser() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(1L);
+            when(request.getAttribute("agentId")).thenReturn(null);
+
+            User user = new User();
+            user.setId(1L);
+            user.setRole("USER");
+            user.setStatus("ACTIVE");
+            when(userService.findById(1L)).thenReturn(user);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> permissionChecker.checkAdmin(proceedingJoinPoint));
+            assertEquals(403, ex.getCode());
+        }
+    }
+
+    @Test
+    void checkAdmin_shouldThrow403_whenUserNotFound() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(1L);
+            when(request.getAttribute("agentId")).thenReturn(null);
+            when(userService.findById(1L)).thenReturn(null);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> permissionChecker.checkAdmin(proceedingJoinPoint));
+            assertEquals(403, ex.getCode());
+        }
+    }
+
+    @Test
+    void checkAdmin_shouldThrow403_whenNotActive() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(1L);
+            when(request.getAttribute("agentId")).thenReturn(null);
+
+            User user = new User();
+            user.setId(1L);
+            user.setRole("ADMIN");
+            user.setStatus("DISABLED");
+            when(userService.findById(1L)).thenReturn(user);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> permissionChecker.checkAdmin(proceedingJoinPoint));
+            assertEquals(403, ex.getCode());
+        }
+    }
 }

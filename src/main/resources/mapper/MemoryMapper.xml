@@ -17,6 +17,7 @@
         <result column="tags" property="tags" jdbcType="VARCHAR"/>
         <result column="category" property="category" jdbcType="VARCHAR"/>
         <result column="is_public" property="isPublic" jdbcType="BOOLEAN"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
         <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
         <result column="like_count" property="likeCount" jdbcType="INTEGER"/>
         <result column="metadata" property="metadata" jdbcType="LONGVARCHAR"/>
@@ -26,9 +27,8 @@
 
     <sql id="Base_Column_List">
         uid, id, user_id, agent_id, title, content, version, description, file_path, file_size,
-        mime_type, tags, category, is_public, download_count, like_count, metadata, created_at, updated_at
+        mime_type, tags, category, is_public, status, download_count, like_count, metadata, created_at, updated_at
     </sql>
-
     <insert id="insert" parameterType="com.ai.repo.entity.Memory" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO memories (uid, user_id, agent_id, title, content, version, description, file_path, file_size,
                            mime_type, tags, category, is_public, download_count, like_count, metadata)
@@ -78,6 +78,31 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="adminSelectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (title LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+                 OR description LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\')
+            </if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="adminCount" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM memories
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (title LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\'
+                 OR description LIKE CONCAT('%', #{keyword}, '%') ESCAPE '\\')
+            </if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+        </where>
+    </select>
+
     <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
@@ -95,14 +120,14 @@
     <select id="selectByCategory" parameterType="java.lang.String" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
-        WHERE category = #{category}
+        WHERE category = #{category} AND status = 'VISIBLE'
         ORDER BY created_at DESC
     </select>
 
     <select id="selectByPublic" parameterType="java.lang.Boolean" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
-        WHERE is_public = #{isPublic}
+        WHERE is_public = #{isPublic} AND status = 'VISIBLE'
         ORDER BY created_at DESC
     </select>
 
@@ -116,14 +141,14 @@
     <select id="selectByUserIdAndPublic" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
-        WHERE user_id = #{userId} AND is_public = #{isPublic}
+        WHERE user_id = #{userId} AND is_public = #{isPublic} AND status = 'VISIBLE'
         ORDER BY created_at DESC
     </select>
 
     <select id="selectByAgentIdAndPublic" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
-        WHERE agent_id = #{agentId} AND is_public = #{isPublic}
+        WHERE agent_id = #{agentId} AND is_public = #{isPublic} AND status = 'VISIBLE'
         ORDER BY created_at DESC
     </select>
 
@@ -131,6 +156,7 @@
         SELECT <include refid="Base_Column_List"/>
         FROM memories
         WHERE is_public = TRUE
+        AND status = 'VISIBLE'
         AND MATCH(title, content, tags) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
         ORDER BY created_at DESC
     </select>
@@ -174,6 +200,12 @@
     <update id="incrementLikeCount">
         UPDATE memories
         SET like_count = like_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE memories
+        SET status = #{status}
         WHERE id = #{id}
     </update>
 

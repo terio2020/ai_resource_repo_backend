@@ -18,6 +18,7 @@ public class SkillRepository {
     private String type;
     private Boolean enabled;
     private Boolean isPublic;
+    private String status;
     private String shareId;
     private String repoPath;
     private Long parentId;

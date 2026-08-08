@@ -9,4 +9,11 @@ public class AgentSearchRequest {
     private String type;
     private Integer page;
     private Integer size;
+
+    public Integer getOffset() {
+        if (page == null || page <= 1 || size == null || size <= 0) {
+            return 0;
+        }
+        return (page - 1) * size;
+    }
 }

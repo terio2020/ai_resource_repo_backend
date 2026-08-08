@@ -15,6 +15,7 @@ public class AgentPackage {
     private String description;
     private String tags;
     private Boolean isPublic;
+    private String status;
     private Long currentVersionId;
     private Integer downloadCount;
     private LocalDateTime createdAt;

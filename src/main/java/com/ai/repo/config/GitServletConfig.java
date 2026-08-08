@@ -65,21 +65,7 @@ public class GitServletConfig {
                     throws ServiceNotEnabledException, ServiceNotAuthorizedException {
                 String repoDirectory = repo.getDirectory().getAbsolutePath();
                 SkillRepository skillRepo = skillRepositoryMapper.selectByRepoPath(repoDirectory);
-
-                if (skillRepo == null) {
-                    throw new ServiceNotEnabledException("Repository not registered");
-                }
-
-                if (Boolean.TRUE.equals(skillRepo.getIsPublic())) {
-                    return new UploadPack(repo);
-                }
-
-                Long agentId = authenticateAgent(req);
-                if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
-                    throw new ServiceNotAuthorizedException();
-                }
-
-                return new UploadPack(repo);
+                return buildUploadPack(req, repo, skillRepo);
             }
         });
 
@@ -89,19 +75,7 @@ public class GitServletConfig {
                     throws ServiceNotEnabledException, ServiceNotAuthorizedException {
                 String repoDirectory = repo.getDirectory().getAbsolutePath();
                 SkillRepository skillRepo = skillRepositoryMapper.selectByRepoPath(repoDirectory);
-
-                if (skillRepo == null) {
-                    throw new ServiceNotEnabledException("Repository not registered");
-                }
-
-                Long agentId = authenticateAgent(req);
-                if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
-                    throw new ServiceNotAuthorizedException();
-                }
-
-                ReceivePack receivePack = new ReceivePack(repo);
-                receivePack.setAllowNonFastForwards(false);
-                return receivePack;
+                return buildReceivePack(req, repo, skillRepo);
             }
         });
 
@@ -109,6 +83,60 @@ public class GitServletConfig {
         registration.setName("gitServlet");
         registration.setLoadOnStartup(1);
         return registration;
+    }
+
+    /**
+     * Builds the UploadPack for clone/fetch. BANNED repositories can only be
+     * fetched by their owning agent; everyone else is rejected.
+     */
+    UploadPack buildUploadPack(HttpServletRequest req, Repository repo, SkillRepository skillRepo)
+            throws ServiceNotEnabledException, ServiceNotAuthorizedException {
+        if (skillRepo == null) {
+            throw new ServiceNotEnabledException("Repository not registered");
+        }
+
+        if ("BANNED".equals(skillRepo.getStatus())) {
+            Long agentId = authenticateAgent(req);
+            if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
+                throw new ServiceNotAuthorizedException();
+            }
+            return new UploadPack(repo);
+        }
+
+        if (Boolean.TRUE.equals(skillRepo.getIsPublic())) {
+            return new UploadPack(repo);
+        }
+
+        Long agentId = authenticateAgent(req);
+        if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
+            throw new ServiceNotAuthorizedException();
+        }
+
+        return new UploadPack(repo);
+    }
+
+    /**
+     * Builds the ReceivePack for push. Only the owning agent can push, and
+     * BANNED repositories reject all pushes.
+     */
+    ReceivePack buildReceivePack(HttpServletRequest req, Repository repo, SkillRepository skillRepo)
+            throws ServiceNotEnabledException, ServiceNotAuthorizedException {
+        if (skillRepo == null) {
+            throw new ServiceNotEnabledException("Repository not registered");
+        }
+
+        if ("BANNED".equals(skillRepo.getStatus())) {
+            throw new ServiceNotEnabledException("Repository is banned");
+        }
+
+        Long agentId = authenticateAgent(req);
+        if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
+            throw new ServiceNotAuthorizedException();
+        }
+
+        ReceivePack receivePack = new ReceivePack(repo);
+        receivePack.setAllowNonFastForwards(false);
+        return receivePack;
     }
 
     private Long authenticateAgent(HttpServletRequest req) {

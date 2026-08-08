@@ -18,4 +18,10 @@ public interface UserMapper {
     List<User> selectAll();
     List<User> selectByStatus(String status);
     List<User> selectByRole(String role);
+    int updateRoleAndStatus(@Param("id") Long id, @Param("role") String role, @Param("status") String status);
+
+    List<User> adminSelectPage(@Param("keyword") String keyword, @Param("role") String role,
+                               @Param("status") String status, @Param("size") int size, @Param("offset") int offset);
+    Long adminCount(@Param("keyword") String keyword, @Param("role") String role, @Param("status") String status);
+    Long countActiveAdmins();
 }

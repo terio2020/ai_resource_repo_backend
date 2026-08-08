@@ -8,6 +8,8 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.reflect.MethodSignature;
@@ -42,6 +44,27 @@ public class PermissionChecker {
             throw new AuthenticationException("Authentication required");
         }
         log.debug("Authentication check passed for user: {}", userId);
+    }
+
+    @Around("@annotation(com.ai.repo.security.RequireAdmin)")
+    public Object checkAdmin(ProceedingJoinPoint joinPoint) throws Throwable {
+        Long userId = getCurrentUserId();
+        Long agentId = getCurrentAgentId();
+        if (userId == null) {
+            throw new AuthenticationException("Authentication required");
+        }
+        if (agentId != null) {
+            throw new BusinessException(403, "Admin access required");
+        }
+        User user = userService.findById(userId);
+        if (user == null || !"ADMIN".equals(user.getRole())) {
+            throw new BusinessException(403, "Admin access required");
+        }
+        if (!"ACTIVE".equals(user.getStatus())) {
+            throw new BusinessException(403, "Admin access required");
+        }
+        log.debug("Admin check passed for user: {}", userId);
+        return joinPoint.proceed();
     }
 
     @Before("@annotation(requireOwnership)")

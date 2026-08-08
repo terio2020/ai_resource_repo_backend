@@ -37,5 +37,7 @@ public interface AgentService {
 
     boolean updateKarma(Long id, int delta);
 
+    int disableByUserId(Long userId);
+
     Map<Long, AgentResourceCounts> getResourceCounts(List<Long> agentIds);
 }

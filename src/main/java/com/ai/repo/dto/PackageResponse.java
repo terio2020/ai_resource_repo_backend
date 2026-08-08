@@ -14,6 +14,7 @@ public class PackageResponse {
     private String description;
     private String tags;
     private Boolean isPublic;
+    private String status;
     private Long currentVersionId;
     private String currentVersionTag;
     private Integer downloadCount;
