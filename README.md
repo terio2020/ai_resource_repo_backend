@@ -160,15 +160,19 @@ cp .env.example .env
 ```
 
 Key configuration sources (in priority order):
-1. **Target env file** — `deploy.sh` loads `.env` for `server1` and `.env.aws` for `aws`, falling back to `.env` if the selected file does not exist
-2. **`application.yml`** — default values with `${ENV_VAR:default}` fallbacks, used for local development
+1. **Target env file** — `deploy.sh` requires `.env` for `aliyun`/`server1` or `.env.aws` for `aws`
+2. **`application-prod.yml`** — requires production secrets to be supplied through environment variables
+3. **`application.yml`** — `${ENV_VAR:default}` fallbacks are explicitly for local development only and must not be used as production credentials
 
-Required variables:
-- `DB_URL`, `DB_USER`, `DB_PASSWORD` — MySQL connection (defaults in `application.yml` for local dev)
-- `JWT_SECRET` — JWT signing key (must be at least 256 bits in production)
-- OAuth credentials (Google, GitHub) — for social login
-- SMTP settings — for password reset emails
-- `FRONTEND_URL` — frontend base URL for CORS and password reset email links (default: `http://localhost:3000`)
+Required production variables:
+- `DB_PASSWORD` — MySQL password
+- `MAIL_USERNAME`, `MAIL_PASSWORD` — SMTP credentials for password reset emails
+- `APP_OAUTH_STATE_SECRET` — OAuth state signing secret
+- `OAUTH_GOOGLE_CLIENT_ID`, `OAUTH_GOOGLE_CLIENT_SECRET` — Google OAuth client credentials
+- `JWT_SECRET` — JWT signing key (must be at least 256 bits)
+- `TOKEN_ENCRYPTION_SECRET` — token encryption secret
+
+Other deployment settings include `DB_URL`, `DB_USER`, mail server details, OAuth redirect URIs, provider-specific credentials as applicable, and `FRONTEND_URL` for CORS and password reset links.
 
 ### Building the Project
 
@@ -237,15 +241,15 @@ Key features:
 
 ```bash
 # 1. Configure the target env file with production values
-#    server1 uses .env; aws uses .env.aws and falls back to .env if missing
+#    aliyun/server1 requires .env; aws requires .env.aws
 # 2. Run deploy.sh for the target server
-./deploy.sh          # defaults to server1
-./deploy.sh server1
-./deploy.sh aws
+./deploy.sh                    # defaults to aliyun/server1
+./deploy.sh --target=server1
+./deploy.sh --target=aws
 ```
 
 `deploy.sh` supports CLI flags (all optional):
-- `--target <name>` or positional arg: target server profile (default `server1`)
+- `--target=<name>`: target server profile (default `aliyun`, with `server1` as an alias)
 - `--skip-build`: skip Maven build step
 - `--no-backup`: skip old JAR backup and pre-deploy database backup
 - `--self-audit`: run 5 pre-deploy checks (Flyway V-number continuity, DB pre-flight, UNDO script completeness, schema dry-run via `mvn compile`, Mapper↔DB consistency)
@@ -255,11 +259,11 @@ Key features:
 
 It automatically:
 - Selects per-target SSH key, remote directory, container name, and Docker working directory/volume
-- Sources the target env file for environment variables, falling back to `.env` when needed
+- Requires the target env file, uploads it to `${REMOTE_DIR}/.env`, and sets remote permissions to `0600`
 - Builds the project with `mvn clean package -DskipTests` (unless `--skip-build`)
 - Creates the remote deployment directory with `mkdir -p ${REMOTE_DIR}` before upload
 - Uploads the JAR to the server via SCP
-- Passes all env vars (DB, JWT, OAuth, SMTP, OpenAI) to the Docker container
+- Loads container configuration from the uploaded file with Docker `--env-file`
 - Runs the container with `eclipse-temurin:17-jdk-alpine`
 - Creates a backup of the previous JAR (unless `--no-backup`)
 - Backs up the database before deploy (unless `--no-backup`), dumping a gzipped snapshot to `/opt/backups/pre-{ts}.sql.gz` and keeping the last 3
