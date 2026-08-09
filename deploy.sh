@@ -72,7 +72,7 @@ self_audit() {
   latest_v=$(ls "$migration_dir"/V*.sql 2>/dev/null | sort -V | tail -1 | sed 's/.*V\([0-9]*\).*/\1/')
   [ -n "$latest_v" ] && echo "V${latest_v} — PASS" || { echo "FAIL"; fail=1; }
   echo -n "  DB pre-flight ... "
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql mysql -uroot -proot -e \"SELECT version FROM logicoma_net.flyway_schema_history ORDER BY installed_rank DESC LIMIT 1\" 2>/dev/null" > /dev/null 2>&1 && echo "PASS" || echo "WARN"
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -e \"SELECT version FROM logicoma_net.flyway_schema_history ORDER BY installed_rank DESC LIMIT 1\"' 2>/dev/null" > /dev/null 2>&1 && echo "PASS" || echo "WARN"
   echo -n "  UNDO 脚本完整性 ... "
   local missing=0
   for vfile in "$migration_dir"/V*.sql; do
@@ -96,7 +96,7 @@ backup_db() {
   local backup_file="/opt/backups/pre-${ts}.sql"
   echo "[deploy.sh --backup-db] 备份 DB → ${backup_file}"
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 755 /opt/backups" 2>/dev/null
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql mysqldump -u '${DB_USER:-logicoma}' -p'${DB_PASSWORD:-logic@oma}' --single-transaction logicoma_net 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysqldump -u \"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" --single-transaction logicoma_net' 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(stat -c%s '${backup_file}.gz') -gt 1024" || {
     echo "[deploy.sh --backup-db] FAIL: backup is empty or invalid"
     return 1
@@ -231,7 +231,10 @@ ok "JAR uploaded"
 if [ -f "$ENV_FILE" ]; then
   step "Uploading $ENV_FILE..."
   scp_cmd "$ENV_FILE" "${SSH_USER}@${SERVER_IP}:${REMOTE_DIR}/.env"
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "chmod 600 '${REMOTE_DIR}/.env'"
   ok "$ENV_FILE uploaded"
+else
+  err "Required deployment secret file not found: $ENV_FILE"
 fi
 
 # --- Remote deploy ---
@@ -259,31 +262,9 @@ ssh_cmd "${SSH_USER}@${SERVER_IP}" << EOF
     --name ${CONTAINER_NAME} \
     --restart=always \
     --network=host \
+    --env-file ${REMOTE_DIR}/.env \
     -v ${REMOTE_DIR}:${REMOTE_DIR} \
     -v /data/git_repos:/data/git_repos \
-    -e MAIL_HOST=${MAIL_HOST} \
-    -e MAIL_PORT=${MAIL_PORT} \
-    -e MAIL_USERNAME=${MAIL_USERNAME} \
-    -e MAIL_PASSWORD=${MAIL_PASSWORD} \
-    -e MAIL_FROM=${MAIL_FROM} \
-    -e APP_BASE_URL=${APP_BASE_URL} \
-    -e FRONTEND_URL=${APP_FRONTEND_URL} \
-    -e OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID:-} \
-    -e OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET:-} \
-    -e OAUTH_GOOGLE_REDIRECT_URI=${OAUTH_GOOGLE_REDIRECT_URI:-} \
-    -e OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID:-} \
-    -e OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET:-} \
-    -e OAUTH_GITHUB_REDIRECT_URI=${OAUTH_GITHUB_REDIRECT_URI:-} \
-    -e OAUTH_APPLE_CLIENT_ID=${OAUTH_APPLE_CLIENT_ID:-} \
-    -e OAUTH_APPLE_TEAM_ID=${OAUTH_APPLE_TEAM_ID:-} \
-    -e OAUTH_APPLE_KEY_ID=${OAUTH_APPLE_KEY_ID:-} \
-    -e OAUTH_APPLE_PRIVATE_KEY=${OAUTH_APPLE_PRIVATE_KEY:-} \
-    -e OAUTH_APPLE_REDIRECT_URI=${OAUTH_APPLE_REDIRECT_URI:-} \
-    -e OPENAI_API_KEY=${OPENAI_API_KEY:-} \
-    -e JWT_SECRET=${JWT_SECRET:-} \
-    -e APP_OAUTH_STATE_SECRET=${APP_OAUTH_STATE_SECRET:-} \
-    -e TOKEN_ENCRYPTION_SECRET=${TOKEN_ENCRYPTION_SECRET:-} \
-    -e ADMIN_BOOTSTRAP_EMAILS=${ADMIN_BOOTSTRAP_EMAILS} \
     -e FILE_STORAGE_PATH=${REMOTE_DIR} \
     -w ${REMOTE_DIR} \
     eclipse-temurin:17-jdk-alpine \

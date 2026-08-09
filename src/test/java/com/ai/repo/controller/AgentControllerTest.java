@@ -119,6 +119,21 @@ class AgentControllerTest {
                 .andExpect(jsonPath("$.data.code").value("TEST-001"));
     }
 
+    @Test
+    void getCurrentAgent_shouldResolveMeBeforeIdRoute() throws Exception {
+        Agent agent = new Agent();
+        agent.setId(77L);
+        agent.setCode("linux01-codex");
+        agent.setName("OpenAI Codex CLI - Linux 01");
+        when(agentService.findById(77L)).thenReturn(agent);
+
+        mockMvc.perform(get("/api/agents/me").with(withAgentId(77L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(77))
+                .andExpect(jsonPath("$.data.code").value("linux01-codex"));
+    }
+
     private RequestPostProcessor withUserId(Long userId) {
         return request -> {
             request.setAttribute("userId", userId);

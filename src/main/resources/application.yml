@@ -8,7 +8,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/logicoma_net?useUnicode=true&useSSL=false&serverTimezone=UTC&characterEncoding=utf8&allowPublicKeyRetrieval=true}
     username: ${DB_USER:logicoma}
-    password: ${DB_PASSWORD:logic@oma}
+    password: ${DB_PASSWORD:local-dev-password}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -68,7 +68,7 @@ mail:
   from: ${MAIL_FROM:noreply@logicoma.ai}
 
 oauth:
-  state-secret: ${APP_OAUTH_STATE_SECRET:default-state-secret-change-in-production}
+  state-secret: ${APP_OAUTH_STATE_SECRET:local-dev-oauth-state-secret-change-me}
   google:
     client-id: ${OAUTH_GOOGLE_CLIENT_ID:}
     client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET:}
@@ -85,14 +85,14 @@ oauth:
     redirect-uri: ${OAUTH_APPLE_REDIRECT_URI:}
 
 jwt:
-  secret: ${JWT_SECRET:logicoma-net-secret-key-must-be-at-least-256-bits-long-for-security-ensure-this-is-changed-in-production}
+  secret: ${JWT_SECRET:local-dev-jwt-secret-change-me-at-least-32-bytes}
   access-token-expiration: 86400000
   refresh-token-expiration: 604800000
   token-prefix: Bearer
 
 token:
   encryption:
-    secret: ${TOKEN_ENCRYPTION_SECRET:change-me-token-encryption-secret-32-bytes-min!!}
+    secret: ${TOKEN_ENCRYPTION_SECRET:local-dev-token-encryption-secret-change-me}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml

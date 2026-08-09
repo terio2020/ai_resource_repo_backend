@@ -111,6 +111,18 @@ public class AgentController {
         return Result.ok();
     }
 
+    @GetMapping("/me")
+    @ApiKeyAuth
+    @Operation(summary = "Get current agent", description = "Retrieve the agent authenticated by API key")
+    public ResponseEntity<Result<Agent>> getCurrentAgent(HttpServletRequest request) {
+        Long agentId = (Long) request.getAttribute("agentId");
+        if (agentId == null) {
+            throw new BusinessException(401, "Agent authentication required");
+        }
+        Agent agent = agentService.findById(agentId);
+        return Result.ok(agent);
+    }
+
     @GetMapping("/{id}")
     @RequireAuth
     @Operation(summary = "Get agent by ID", description = "Retrieve a specific agent by its ID")

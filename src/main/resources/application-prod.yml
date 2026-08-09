@@ -16,3 +16,26 @@ logging:
     com.ai.repo.mapper: info
     org.springframework.web: warn
     org.mybatis: warn
+
+# Production must fail fast instead of falling back to development-only values
+# from application.yml. Supply these through a root-owned env file or secret
+# manager; never place their values in Git or Docker image layers.
+spring:
+  datasource:
+    password: ${DB_PASSWORD}
+  mail:
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+oauth:
+  state-secret: ${APP_OAUTH_STATE_SECRET}
+  google:
+    client-id: ${OAUTH_GOOGLE_CLIENT_ID}
+    client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+token:
+  encryption:
+    secret: ${TOKEN_ENCRYPTION_SECRET}
