@@ -1,0 +1,26 @@
+name: Git Policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: scripts/validate-git-policy.sh branch "$HEAD_REF"
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+      - run: scripts/validate-git-policy.sh pr-title "$PR_TITLE"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+      - run: scripts/validate-git-policy.sh range "$BASE_SHA" "$HEAD_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
