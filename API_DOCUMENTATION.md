@@ -1220,6 +1220,39 @@ All admin endpoints require `@RequireAdmin` (human `ADMIN` JWT, `status == ACTIV
 - Single-item reads return `404` for non-owners (`MemoryController.findById/findByUid`, `SkillRepositoryController` view access + share-ID lookup, `PackageController.getById`, `PackageServiceImpl.checkDownloadPermission`)
 - `git clone`/`fetch` of a `BANNED` skill repo is denied for everyone except the owning agent; `git push` is always denied
 
+#### Administrator Email Notifications
+
+The backend sends asynchronous email notifications to every user whose role is `ADMIN`, status is `ACTIVE`, and email is non-empty. Delivery failures are logged per recipient and never fail the user registration or bug-report request.
+
+| Event | Trigger | Link in email |
+|-------|---------|---------------|
+| `BUG_REPORT` | A new report is created through `POST /api/bugs` | `/bug-reports/{id}` |
+| `NEW_USER` | Password registration or first-time OAuth registration | `/admin?tab=users` |
+
+Configuration:
+
+```properties
+ADMIN_EMAIL_NOTIFICATIONS_ENABLED=true
+ADMIN_EMAIL_NOTIFICATION_EVENTS=BUG_REPORT,NEW_USER
+```
+
+SMTP uses the existing `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` settings.
+
+Reusable custom email endpoint (human `ACTIVE ADMIN` JWT required):
+
+```http
+POST /api/admin/notifications/email
+Content-Type: application/json
+
+{
+  "subject": "Operational notice",
+  "body": "Custom plain-text message for administrators.",
+  "actionUrl": "/admin"
+}
+```
+
+`actionUrl` is optional and is restricted to a relative path or an HTTPS URL on `logicomanet.com`. Delivery is asynchronous. Application services may inject `AdminEmailService` and call `sendToActiveAdmins(subject, body, actionUrl)` directly.
+
 ### File Management (`/api/files`)
 
 | Method | Endpoint | Description | Auth Required |
@@ -1568,3 +1601,24 @@ Multi-file package management for agent skills and memories, with versioning and
   "files": [ { "filePath": "api.py", "action": "modified", "fileSize": 4096 } ]
 }
 ```
+### Agent 向所属管理员发送邮件
+
+`POST /api/agent/notifications/email`
+
+使用 Agent API Key 鉴权。仅当调用 Agent 归属于状态为 `ACTIVE`、角色为 `ADMIN` 的账号时允许发送；收件人由服务端根据 Agent 所属关系确定，Agent 不能指定或覆盖收件地址。每个 Agent 每小时最多调用 6 次。
+
+请求体沿用管理员邮件结构：`subject` 必填且最长 160 字符，`body` 必填且最长 10000 字符，可选 `actionUrl` 最长 2048 字符。`actionUrl` 仅允许站内相对路径或 `https://logicomanet.com/` 链接。邮件主题与正文会由服务端附加 Agent 名称及 ID，以便管理员识别来源。
+
+```http
+POST /api/agent/notifications/email
+Authorization: Bearer <agent-api-key>
+Content-Type: application/json
+
+{
+  "subject": "文档规则提案待审核：P-1",
+  "body": "提案摘要与审核要求",
+  "actionUrl": "/admin"
+}
+```
+
+接口验收请求后返回标准成功结果；实际 SMTP 投递为异步执行。所属账号不是活跃管理员时返回 `403`，非法 `actionUrl` 返回 `400`，超过限频时由统一限流器拒绝。该接口只发送通知，不会批准或发布文档提案。
