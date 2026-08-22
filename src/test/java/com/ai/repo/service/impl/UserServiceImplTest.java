@@ -18,6 +18,9 @@ import org.mockito.quality.Strictness;
 import org.mockito.Mockito;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.context.ApplicationEventPublisher;
+
+import com.ai.repo.event.AdminNotificationEvent;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,6 +41,9 @@ class UserServiceImplTest {
 
     @Mock(lenient = true)
     private ValueOperations<String, Object> valueOperations;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private UserServiceImpl userService;
 
@@ -68,6 +74,10 @@ class UserServiceImplTest {
         java.lang.reflect.Field fieldJwt = UserServiceImpl.class.getDeclaredField("jwtProvider");
         fieldJwt.setAccessible(true);
         fieldJwt.set(userService, jwtProvider);
+
+        java.lang.reflect.Field fieldPublisher = UserServiceImpl.class.getDeclaredField("eventPublisher");
+        fieldPublisher.setAccessible(true);
+        fieldPublisher.set(userService, eventPublisher);
     }
 
     // ===== create() tests =====
@@ -91,6 +101,7 @@ class UserServiceImplTest {
         // Then
         assertNotNull(result);
         assertEquals("testuser", result.getUsername());
+        verify(eventPublisher).publishEvent(any(AdminNotificationEvent.class));
     }
 
     @Test

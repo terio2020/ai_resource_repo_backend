@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+
+import com.ai.repo.event.AdminNotificationEvent;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -24,6 +27,9 @@ class BugReportServiceImplTest {
     @Mock
     private BugReportMapper bugReportMapper;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private BugReportServiceImpl bugReportService;
 
     @BeforeEach
@@ -32,6 +38,9 @@ class BugReportServiceImplTest {
         java.lang.reflect.Field mapperField = BugReportServiceImpl.class.getDeclaredField("bugReportMapper");
         mapperField.setAccessible(true);
         mapperField.set(bugReportService, bugReportMapper);
+        java.lang.reflect.Field publisherField = BugReportServiceImpl.class.getDeclaredField("eventPublisher");
+        publisherField.setAccessible(true);
+        publisherField.set(bugReportService, eventPublisher);
     }
 
     private BugReport buildBugReport(Long id, Long agentId, String title) {
@@ -60,6 +69,7 @@ class BugReportServiceImplTest {
         assertNotNull(result);
         assertNotNull(result.getUid());
         verify(bugReportMapper).insert(bug);
+        verify(eventPublisher).publishEvent(any(AdminNotificationEvent.class));
     }
 
     @Test

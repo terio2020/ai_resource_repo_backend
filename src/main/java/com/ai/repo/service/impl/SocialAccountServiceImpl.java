@@ -2,6 +2,7 @@ package com.ai.repo.service.impl;
 
 import com.ai.repo.entity.SocialAccount;
 import com.ai.repo.entity.User;
+import com.ai.repo.event.AdminNotificationEvent;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SocialAccountMapper;
 import com.ai.repo.mapper.UserMapper;
@@ -11,6 +12,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -41,6 +43,9 @@ public class SocialAccountServiceImpl implements SocialAccountService {
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private ApplicationEventPublisher eventPublisher;
 
     @Resource
     private TokenEncryptionService tokenEncryptionService;
@@ -147,6 +152,15 @@ public class SocialAccountServiceImpl implements SocialAccountService {
         
         userMapper.insert(user);
         log.info("Created new user via social login: {}, provider: {}", username, provider);
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new AdminNotificationEvent(
+                    AdminNotificationEvent.Type.NEW_USER,
+                    "新用户注册: " + username,
+                    "平台新增用户\n用户名: " + username
+                            + "\n邮箱: " + (email == null ? "-" : email)
+                            + "\n注册方式: " + provider,
+                    "/admin?tab=users"));
+        }
 
         // Create social account link
         SocialAccount socialAccount = new SocialAccount();

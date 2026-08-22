@@ -3,6 +3,7 @@ package com.ai.repo.service.impl;
 import com.ai.repo.dto.LoginResponse;
 import com.ai.repo.dto.TokenRefreshResponse;
 import com.ai.repo.entity.User;
+import com.ai.repo.event.AdminNotificationEvent;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.jwt.JwtProvider;
 import com.ai.repo.mapper.UserMapper;
@@ -10,6 +11,7 @@ import com.ai.repo.service.UserService;
 import com.ai.repo.util.PasswordEncoderUtil;
 import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +29,9 @@ public class UserServiceImpl implements UserService {
     @Resource
     private JwtProvider jwtProvider;
 
+    @Resource
+    private ApplicationEventPublisher eventPublisher;
+
     @Override
     public User create(User user) {
         if (userMapper.selectByUsername(user.getUsername()) != null) {
@@ -42,7 +47,21 @@ public class UserServiceImpl implements UserService {
             user.setUid(UuidUtil.generate());
         }
         userMapper.insert(user);
+        publishNewUser(user, "password");
         return user;
+    }
+
+    private void publishNewUser(User user, String registrationMethod) {
+        if (eventPublisher == null) {
+            return;
+        }
+        eventPublisher.publishEvent(new AdminNotificationEvent(
+                AdminNotificationEvent.Type.NEW_USER,
+                "新用户注册: " + user.getUsername(),
+                "平台新增用户\n用户名: " + user.getUsername()
+                        + "\n邮箱: " + (user.getEmail() == null ? "-" : user.getEmail())
+                        + "\n注册方式: " + registrationMethod,
+                "/admin?tab=users"));
     }
 
     @Override

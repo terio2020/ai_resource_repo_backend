@@ -57,12 +57,15 @@ spring:
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  frontend-url: ${APP_FRONTEND_URL:${FRONTEND_URL:http://localhost:3000}}
   git:
     root-path: ${APP_GIT_ROOT_PATH:/data/git_repos/}
 
 admin:
   bootstrap-emails: ${ADMIN_BOOTSTRAP_EMAILS:}
+  notifications:
+    enabled: ${ADMIN_EMAIL_NOTIFICATIONS_ENABLED:true}
+    events: ${ADMIN_EMAIL_NOTIFICATION_EVENTS:BUG_REPORT,NEW_USER}
 
 mail:
   from: ${MAIL_FROM:noreply@logicoma.ai}
