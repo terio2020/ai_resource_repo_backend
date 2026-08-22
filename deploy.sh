@@ -96,7 +96,9 @@ backup_db() {
   local backup_file="/opt/backups/pre-${ts}.sql"
   echo "[deploy.sh --backup-db] 备份 DB → ${backup_file}"
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 755 /opt/backups" 2>/dev/null
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysqldump -u \"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" --single-transaction logicoma_net' 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
+  # Use the container-local root credential so application-password rotation
+  # cannot break the mandatory pre-deploy backup gate.
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysqldump -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --single-transaction logicoma_net' 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(stat -c%s '${backup_file}.gz') -gt 1024" || {
     echo "[deploy.sh --backup-db] FAIL: backup is empty or invalid"
     return 1
