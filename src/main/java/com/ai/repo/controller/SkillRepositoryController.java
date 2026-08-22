@@ -234,7 +234,8 @@ public class SkillRepositoryController {
     @PutMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Update repository metadata",
-            description = "Agent-only. Update version, description, tags, category, type, enabled.")
+            description = "Agent-only. Update display name, version, description, tags, category, type, enabled. "
+                    + "Renaming does not move the underlying Git repository.")
     public ResponseEntity<Result<SkillRepository>> updateMetadata(
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
             @Valid @RequestBody SkillRepository updates,

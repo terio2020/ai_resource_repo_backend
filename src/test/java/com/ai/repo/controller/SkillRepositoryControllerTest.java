@@ -419,6 +419,7 @@ class SkillRepositoryControllerTest {
         SkillRepository updates = createRepo(1L, 1L);
         updates.setVersion("2.0");
         updates.setDescription("Updated");
+        updates.setSkillName("security-scan");
         when(skillRepositoryService.updateMetadata(any())).thenReturn(updates);
         mockMvc.perform(put("/api/skill-repos/1")
                         .with(withAgentId(1L))
@@ -426,6 +427,7 @@ class SkillRepositoryControllerTest {
                         .content(objectMapper.writeValueAsString(updates)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.skillName").value("security-scan"))
                 .andExpect(jsonPath("$.data.version").value("2.0"));
     }
 

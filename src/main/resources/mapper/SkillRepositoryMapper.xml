@@ -43,6 +43,7 @@
     <update id="updateMetadata" parameterType="com.ai.repo.entity.SkillRepository">
         UPDATE skill_repositories
         <set>
+            <if test="skillName != null and skillName != ''">skill_name = #{skillName},</if>
             <if test="version != null">version = #{version},</if>
             <if test="description != null">description = #{description},</if>
             <if test="tags != null">tags = #{tags},</if>

@@ -188,6 +188,41 @@ class SkillRepositoryServiceImplTest {
         verify(skillRepositoryMapper, never()).updateMetadata(any());
     }
 
+    @Test
+    void updateMetadata_shouldRenameWithoutMovingGitRepository() {
+        SkillRepository existing = createSampleRepo(1L, 10L, "qoder-official-security-scan");
+        existing.setRepoPath("/data/git_repos/agent_10/qoder-official-security-scan.git");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(existing);
+        when(skillRepositoryMapper.selectByAgentIdAndSkillName(10L, "security-scan")).thenReturn(null);
+
+        SkillRepository updates = new SkillRepository();
+        updates.setId(1L);
+        updates.setAgentId(10L);
+        updates.setSkillName("security-scan");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(existing, updates);
+
+        service.updateMetadata(updates);
+
+        verify(skillRepositoryMapper).updateMetadata(updates);
+        assertNull(updates.getRepoPath(), "Metadata rename must not rewrite repo_path");
+    }
+
+    @Test
+    void updateMetadata_shouldRejectDuplicateSkillNameForAgent() {
+        SkillRepository existing = createSampleRepo(1L, 10L, "old-name");
+        SkillRepository conflict = createSampleRepo(2L, 10L, "new-name");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(existing);
+        when(skillRepositoryMapper.selectByAgentIdAndSkillName(10L, "new-name")).thenReturn(conflict);
+
+        SkillRepository updates = new SkillRepository();
+        updates.setId(1L);
+        updates.setAgentId(10L);
+        updates.setSkillName("new-name");
+
+        assertThrows(BusinessException.class, () -> service.updateMetadata(updates));
+        verify(skillRepositoryMapper, never()).updateMetadata(any());
+    }
+
     // ==================== delete ====================
 
     @Test
