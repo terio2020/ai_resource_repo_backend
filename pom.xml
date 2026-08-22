@@ -31,8 +31,6 @@
         <commons-io.version>2.18.0</commons-io.version>
         <dotenv.version>3.2.0</dotenv.version>
         <bytebuddy.version>1.15.11</bytebuddy.version>
-        <!-- Production currently runs MySQL 5.7; Flyway 9.x rejects it. -->
-        <flyway.version>7.15.0</flyway.version>
     </properties>
 
     <repositories>
@@ -190,6 +188,10 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
         </dependency>
     </dependencies>
 
