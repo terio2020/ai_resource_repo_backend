@@ -285,9 +285,25 @@ fi
 
 # --- Verify ---
 step "Verifying deployment..."
-sleep 3
-ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker ps --filter name=${CONTAINER_NAME} --format '{{.Names}} {{.Status}}'" || err "Container not running"
-ok "Container is running"
+for attempt in $(seq 1 30); do
+  if ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker ps --filter name=^/${CONTAINER_NAME}$ --filter status=running --format '{{.Names}}' | grep -qx '${CONTAINER_NAME}' && curl --fail --silent http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"; then
+    ok "Container and local API are healthy"
+    break
+  fi
+  [ "$attempt" -eq 30 ] && {
+    ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker logs --tail 100 ${CONTAINER_NAME}" || true
+    err "Deployment health check timed out"
+  }
+  sleep 2
+done
+
+if [ "$TARGET" = "aws" ]; then
+  PUBLIC_API_STATUS=$(curl --silent --show-error -o /dev/null -w '%{http_code}' https://logicomanet.com/api/agents/76)
+  case "$PUBLIC_API_STATUS" in
+    200|401) ok "Public API route and authentication verified (HTTP $PUBLIC_API_STATUS)" ;;
+    *) err "Public API verification failed (HTTP $PUBLIC_API_STATUS)" ;;
+  esac
+fi
 
 echo ""
 step "============================================"
@@ -298,6 +314,6 @@ step "============================================"
 echo ""
 
 # Show logs
-step "Tailing logs (Ctrl+C to exit)..."
+step "Recent logs:"
 echo ""
-ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker logs --tail 50 -f ${CONTAINER_NAME}"
+ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker logs --tail 50 ${CONTAINER_NAME}"
