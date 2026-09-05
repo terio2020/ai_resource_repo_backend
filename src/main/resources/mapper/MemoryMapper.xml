@@ -21,19 +21,29 @@
         <result column="download_count" property="downloadCount" jdbcType="INTEGER"/>
         <result column="like_count" property="likeCount" jdbcType="INTEGER"/>
         <result column="metadata" property="metadata" jdbcType="LONGVARCHAR"/>
+        <result column="memory_type" property="memoryType" jdbcType="VARCHAR"/>
+        <result column="sharing_scope" property="sharingScope" jdbcType="VARCHAR"/>
+        <result column="owner_type" property="ownerType" jdbcType="VARCHAR"/>
+        <result column="client_memory_key" property="clientMemoryKey" jdbcType="VARCHAR"/>
+        <result column="schema_version" property="schemaVersion" jdbcType="VARCHAR"/>
+        <result column="revision" property="revision" jdbcType="INTEGER"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         uid, id, user_id, agent_id, title, content, version, description, file_path, file_size,
-        mime_type, tags, category, is_public, status, download_count, like_count, metadata, created_at, updated_at
+        mime_type, tags, category, is_public, status, download_count, like_count, metadata,
+        memory_type, sharing_scope, owner_type, client_memory_key, schema_version, revision,
+        created_at, updated_at
     </sql>
     <insert id="insert" parameterType="com.ai.repo.entity.Memory" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO memories (uid, user_id, agent_id, title, content, version, description, file_path, file_size,
-                           mime_type, tags, category, is_public, download_count, like_count, metadata)
+                           mime_type, tags, category, is_public, download_count, like_count, metadata,
+                           memory_type, sharing_scope, owner_type, client_memory_key, schema_version, revision)
         VALUES (#{uid}, #{userId}, #{agentId}, #{title}, #{content}, #{version}, #{description}, #{filePath}, #{fileSize},
-                #{mimeType}, #{tags}, #{category}, #{isPublic}, #{downloadCount}, #{likeCount}, #{metadata})
+                #{mimeType}, #{tags}, #{category}, #{isPublic}, #{downloadCount}, #{likeCount}, #{metadata},
+                #{memoryType}, #{sharingScope}, #{ownerType}, #{clientMemoryKey}, #{schemaVersion}, #{revision})
     </insert>
 
     <update id="update" parameterType="com.ai.repo.entity.Memory">
@@ -54,6 +64,12 @@
             <if test="downloadCount != null">download_count = #{downloadCount},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
             <if test="metadata != null">metadata = #{metadata},</if>
+            <if test="memoryType != null">memory_type = #{memoryType},</if>
+            <if test="sharingScope != null">sharing_scope = #{sharingScope},</if>
+            <if test="ownerType != null">owner_type = #{ownerType},</if>
+            <if test="clientMemoryKey != null">client_memory_key = #{clientMemoryKey},</if>
+            <if test="schemaVersion != null">schema_version = #{schemaVersion},</if>
+            <if test="revision != null">revision = #{revision},</if>
         </set>
         WHERE id = #{id}
     </update>
@@ -65,6 +81,15 @@
     <delete id="deleteByAgentId" parameterType="java.lang.Long">
         DELETE FROM memories WHERE agent_id = #{agentId}
     </delete>
+
+    <delete id="deleteGeneralByAgentId">
+        DELETE FROM memories WHERE agent_id = #{agentId} AND memory_type = 'GENERAL'
+    </delete>
+
+    <update id="detachProfileByAgentId">
+        UPDATE memories SET agent_id = NULL
+        WHERE agent_id = #{agentId} AND memory_type = 'USER_PROFILE'
+    </update>
 
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
@@ -110,6 +135,18 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectByUserIdVisibleToAgent" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId} AND status = 'VISIBLE'
+          AND (
+            agent_id = #{agentId}
+            OR (memory_type = 'USER_PROFILE' AND sharing_scope = 'USER_AGENTS')
+            OR (memory_type = 'GENERAL' AND is_public = TRUE)
+          )
+        ORDER BY created_at DESC
+    </select>
+
     <select id="selectByAgentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
@@ -121,6 +158,19 @@
         SELECT <include refid="Base_Column_List"/>
         FROM memories
         WHERE category = #{category} AND status = 'VISIBLE'
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByCategoryVisibleToUser" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE category = #{category} AND status = 'VISIBLE'
+          AND (
+            (is_public = TRUE AND memory_type = 'GENERAL')
+            OR (#{agentId} IS NULL AND user_id = #{userId})
+            OR (agent_id = #{agentId})
+            OR (user_id = #{userId} AND memory_type = 'USER_PROFILE' AND sharing_scope = 'USER_AGENTS')
+          )
         ORDER BY created_at DESC
     </select>
 
@@ -168,10 +218,34 @@
         </foreach>
     </delete>
 
+    <delete id="batchDeleteOwned">
+        DELETE FROM memories
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+          AND user_id = #{userId}
+          <if test="agentId != null">AND agent_id = #{agentId}</if>
+    </delete>
+
     <select id="selectByUserIdAndAgentIdAndTitle" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
         WHERE user_id = #{userId} AND agent_id = #{agentId} AND title = #{title}
+    </select>
+
+    <select id="selectByUserIdAndAgentIdAndClientKey" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId} AND agent_id = #{agentId} AND client_memory_key = #{clientMemoryKey}
+    </select>
+
+    <select id="selectProfileByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId}
+          AND memory_type = 'USER_PROFILE'
+          AND sharing_scope = 'USER_AGENTS'
+          AND status = 'VISIBLE'
+        ORDER BY updated_at DESC
     </select>
 
     <update id="updateByCompositeKey" parameterType="com.ai.repo.entity.Memory">
@@ -188,6 +262,12 @@
             download_count = #{downloadCount},
             like_count = #{likeCount},
             metadata = #{metadata}
+            , memory_type = #{memoryType}
+            , sharing_scope = #{sharingScope}
+            , owner_type = #{ownerType}
+            , client_memory_key = #{clientMemoryKey}
+            , schema_version = #{schemaVersion}
+            , revision = #{revision}
         WHERE user_id = #{userId} AND agent_id = #{agentId} AND title = #{title}
     </update>
 

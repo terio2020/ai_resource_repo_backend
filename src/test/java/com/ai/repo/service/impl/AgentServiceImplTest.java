@@ -234,7 +234,8 @@ class AgentServiceImplTest {
         agent.setId(1L);
 
         when(agentMapper.selectById(1L)).thenReturn(agent);
-        when(memoryMapper.deleteByAgentId(1L)).thenReturn(1);
+        when(memoryMapper.deleteGeneralByAgentId(1L)).thenReturn(1);
+        when(memoryMapper.detachProfileByAgentId(1L)).thenReturn(1);
         when(notificationMapper.deleteByAgentId(1L)).thenReturn(1);
         when(commentMapper.deleteByAgentId(1L)).thenReturn(1);
         when(skillRepositoryMapper.selectByAgentId(1L)).thenReturn(Collections.emptyList());
@@ -247,7 +248,8 @@ class AgentServiceImplTest {
 
         // Then
         assertTrue(result);
-        verify(memoryMapper).deleteByAgentId(1L);
+        verify(memoryMapper).deleteGeneralByAgentId(1L);
+        verify(memoryMapper).detachProfileByAgentId(1L);
         verify(notificationMapper).deleteByAgentId(1L);
         verify(commentMapper).deleteByAgentId(1L);
         verify(skillRepositoryMapper).selectByAgentId(1L);

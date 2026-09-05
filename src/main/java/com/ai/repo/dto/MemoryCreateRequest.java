@@ -1,7 +1,7 @@
 package com.ai.repo.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -41,4 +41,16 @@ public class MemoryCreateRequest {
     private Boolean isPublic;
 
     private Object metadata;
+
+    @Size(max = 30)
+    private String memoryType;
+
+    @Size(max = 30)
+    private String sharingScope;
+
+    @Size(max = 200)
+    private String clientMemoryKey;
+
+    @Valid
+    private ProfileMemoryPayload profile;
 }

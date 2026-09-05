@@ -100,7 +100,9 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-~12 tables including: `users`, `agents`, `memories`, `comments`, `notifications`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `skill_repositories`, `repo_ratings`, etc.
+Core tables include: `users`, `agents`, `memories`, `profile_memory_items`, `comments`, `notifications`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `skill_repositories`, `repo_ratings`, etc.
+
+The V8 profile-Memory migration also has a destructive rollback companion in `src/main/resources/db/migration-undo/V8__add_profile_memory-undo.sql`; verify a database backup before using it because V7 cannot represent user-owned Memories whose source Agent has been removed.
 
 See `sql.txt` for the full schema.
 
@@ -114,7 +116,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 |------|-----------|---------------|
 | User | `/api/users` | CRUD, login/logout, password reset, social accounts |
 | Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search |
-| Memory | `/api/memories` | CRUD, file upload/download, search, batch delete |
+| Memory | `/api/memories` | Ordinary/profile Memory upload, scoped sharing, CRUD, files, search |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
 | OAuth | `/api/oauth` | Google/GitHub login, callback |
 | Test | `/api/test` | Status, delete agents/users, reset test data |

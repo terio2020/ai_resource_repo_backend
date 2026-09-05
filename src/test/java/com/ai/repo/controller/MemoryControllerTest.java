@@ -3,11 +3,13 @@ package com.ai.repo.controller;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.GlobalExceptionHandler;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
+import com.ai.repo.service.ProfileMemoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -56,6 +58,9 @@ class MemoryControllerTest {
 
     @MockBean
     private AgentService agentService;
+
+    @MockBean
+    private ProfileMemoryService profileMemoryService;
 
     private RequestPostProcessor withAgentId(Long agentId) {
         return request -> {
@@ -160,19 +165,13 @@ class MemoryControllerTest {
     // ==================== POST /api/memories — agentId from body ====================
 
     @Test
-    void createMemory_shouldAcceptAgentIdInBody() throws Exception {
-        Memory memory = new Memory();
-        memory.setId(2L);
-        memory.setAgentId(7L);
-        memory.setTitle("Default Title");
-        when(memoryService.upsert(any(Memory.class))).thenReturn(memory);
-
+    void createMemory_shouldRejectMismatchedAgentIdInBody() throws Exception {
         mockMvc.perform(post("/api/memories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"agentId\":7,\"content\":\"body\"}")
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.agentId").value(7));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
     }
 
     @Test
@@ -209,12 +208,67 @@ class MemoryControllerTest {
 
         mockMvc.perform(post("/api/memories")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"agentId\":5,\"tags\":[\"alpha\",\"beta\",\"gamma\"]}")
+                        .content("{\"agentId\":5,\"content\":\"body\",\"tags\":[\"alpha\",\"beta\",\"gamma\"]}")
                         .with(withAgentId(5L)))
                 .andExpect(status().isOk());
 
         verify(memoryService).upsert(org.mockito.ArgumentMatchers.argThat(
                 m -> "alpha,beta,gamma".equals(m.getTags())));
+    }
+
+    @Test
+    void createMemory_shouldStoreAgentAuthoredUserProfile() throws Exception {
+        Memory memory = new Memory();
+        memory.setId(8L);
+        memory.setAgentId(5L);
+        memory.setUserId(1L);
+        memory.setMemoryType("USER_PROFILE");
+        memory.setSharingScope("USER_AGENTS");
+        when(profileMemoryService.upsert(any(Memory.class), any())).thenReturn(memory);
+
+        mockMvc.perform(post("/api/memories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"memoryType":"USER_PROFILE","clientMemoryKey":"codex-profile",
+                                 "title":"User profile","content":"User prefers Chinese",
+                                 "profile":{"schemaVersion":"1.0","mode":"PATCH","items":[
+                                   {"itemKey":"language","operation":"UPSERT","namespace":"communication",
+                                    "key":"language.primary","valueType":"string","value":"zh-CN",
+                                    "recordType":"PREFERENCE"}]}}
+                                """)
+                        .with(withAgentId(5L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memoryType").value("USER_PROFILE"))
+                .andExpect(jsonPath("$.data.sharingScope").value("USER_AGENTS"));
+
+        verify(profileMemoryService).upsert(
+                org.mockito.ArgumentMatchers.argThat(m -> !Boolean.TRUE.equals(m.getIsPublic())
+                        && "USER".equals(m.getOwnerType())), any());
+    }
+
+    @Test
+    void createMemory_shouldRejectPublicUserProfile() throws Exception {
+        mockMvc.perform(post("/api/memories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"memoryType":"USER_PROFILE","clientMemoryKey":"codex-profile",
+                                 "title":"User profile","content":"User prefers Chinese","isPublic":true,
+                                 "profile":{"items":[{"itemKey":"language","operation":"RETRACT"}]}}
+                                """)
+                        .with(withAgentId(5L)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getMyProfileMemories_shouldUseAuthenticatedUser() throws Exception {
+        when(profileMemoryService.findByUserId(1L))
+                .thenReturn(new ProfileMemoryResponse(List.of(), List.of()));
+
+        mockMvc.perform(get("/api/memories/profile/me").with(withAgentId(5L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memories").isArray())
+                .andExpect(jsonPath("$.data.items").isArray());
+        verify(profileMemoryService).findByUserId(1L);
     }
 
     // ==================== PUT /api/memories/{id} ====================
@@ -271,6 +325,29 @@ class MemoryControllerTest {
     }
 
     @Test
+    void getMemoryById_shouldHideAnotherAgentsPrivateGeneralMemory() throws Exception {
+        Memory memory = createMemory(1L, 99L, false);
+        memory.setMemoryType("GENERAL");
+        when(memoryService.findById(1L)).thenReturn(memory);
+
+        mockMvc.perform(get("/api/memories/1").with(withAgentId(5L)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getMemoryById_shouldShareProfileMemoryWithUsersOtherAgent() throws Exception {
+        Memory memory = createMemory(1L, 99L, false);
+        memory.setMemoryType("USER_PROFILE");
+        memory.setSharingScope("USER_AGENTS");
+        memory.setStatus("VISIBLE");
+        when(memoryService.findById(1L)).thenReturn(memory);
+
+        mockMvc.perform(get("/api/memories/1").with(withAgentId(5L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memoryType").value("USER_PROFILE"));
+    }
+
+    @Test
     void getMemoryById_notFound_shouldReturnError() throws Exception {
         when(memoryService.findById(999L))
                 .thenThrow(new BusinessException("Memory not found"));
@@ -292,6 +369,16 @@ class MemoryControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
     }
 
+    @Test
+    void getMemoriesByUserId_shouldUseAgentScopedVisibilityForAgentCaller() throws Exception {
+        when(memoryService.findByUserIdVisibleToAgent(1L, 5L)).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/api/memories/user/1").with(withAgentId(5L)))
+                .andExpect(status().isOk());
+
+        verify(memoryService).findByUserIdVisibleToAgent(1L, 5L);
+    }
+
     // ==================== GET /api/memories/agent/{agentId} ====================
 
     @Test
@@ -307,9 +394,9 @@ class MemoryControllerTest {
 
     @Test
     void getMemoriesByCategory_shouldReturnList() throws Exception {
-        when(memoryService.findByCategory("notes")).thenReturn(Collections.emptyList());
+        when(memoryService.findByCategoryVisibleToUser("notes", 1L, null)).thenReturn(Collections.emptyList());
 
-        mockMvc.perform(get("/api/memories/category/notes"))
+        mockMvc.perform(get("/api/memories/category/notes").with(withUserIdOnly(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
     }
@@ -341,7 +428,7 @@ class MemoryControllerTest {
 
     @Test
     void batchDeleteMemories_shouldReturnCount() throws Exception {
-        when(memoryService.batchDelete(org.mockito.ArgumentMatchers.anyList())).thenReturn(3);
+        when(memoryService.batchDeleteOwned(org.mockito.ArgumentMatchers.anyList(), eq(1L), eq(5L))).thenReturn(3);
 
         mockMvc.perform(delete("/api/memories/batch")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -496,5 +583,16 @@ class MemoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(1));
+    }
+
+    @Test
+    void getMemoriesByAgentId_shouldNotExposeSiblingAgentsPrivateGeneralMemories() throws Exception {
+        when(memoryService.findByAgentIdAndPublic(99L, true)).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/api/memories/agent/99").with(withAgentId(5L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+
+        verify(memoryService).findByAgentIdAndPublic(99L, true);
     }
 }

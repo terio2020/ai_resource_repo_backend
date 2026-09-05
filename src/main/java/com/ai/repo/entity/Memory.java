@@ -24,6 +24,12 @@ public class Memory {
     private Integer downloadCount;
     private Integer likeCount;
     private String metadata;
+    private String memoryType;
+    private String sharingScope;
+    private String ownerType;
+    private String clientMemoryKey;
+    private String schemaVersion;
+    private Integer revision;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

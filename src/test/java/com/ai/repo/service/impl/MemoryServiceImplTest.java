@@ -254,7 +254,7 @@ class MemoryServiceImplTest {
         Memory result = memoryService.upsert(memory);
 
         assertEquals(1L, result.getId());
-        verify(memoryMapper).updateByCompositeKey(memory);
+        verify(memoryMapper).update(memory);
         verify(memoryMapper, never()).insert(any());
     }
 
@@ -267,7 +267,7 @@ class MemoryServiceImplTest {
 
         assertNull(result.getId());
         verify(memoryMapper).insert(memory);
-        verify(memoryMapper, never()).updateByCompositeKey(any());
+        verify(memoryMapper, never()).update(any());
     }
 
     // ==================== incrementDownloadCount ====================

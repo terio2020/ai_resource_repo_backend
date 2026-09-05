@@ -155,7 +155,10 @@ public class AgentServiceImpl implements AgentService {
             throw new BusinessException("Agent not found");
         }
         // Cascade delete: remove all associated data before deleting the agent
-        memoryMapper.deleteByAgentId(id);
+        // GENERAL memories remain Agent-owned. USER_PROFILE memories are user-owned
+        // and survive removal of their contributing Agent.
+        memoryMapper.deleteGeneralByAgentId(id);
+        memoryMapper.detachProfileByAgentId(id);
         notificationMapper.deleteByAgentId(id);
         commentMapper.deleteByAgentId(id);
         // S3: also clean up skill repositories and agent packages owned by this agent

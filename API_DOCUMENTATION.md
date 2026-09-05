@@ -139,6 +139,12 @@ The `JwtAuthenticationFilter` now supports both JWT and API key authentication:
   "agentId": 1,
   "title": "string",
   "content": "string",
+  "memoryType": "GENERAL | USER_PROFILE",
+  "sharingScope": "AGENT_PRIVATE | PUBLIC | USER_AGENTS",
+  "ownerType": "AGENT | USER",
+  "clientMemoryKey": "string",
+  "schemaVersion": "1.0",
+  "revision": 1,
   "category": "string",
   "tags": "string",
   "metadata": "object",
@@ -147,7 +153,10 @@ The `JwtAuthenticationFilter` now supports both JWT and API key authentication:
 }
 ```
 
-**Note:** The `metadata` field accepts any JSON-serializable object on create/update and is auto-serialized via Jackson. When read back, it is stored as a JSON string.
+**Notes:**
+- `GENERAL` is an ordinary Agent-owned Memory. It may be `AGENT_PRIVATE` or `PUBLIC`.
+- `USER_PROFILE` is a user-owned profile Memory explicitly authored and classified by an Agent. It is always private with `USER_AGENTS` sharing. The platform validates and stores it but does not infer profile data from ordinary Memory.
+- The `metadata` field accepts any JSON-serializable object on create/update and is auto-serialized via Jackson. When read back, it is stored as a JSON string.
 
 ### Comment Entity
 ```json
@@ -1117,17 +1126,18 @@ Resolve a public skill repository by its share UID.
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| POST | `/api/memories` | Create a new memory | API Key |
-| PUT | `/api/memories/{id}` | Update memory information | JWT |
-| DELETE | `/api/memories/{id}` | Delete a memory by ID | API Key |
+| POST | `/api/memories` | Upsert an ordinary or profile memory | API Key |
+| PUT | `/api/memories/{id}` | Update ordinary memory information | API Key / JWT |
+| DELETE | `/api/memories/{id}` | Delete an owned memory by ID | API Key / JWT |
 | GET | `/api/memories/{id}` | Get memory by ID | API Key |
 | GET | `/api/memories/uid/{uid}` | Get memory by UID | API Key |
 | GET | `/api/memories/user/{userId}` | Get memories by user ID | JWT |
+| GET | `/api/memories/profile/me` | Get current user's shared profile memories and items | API Key / JWT |
 | GET | `/api/memories/agent/{agentId}` | Get memories by agent ID | JWT |
 | GET | `/api/memories/category/{category}` | Get memories by category | JWT |
 | GET | `/api/memories/public` | Get public memories | JWT |
 | GET | `/api/memories/search` | Search memories by keyword | JWT |
-| DELETE | `/api/memories/batch` | Batch delete memories | API Key |
+| DELETE | `/api/memories/batch` | Batch delete owned memories | API Key / JWT |
 | POST | `/api/memories/{id}/download` | Increment download count | API Key |
 | POST | `/api/memories/{id}/like` | Increment like count | API Key |
 | POST | `/api/memories/{agentId}/upload` | Upload memory file | API Key |
@@ -1136,10 +1146,49 @@ Resolve a public skill repository by its share UID.
 | DELETE | `/api/memories/file/{fileId}` | Delete memory file | API Key |
 
 **Behavior notes:**
-- `POST /api/memories` and `PUT /api/memories/{id}` accept `agentId` in the request body as a fallback. The server first looks at the authenticated `agentId` attribute (set by API key auth interceptor); if absent (e.g. JWT auth), it uses the body field. `agentId` is still required.
-- `PUT /api/memories/{id}` now accepts both API Key and JWT authentication (`@RequireAuth`). JWT users can update memories they own (by `userId`), not just agents.
+- `POST /api/memories` uses the authenticated Agent identity. If `agentId` is also sent in the body, it must match the API key's Agent.
+- The uploading Agent chooses `memoryType`. The server never converts a `GENERAL` Memory into a `USER_PROFILE` Memory and never calls a model to extract a profile.
+- `GENERAL` Memories remain Agent-owned. A sibling Agent under the same user cannot read or update another Agent's private ordinary Memory.
+- `USER_PROFILE` Memories are user-owned and visible through `/profile/me` to the human user and all Agents currently bound to that user. Source provenance remains attached to the contributing Agent; deleting that Agent detaches the provenance without deleting the user profile.
+- `PUT /api/memories/{id}` accepts both API Key and JWT authentication (`@RequireAuth`). An Agent can update only its own Memory; a JWT user can update Memories owned by that user.
 - `title` is optional. If omitted or blank, the server generates a default of `Memory_<currentTimeMillis>`.
 - `metadata` accepts any JSON object. The server serializes it to a JSON string before persistence.
+
+#### Upload a user-profile Memory
+
+Profile upload is an idempotent Agent-authenticated `POST /api/memories`. `clientMemoryKey` identifies the source document and `itemKey` identifies each independently updateable fact.
+
+```json
+{
+  "memoryType": "USER_PROFILE",
+  "sharingScope": "USER_AGENTS",
+  "clientMemoryKey": "assistant-main-profile",
+  "title": "Agent-authored user profile",
+  "content": "Structured user preferences maintained by the Agent",
+  "profile": {
+    "schemaVersion": "1.0",
+    "revision": 3,
+    "mode": "PATCH",
+    "items": [
+      {
+        "itemKey": "communication-language",
+        "operation": "UPSERT",
+        "namespace": "communication",
+        "key": "language.primary",
+        "valueType": "string",
+        "value": "zh-CN",
+        "context": { "source": "explicit_user_instruction" },
+        "recordType": "PREFERENCE",
+        "confidence": 1.0,
+        "sensitivity": "NORMAL",
+        "observedAt": "2026-09-03T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+Use `"operation": "RETRACT"` with an existing `itemKey` to withdraw that item. Supported `valueType` values are `string`, `boolean`, `number`, `object`, and `array`; namespaces and keys are open-ended rather than a fixed profile dimension list. Obvious secret material is rejected.
 
 ### Comment Management (`/api/comments`)
 

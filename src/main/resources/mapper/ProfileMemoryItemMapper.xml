@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.ProfileMemoryItemMapper">
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.ProfileMemoryItem">
+        <id column="id" property="id"/>
+        <result column="uid" property="uid"/>
+        <result column="memory_id" property="memoryId"/>
+        <result column="user_id" property="userId"/>
+        <result column="source_agent_id" property="sourceAgentId"/>
+        <result column="item_key" property="itemKey"/>
+        <result column="namespace" property="namespace"/>
+        <result column="fact_key" property="factKey"/>
+        <result column="value_type" property="valueType"/>
+        <result column="value_json" property="valueJson"/>
+        <result column="value_hash" property="valueHash"/>
+        <result column="context_json" property="contextJson"/>
+        <result column="context_hash" property="contextHash"/>
+        <result column="record_type" property="recordType"/>
+        <result column="confidence" property="confidence"/>
+        <result column="sensitivity" property="sensitivity"/>
+        <result column="status" property="status"/>
+        <result column="observed_at" property="observedAt"/>
+        <result column="valid_until" property="validUntil"/>
+        <result column="version" property="version"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Columns">
+        id, uid, memory_id, user_id, source_agent_id, item_key, namespace, fact_key,
+        value_type, value_json, value_hash, context_json, context_hash, record_type,
+        confidence, sensitivity, status, observed_at, valid_until, version, created_at, updated_at
+    </sql>
+
+    <insert id="upsert" parameterType="com.ai.repo.entity.ProfileMemoryItem">
+        INSERT INTO profile_memory_items
+            (uid, memory_id, user_id, source_agent_id, item_key, namespace, fact_key,
+             value_type, value_json, value_hash, context_json, context_hash, record_type,
+             confidence, sensitivity, status, observed_at, valid_until, version)
+        VALUES
+            (#{uid}, #{memoryId}, #{userId}, #{sourceAgentId}, #{itemKey}, #{namespace}, #{factKey},
+             #{valueType}, #{valueJson}, #{valueHash}, #{contextJson}, #{contextHash}, #{recordType},
+             #{confidence}, #{sensitivity}, #{status}, #{observedAt}, #{validUntil}, 1)
+        ON DUPLICATE KEY UPDATE
+            namespace = VALUES(namespace), fact_key = VALUES(fact_key), value_type = VALUES(value_type),
+            value_json = VALUES(value_json), value_hash = VALUES(value_hash),
+            context_json = VALUES(context_json), context_hash = VALUES(context_hash),
+            record_type = VALUES(record_type), confidence = VALUES(confidence),
+            sensitivity = VALUES(sensitivity), status = VALUES(status),
+            observed_at = VALUES(observed_at), valid_until = VALUES(valid_until),
+            version = version + 1
+    </insert>
+
+    <update id="retract">
+        UPDATE profile_memory_items SET status = 'RETRACTED', version = version + 1
+        WHERE memory_id = #{memoryId} AND item_key = #{itemKey}
+    </update>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Columns"/> FROM profile_memory_items item
+        WHERE item.user_id = #{userId}
+          AND item.status IN ('ACTIVE', 'CONFLICTED')
+          AND (item.valid_until IS NULL OR item.valid_until &gt; NOW())
+          AND EXISTS (
+              SELECT 1 FROM memories memory
+              WHERE memory.id = item.memory_id
+                AND memory.user_id = #{userId}
+                AND memory.memory_type = 'USER_PROFILE'
+                AND memory.sharing_scope = 'USER_AGENTS'
+                AND memory.status = 'VISIBLE'
+          )
+        ORDER BY namespace, fact_key, updated_at DESC
+    </select>
+
+    <select id="selectByMemoryId" resultMap="BaseResultMap">
+        SELECT <include refid="Columns"/> FROM profile_memory_items
+        WHERE memory_id = #{memoryId}
+        ORDER BY created_at
+    </select>
+
+    <update id="reconcileConflicts">
+        UPDATE profile_memory_items item
+        JOIN (
+            SELECT user_id, namespace, fact_key, context_hash,
+                   CASE WHEN COUNT(DISTINCT value_hash) &gt; 1 THEN 'CONFLICTED' ELSE 'ACTIVE' END AS resolved_status
+            FROM profile_memory_items
+            WHERE user_id = #{userId}
+              AND status IN ('ACTIVE', 'CONFLICTED')
+              AND (valid_until IS NULL OR valid_until &gt; NOW())
+            GROUP BY user_id, namespace, fact_key, context_hash
+        ) resolved
+          ON resolved.user_id = item.user_id
+         AND resolved.namespace = item.namespace
+         AND resolved.fact_key = item.fact_key
+         AND resolved.context_hash = item.context_hash
+        SET item.status = resolved.resolved_status
+        WHERE item.user_id = #{userId}
+          AND item.status IN ('ACTIVE', 'CONFLICTED')
+          AND (item.valid_until IS NULL OR item.valid_until &gt; NOW())
+    </update>
+</mapper>

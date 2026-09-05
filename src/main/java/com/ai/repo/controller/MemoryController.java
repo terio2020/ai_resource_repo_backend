@@ -6,6 +6,7 @@ import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.FileUploadResponse;
 import com.ai.repo.dto.MemoryCreateRequest;
 import com.ai.repo.dto.MemoryUpdateRequest;
+import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.security.ApiKeyAuth;
@@ -14,6 +15,7 @@ import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
+import com.ai.repo.service.ProfileMemoryService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,20 +52,20 @@ public class MemoryController {
     @Resource
     private AgentService agentService;
 
+    @Resource
+    private ProfileMemoryService profileMemoryService;
+
     @PostMapping
     @ApiKeyAuth
     @Operation(summary = "Create or update a memory", description = "Create or update a memory with provided details")
-    public ResponseEntity<Result<Memory>> createMemory(@RequestBody MemoryCreateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<Memory>> createMemory(@Valid @RequestBody MemoryCreateRequest request, HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
-        // When using JWT auth, agentId comes from request body; when using API key auth, it comes from interceptor
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         if (agentId == null) {
-            agentId = request.getAgentId();
-        }
-
-        // agentId is required for memory creation — validate early
-        if (agentId == null) {
             throw new com.ai.repo.exception.BusinessException(400, "Agent ID is required for memory creation");
+        }
+        if (request.getAgentId() != null && !agentId.equals(request.getAgentId())) {
+            throw new com.ai.repo.exception.BusinessException(403, "Agent ID must match the authenticated Agent");
         }
 
         // Default title if not provided
@@ -93,7 +95,50 @@ public class MemoryController {
         memory.setDownloadCount(0);
         memory.setLikeCount(0);
 
-        Memory createdMemory = memoryService.upsert(memory);
+        String memoryType = request.getMemoryType() == null
+                ? "GENERAL" : request.getMemoryType().toUpperCase(java.util.Locale.ROOT);
+        if (!"GENERAL".equals(memoryType) && !"USER_PROFILE".equals(memoryType)) {
+            throw new com.ai.repo.exception.BusinessException(400, "memoryType must be GENERAL or USER_PROFILE");
+        }
+        memory.setMemoryType(memoryType);
+        memory.setClientMemoryKey(request.getClientMemoryKey());
+
+        if ("USER_PROFILE".equals(memoryType)) {
+            if (Boolean.TRUE.equals(request.getIsPublic()) || "PUBLIC".equalsIgnoreCase(request.getSharingScope())) {
+                throw new com.ai.repo.exception.BusinessException(400, "USER_PROFILE memories cannot be public");
+            }
+            memory.setIsPublic(false);
+            memory.setSharingScope(request.getSharingScope() == null
+                    ? "USER_AGENTS"
+                    : request.getSharingScope().toUpperCase(java.util.Locale.ROOT));
+            if (!"USER_AGENTS".equals(memory.getSharingScope())) {
+                throw new com.ai.repo.exception.BusinessException(400, "USER_PROFILE sharingScope must be USER_AGENTS");
+            }
+            memory.setOwnerType("USER");
+        } else {
+            if (request.getProfile() != null) {
+                throw new com.ai.repo.exception.BusinessException(400, "GENERAL memories cannot contain a profile payload");
+            }
+            String sharingScope = request.getSharingScope() == null
+                    ? (Boolean.TRUE.equals(request.getIsPublic()) ? "PUBLIC" : "AGENT_PRIVATE")
+                    : request.getSharingScope().toUpperCase(java.util.Locale.ROOT);
+            memory.setSharingScope(sharingScope);
+            if (!"PUBLIC".equals(memory.getSharingScope()) && !"AGENT_PRIVATE".equals(memory.getSharingScope())) {
+                throw new com.ai.repo.exception.BusinessException(400,
+                        "GENERAL sharingScope must be PUBLIC or AGENT_PRIVATE");
+            }
+            boolean scopeIsPublic = "PUBLIC".equals(memory.getSharingScope());
+            if (request.getIsPublic() != null && request.getIsPublic() != scopeIsPublic) {
+                throw new com.ai.repo.exception.BusinessException(400,
+                        "GENERAL sharingScope must match isPublic");
+            }
+            memory.setIsPublic(scopeIsPublic);
+            memory.setOwnerType("AGENT");
+        }
+
+        Memory createdMemory = "USER_PROFILE".equals(memoryType)
+                ? profileMemoryService.upsert(memory, request.getProfile())
+                : memoryService.upsert(memory);
         return Result.ok(createdMemory);
     }
 
@@ -119,12 +164,12 @@ public class MemoryController {
         }
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
-        boolean isOwner = (callerUserId != null && callerUserId.equals(memory.getUserId()))
-                || (callerAgentId != null && callerAgentId.equals(memory.getAgentId()));
+        boolean isOwner = isMemoryOwner(memory, callerUserId, callerAgentId);
+        boolean isSharedProfile = isSharedProfile(memory, callerUserId, callerAgentId);
         if ("BANNED".equals(memory.getStatus()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
-        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
+        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner && !isSharedProfile) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
         return Result.ok(memory);
@@ -142,12 +187,12 @@ public class MemoryController {
         }
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
-        boolean isOwner = (callerUserId != null && callerUserId.equals(memory.getUserId()))
-                || (callerAgentId != null && callerAgentId.equals(memory.getAgentId()));
+        boolean isOwner = isMemoryOwner(memory, callerUserId, callerAgentId);
+        boolean isSharedProfile = isSharedProfile(memory, callerUserId, callerAgentId);
         if ("BANNED".equals(memory.getStatus()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
-        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
+        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner && !isSharedProfile) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
         return Result.ok(memory);
@@ -166,8 +211,7 @@ public class MemoryController {
         }
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
-        boolean isOwner = (callerAgentId != null && callerAgentId.equals(existing.getAgentId()))
-                || (callerUserId != null && callerUserId.equals(existing.getUserId()));
+        boolean isOwner = isMemoryOwner(existing, callerUserId, callerAgentId);
         if (!isOwner) {
             throw new com.ai.repo.exception.BusinessException(403, "Only the owner can update this memory");
         }
@@ -198,7 +242,7 @@ public class MemoryController {
     }
 
     @DeleteMapping("/{id}")
-    @ApiKeyAuth
+    @RequireAuth
     @Operation(summary = "Delete a memory", description = "Delete a memory by its ID. Only the owning agent can delete.")
     public ResponseEntity<Result<Void>> deleteMemory(
             @PathVariable @Min(1) Long id,
@@ -208,8 +252,13 @@ public class MemoryController {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
-        if (callerAgentId == null || !callerAgentId.equals(existing.getAgentId())) {
-            throw new com.ai.repo.exception.BusinessException(403, "Only the owning agent can delete this memory");
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        boolean sourceAgent = callerAgentId != null && callerAgentId.equals(existing.getAgentId());
+        boolean humanProfileOwner = callerAgentId == null
+                && "USER_PROFILE".equals(existing.getMemoryType())
+                && callerUserId != null && callerUserId.equals(existing.getUserId());
+        if (!sourceAgent && !humanProfileOwner) {
+            throw new com.ai.repo.exception.BusinessException(403, "Only the Memory owner can delete this memory");
         }
         memoryService.delete(id);
         return Result.ok();
@@ -223,12 +272,24 @@ public class MemoryController {
             HttpServletRequest httpRequest) {
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
         List<Memory> memories;
-        if (callerUserId != null && callerUserId.equals(userId)) {
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (callerUserId != null && callerUserId.equals(userId) && callerAgentId == null) {
             memories = memoryService.findByUserId(userId);
+        } else if (callerUserId != null && callerUserId.equals(userId)) {
+            memories = memoryService.findByUserIdVisibleToAgent(userId, callerAgentId);
         } else {
             memories = memoryService.findByUserIdAndPublic(userId, true);
         }
         return Result.ok(memories);
+    }
+
+    @GetMapping("/profile/me")
+    @RequireAuth
+    @Operation(summary = "Get current user's profile memories",
+            description = "Returns Agent-authored USER_PROFILE memories and structured profile items for the authenticated user")
+    public ResponseEntity<Result<ProfileMemoryResponse>> getMyProfileMemories(HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        return Result.ok(profileMemoryService.findByUserId(userId));
     }
 
     @GetMapping("/agent/{agentId}")
@@ -240,7 +301,7 @@ public class MemoryController {
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
         boolean isOwner = (callerAgentId != null && callerAgentId.equals(agentId));
-        if (!isOwner && callerUserId != null) {
+        if (!isOwner && callerAgentId == null && callerUserId != null) {
             try {
                 com.ai.repo.entity.Agent agent = agentService.findById(agentId);
                 isOwner = callerUserId.equals(agent.getUserId());
@@ -258,9 +319,28 @@ public class MemoryController {
     @GetMapping("/category/{category}")
     @RequireAuth
     @Operation(summary = "Get memories by category", description = "Retrieve all memories in a specific category")
-    public ResponseEntity<Result<List<Memory>>> getMemoriesByCategory(@PathVariable String category) {
-        List<Memory> memories = memoryService.findByCategory(category);
+    public ResponseEntity<Result<List<Memory>>> getMemoriesByCategory(
+            @PathVariable String category, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        List<Memory> memories = memoryService.findByCategoryVisibleToUser(category, userId, agentId);
         return Result.ok(memories);
+    }
+
+    private boolean isMemoryOwner(Memory memory, Long callerUserId, Long callerAgentId) {
+        if (callerAgentId != null) {
+            return callerAgentId.equals(memory.getAgentId());
+        }
+        return callerUserId != null && callerUserId.equals(memory.getUserId());
+    }
+
+    private boolean isSharedProfile(Memory memory, Long callerUserId, Long callerAgentId) {
+        return callerAgentId != null
+                && callerUserId != null
+                && callerUserId.equals(memory.getUserId())
+                && "USER_PROFILE".equals(memory.getMemoryType())
+                && "USER_AGENTS".equals(memory.getSharingScope())
+                && "VISIBLE".equals(memory.getStatus());
     }
 
     @GetMapping("/public")
@@ -280,10 +360,13 @@ public class MemoryController {
     }
 
     @DeleteMapping("/batch")
-    @ApiKeyAuth
+    @RequireAuth
     @Operation(summary = "Batch delete memories", description = "Delete multiple memories at once")
-    public ResponseEntity<Result<Integer>> batchDeleteMemories(@RequestBody BatchDeleteRequest request) {
-        int count = memoryService.batchDelete(request.getIds());
+    public ResponseEntity<Result<Integer>> batchDeleteMemories(
+            @RequestBody BatchDeleteRequest request, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        int count = memoryService.batchDeleteOwned(request.getIds(), userId, agentId);
         return Result.ok(count);
     }
 
@@ -314,7 +397,11 @@ public class MemoryController {
             @RequestParam(value = "description", required = false) String description,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
-        FileUploadResponse response = fileStorageService.saveFile(file, userId, agentId, "memory", description);
+        Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
+        if (currentAgentId == null || !currentAgentId.equals(agentId)) {
+            throw new com.ai.repo.exception.BusinessException(403, "Agent ID must match the authenticated Agent");
+        }
+        FileUploadResponse response = fileStorageService.saveFile(file, userId, currentAgentId, "memory", description);
         return Result.ok(response);
     }
 

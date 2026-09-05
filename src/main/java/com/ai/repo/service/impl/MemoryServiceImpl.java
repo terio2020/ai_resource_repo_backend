@@ -64,6 +64,11 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     @Override
+    public List<Memory> findByUserIdVisibleToAgent(Long userId, Long agentId) {
+        return memoryMapper.selectByUserIdVisibleToAgent(userId, agentId);
+    }
+
+    @Override
     public List<Memory> findByAgentId(Long agentId) {
         return memoryMapper.selectByAgentId(agentId);
     }
@@ -71,6 +76,11 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     public List<Memory> findByCategory(String category) {
         return memoryMapper.selectByCategory(category);
+    }
+
+    @Override
+    public List<Memory> findByCategoryVisibleToUser(String category, Long userId, Long agentId) {
+        return memoryMapper.selectByCategoryVisibleToUser(category, userId, agentId);
     }
 
     @Override
@@ -107,12 +117,29 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     @Override
+    public int batchDeleteOwned(List<Long> ids, Long userId, Long agentId) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("IDs cannot be null or empty");
+        }
+        if (userId == null) {
+            throw new BusinessException(401, "Authentication required");
+        }
+        return memoryMapper.batchDeleteOwned(ids, userId, agentId);
+    }
+
+    @Override
     public Memory upsert(Memory memory) {
-        Memory existingMemory = memoryMapper.selectByUserIdAndAgentIdAndTitle(memory.getUserId(), memory.getAgentId(), memory.getTitle());
+        Memory existingMemory = memory.getClientMemoryKey() == null
+                ? memoryMapper.selectByUserIdAndAgentIdAndTitle(memory.getUserId(), memory.getAgentId(), memory.getTitle())
+                : memoryMapper.selectByUserIdAndAgentIdAndClientKey(
+                        memory.getUserId(), memory.getAgentId(), memory.getClientMemoryKey());
 
         if (existingMemory != null) {
             memory.setId(existingMemory.getId());
-            memoryMapper.updateByCompositeKey(memory);
+            // Upload/upsert requests do not own engagement counters.
+            memory.setDownloadCount(existingMemory.getDownloadCount());
+            memory.setLikeCount(existingMemory.getLikeCount());
+            memoryMapper.update(memory);
             Memory refreshed = memoryMapper.selectById(memory.getId());
             return refreshed != null ? refreshed : memory;
         } else {

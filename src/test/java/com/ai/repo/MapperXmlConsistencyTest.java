@@ -15,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class MapperXmlConsistencyTest {
 
     private static final Pattern SQL_COLUMN = Pattern.compile(
-            "(?i)^\\s+`?(\\w+)`?\\s+(VARCHAR|BIGINT|INT|TINYINT|BOOLEAN|TEXT|DATETIME|TIMESTAMP|JSON|DOUBLE|DECIMAL|FLOAT|BLOB|MEDIUMTEXT|LONGTEXT|CHAR|DATE|TIME|ENUM)"
+            "(?i)^\\s+(?:(?:ADD|MODIFY)\\s+COLUMN\\s+)?`?(\\w+)`?\\s+"
+                    + "(VARCHAR|BIGINT|INT|TINYINT|BOOLEAN|TEXT|DATETIME|TIMESTAMP|JSON|DOUBLE|DECIMAL|FLOAT|BLOB|MEDIUMTEXT|LONGTEXT|CHAR|DATE|TIME|ENUM)"
     );
     private static final Pattern MYBATIS_RESULT_COLUMN = Pattern.compile(
             "(?i)column\\s*=\\s*\"(\\w+)\""
