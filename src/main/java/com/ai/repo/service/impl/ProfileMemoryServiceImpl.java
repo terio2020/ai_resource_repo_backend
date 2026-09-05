@@ -8,7 +8,6 @@ import com.ai.repo.entity.ProfileMemoryItem;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.ProfileMemoryItemMapper;
-import com.ai.repo.service.MemoryService;
 import com.ai.repo.service.ProfileMemoryService;
 import com.ai.repo.util.UuidUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -41,8 +40,6 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
                     + "\\bsk-[A-Za-z0-9_-]{16,})");
 
     @Resource
-    private MemoryService memoryService;
-    @Resource
     private MemoryMapper memoryMapper;
     @Resource
     private ProfileMemoryItemMapper profileMemoryItemMapper;
@@ -74,17 +71,6 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
         if (revision < 1) {
             throw new BusinessException(400, "Profile revision must be positive");
         }
-        Memory existing = memoryMapper.selectByUserIdAndAgentIdAndClientKey(
-                memory.getUserId(), memory.getAgentId(), memory.getClientMemoryKey());
-        if (existing != null && existing.getRevision() != null) {
-            if (revision < existing.getRevision()) {
-                throw new BusinessException(409, "Profile revision is older than the stored revision");
-            }
-            if (revision == existing.getRevision()) {
-                return existing;
-            }
-        }
-
         // Validate the complete patch before creating or updating its parent
         // Memory. The transaction remains the final safeguard, but malformed
         // profile items should fail before any persistence call.
@@ -94,7 +80,48 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
 
         memory.setSchemaVersion(schemaVersion);
         memory.setRevision(revision);
-        Memory saved = memoryService.upsert(memory);
+        if (memory.getUid() == null || memory.getUid().isBlank()) {
+            memory.setUid(UuidUtil.generate());
+        }
+
+        // The insert/no-op write and locking read serialize both first-create
+        // and update races on (user_id, agent_id, client_memory_key). The UID
+        // distinguishes a row inserted by this request from an existing row
+        // without relying on connector-specific affected-row semantics.
+        memoryMapper.insertProfileIfAbsent(memory);
+        Memory current = memoryMapper.selectProfileByKeyForUpdate(
+                memory.getUserId(), memory.getAgentId(), memory.getClientMemoryKey());
+        if (current == null) {
+            throw new IllegalStateException("Profile parent row was not created or found");
+        }
+
+        Memory saved;
+        if (memory.getUid().equals(current.getUid())) {
+            saved = current;
+        } else {
+            int storedRevision = current.getRevision() == null ? 1 : current.getRevision();
+            if (revision < storedRevision) {
+                throw new BusinessException(409, "Profile revision is older than the stored revision");
+            }
+            if (revision == storedRevision) {
+                return current;
+            }
+
+            memory.setId(current.getId());
+            int updated = memoryMapper.updateProfileIfRevisionOlder(memory);
+            if (updated != 1) {
+                Memory latest = memoryMapper.selectProfileByKeyForUpdate(
+                        memory.getUserId(), memory.getAgentId(), memory.getClientMemoryKey());
+                if (latest != null && revision == latest.getRevision()) {
+                    return latest;
+                }
+                throw new BusinessException(409, "Profile revision was superseded by a concurrent update");
+            }
+            saved = memoryMapper.selectById(current.getId());
+            if (saved == null) {
+                throw new IllegalStateException("Updated profile parent row was not found");
+            }
+        }
 
         for (ProfileMemoryItemRequest request : profile.getItems()) {
             if (request.isRetract()) {
@@ -105,7 +132,7 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
             profileMemoryItemMapper.upsert(item);
         }
         profileMemoryItemMapper.reconcileConflicts(saved.getUserId());
-        Memory refreshed = memoryService.findById(saved.getId());
+        Memory refreshed = memoryMapper.selectById(saved.getId());
         return refreshed != null ? refreshed : saved;
     }
 

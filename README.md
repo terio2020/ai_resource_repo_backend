@@ -104,6 +104,8 @@ Core tables include: `users`, `agents`, `memories`, `profile_memory_items`, `com
 
 The V8 profile-Memory migration also has a destructive rollback companion in `src/main/resources/db/migration-undo/V8__add_profile_memory-undo.sql`; verify a database backup before using it because V7 cannot represent user-owned Memories whose source Agent has been removed.
 
+Profile Memory revisions are serialized by the database on `(user_id, agent_id, client_memory_key)`. Updates advance the parent only when `stored revision < incoming revision`; an equal revision is an idempotent replay and an older revision returns `409`. The opt-in `ProfileMemoryConcurrencyIntegrationTest` exercises concurrent first-create and out-of-order updates against MySQL when `PROFILE_MEMORY_CONCURRENCY_IT=true` and `DB_URL`, `DB_USER`, and `DB_PASSWORD` point to an isolated test database.
+
 See `sql.txt` for the full schema.
 
 ## API Endpoints

@@ -6,7 +6,6 @@ import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.ProfileMemoryItemMapper;
-import com.ai.repo.service.MemoryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,8 +29,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProfileMemoryServiceImplTest {
     @Mock
-    private MemoryService memoryService;
-    @Mock
     private MemoryMapper memoryMapper;
     @Mock
     private ProfileMemoryItemMapper itemMapper;
@@ -41,7 +38,6 @@ class ProfileMemoryServiceImplTest {
     @BeforeEach
     void setUp() throws Exception {
         service = new ProfileMemoryServiceImpl();
-        inject("memoryService", memoryService);
         inject("memoryMapper", memoryMapper);
         inject("profileMemoryItemMapper", itemMapper);
         inject("objectMapper", new ObjectMapper());
@@ -53,8 +49,9 @@ class ProfileMemoryServiceImplTest {
         memory.setId(null);
         Memory saved = profileMemory();
         saved.setId(9L);
-        when(memoryService.upsert(memory)).thenReturn(saved);
-        when(memoryService.findById(9L)).thenReturn(saved);
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
+                .thenReturn(saved);
+        when(memoryMapper.selectById(9L)).thenReturn(saved);
 
         ProfileMemoryPayload payload = payload(item("UPSERT", "zh-CN"));
         Memory result = service.upsert(memory, payload);
@@ -75,8 +72,9 @@ class ProfileMemoryServiceImplTest {
         memory.setId(null);
         Memory saved = profileMemory();
         saved.setId(9L);
-        when(memoryService.upsert(memory)).thenReturn(saved);
-        when(memoryService.findById(9L)).thenReturn(saved);
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
+                .thenReturn(saved);
+        when(memoryMapper.selectById(9L)).thenReturn(saved);
 
         ProfileMemoryItemRequest request = new ProfileMemoryItemRequest();
         request.setItemKey("primary-language");
@@ -93,14 +91,15 @@ class ProfileMemoryServiceImplTest {
         Memory memory = profileMemory();
         memory.setRevision(null);
         Memory existing = profileMemory();
+        existing.setUid("stored-profile-uid");
         existing.setRevision(1);
-        when(memoryMapper.selectByUserIdAndAgentIdAndClientKey(1L, 5L, "codex-user-profile"))
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
                 .thenReturn(existing);
 
         Memory result = service.upsert(memory, payload(item("UPSERT", "zh-CN")));
 
         assertEquals(existing, result);
-        verify(memoryService, never()).upsert(any());
+        verify(memoryMapper, never()).updateProfileIfRevisionOlder(any());
         verify(itemMapper, never()).upsert(any());
     }
 
@@ -108,15 +107,37 @@ class ProfileMemoryServiceImplTest {
     void upsert_shouldRejectStaleRevision() {
         Memory memory = profileMemory();
         Memory existing = profileMemory();
+        existing.setUid("stored-profile-uid");
         existing.setRevision(3);
-        when(memoryMapper.selectByUserIdAndAgentIdAndClientKey(1L, 5L, "codex-user-profile"))
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
                 .thenReturn(existing);
 
         ProfileMemoryPayload payload = payload(item("UPSERT", "zh-CN"));
         payload.setRevision(2);
 
         assertThrows(RuntimeException.class, () -> service.upsert(memory, payload));
-        verify(memoryService, never()).upsert(any());
+        verify(memoryMapper, never()).updateProfileIfRevisionOlder(any());
+    }
+
+    @Test
+    void upsert_shouldConditionallyAdvanceRevisionBeforeWritingItems() {
+        Memory memory = profileMemory();
+        Memory existing = profileMemory();
+        existing.setUid("stored-profile-uid");
+        existing.setRevision(1);
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
+                .thenReturn(existing);
+        when(memoryMapper.updateProfileIfRevisionOlder(memory)).thenReturn(1);
+        when(memoryMapper.selectById(9L)).thenReturn(memory);
+
+        ProfileMemoryPayload payload = payload(item("UPSERT", "English"));
+        payload.setRevision(2);
+
+        Memory result = service.upsert(memory, payload);
+
+        assertEquals(2, result.getRevision());
+        verify(memoryMapper).updateProfileIfRevisionOlder(memory);
+        verify(itemMapper).upsert(any());
     }
 
     @Test
@@ -136,7 +157,7 @@ class ProfileMemoryServiceImplTest {
         memory.setContent("api_key=1234567890abcdef");
 
         assertThrows(RuntimeException.class, () -> service.upsert(memory, payload(item("UPSERT", "zh-CN"))));
-        verify(memoryService, never()).upsert(any());
+        verify(memoryMapper, never()).insertProfileIfAbsent(any());
     }
 
     @Test
@@ -152,6 +173,7 @@ class ProfileMemoryServiceImplTest {
     private Memory profileMemory() {
         Memory memory = new Memory();
         memory.setId(9L);
+        memory.setUid("incoming-profile-uid");
         memory.setUserId(1L);
         memory.setAgentId(5L);
         memory.setTitle("Profile");

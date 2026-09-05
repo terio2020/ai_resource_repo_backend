@@ -23,6 +23,18 @@ class ProfileMemoryMigrationContractTest {
     }
 
     @Test
+    void mapperUsesDatabaseSerializationAndAtomicRevisionAdvance() throws Exception {
+        String sql = Files.readString(Path.of(
+                "src/main/resources/mapper/MemoryMapper.xml"));
+
+        assertTrue(sql.contains("ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"));
+        assertTrue(sql.contains("<select id=\"selectProfileByKeyForUpdate\""));
+        assertTrue(sql.contains("FOR UPDATE"));
+        assertTrue(sql.contains("<update id=\"updateProfileIfRevisionOlder\""));
+        assertTrue(sql.contains("revision &lt; #{revision}"));
+    }
+
+    @Test
     void undoMigrationRemovesProfileSchemaAndRestoresAgentCascade() throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration-undo/V8__add_profile_memory-undo.sql"));

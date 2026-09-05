@@ -33,6 +33,10 @@ public interface MemoryMapper {
     Memory selectByUserIdAndAgentIdAndTitle(@Param("userId") Long userId, @Param("agentId") Long agentId, @Param("title") String title);
     Memory selectByUserIdAndAgentIdAndClientKey(@Param("userId") Long userId, @Param("agentId") Long agentId,
                                                  @Param("clientMemoryKey") String clientMemoryKey);
+    int insertProfileIfAbsent(Memory memory);
+    Memory selectProfileByKeyForUpdate(@Param("userId") Long userId, @Param("agentId") Long agentId,
+                                       @Param("clientMemoryKey") String clientMemoryKey);
+    int updateProfileIfRevisionOlder(Memory memory);
     List<Memory> selectProfileByUserId(@Param("userId") Long userId);
     int updateByCompositeKey(Memory memory);
     int incrementDownloadCount(@Param("id") Long id);

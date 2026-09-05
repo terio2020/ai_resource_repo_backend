@@ -238,6 +238,56 @@
         WHERE user_id = #{userId} AND agent_id = #{agentId} AND client_memory_key = #{clientMemoryKey}
     </select>
 
+    <!--
+      Establishes the profile parent row without changing an existing row. The
+      duplicate-key branch is a write operation, so concurrent requests for the
+      same Agent/client key serialize on the unique index until transaction end.
+    -->
+    <insert id="insertProfileIfAbsent" parameterType="com.ai.repo.entity.Memory"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO memories
+            (uid, user_id, agent_id, title, content, version, description, file_path, file_size,
+             mime_type, tags, category, is_public, status, download_count, like_count, metadata,
+             memory_type, sharing_scope, owner_type, client_memory_key, schema_version, revision)
+        VALUES
+            (#{uid}, #{userId}, #{agentId}, #{title}, #{content}, #{version}, #{description}, #{filePath}, #{fileSize},
+             #{mimeType}, #{tags}, #{category}, #{isPublic}, #{status}, #{downloadCount}, #{likeCount}, #{metadata},
+             #{memoryType}, #{sharingScope}, #{ownerType}, #{clientMemoryKey}, #{schemaVersion}, #{revision})
+        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+    </insert>
+
+    <select id="selectProfileByKeyForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM memories
+        WHERE user_id = #{userId}
+          AND agent_id = #{agentId}
+          AND client_memory_key = #{clientMemoryKey}
+        FOR UPDATE
+    </select>
+
+    <update id="updateProfileIfRevisionOlder" parameterType="com.ai.repo.entity.Memory">
+        UPDATE memories
+        SET title = #{title},
+            content = #{content},
+            version = #{version},
+            description = #{description},
+            file_path = #{filePath},
+            file_size = #{fileSize},
+            mime_type = #{mimeType},
+            tags = #{tags},
+            category = #{category},
+            is_public = #{isPublic},
+            status = #{status},
+            metadata = #{metadata},
+            memory_type = #{memoryType},
+            sharing_scope = #{sharingScope},
+            owner_type = #{ownerType},
+            schema_version = #{schemaVersion},
+            revision = #{revision}
+        WHERE id = #{id}
+          AND revision &lt; #{revision}
+    </update>
+
     <select id="selectProfileByUserId" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories
