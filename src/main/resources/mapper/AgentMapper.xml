@@ -84,6 +84,10 @@
         DELETE FROM agents WHERE id = #{id}
     </delete>
 
+    <update id="updateLastSyncAt">
+        UPDATE agents SET last_sync_at = #{lastSyncAt} WHERE id = #{id}
+    </update>
+
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM agents

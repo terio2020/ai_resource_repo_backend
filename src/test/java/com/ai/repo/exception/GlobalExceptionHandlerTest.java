@@ -12,6 +12,7 @@ import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -171,6 +172,16 @@ class GlobalExceptionHandlerTest {
         Result<?> result = body(handler.handleException(e));
         assertEquals(500, result.getCode());
         assertEquals("System error, please contact administrator", result.getMessage());
+    }
+
+    @Test
+    void handleNoResourceFoundException() {
+        NoResourceFoundException e = new NoResourceFoundException(
+                org.springframework.http.HttpMethod.GET, "api/missing");
+        Result<?> result = body(handler.handleNoResourceFound(e));
+        assertEquals(404, result.getCode());
+        assertEquals("Endpoint not found", result.getMessage());
+        assertEquals(HttpStatus.NOT_FOUND, handler.handleNoResourceFound(e).getStatusCode());
     }
 
     @Test

@@ -53,6 +53,14 @@ class AuthControllerTest {
         };
     }
 
+    private RequestPostProcessor withAgentId(Long agentId) {
+        return request -> {
+            request.setAttribute("agentId", agentId);
+            request.setAttribute("userId", 1L);
+            return request;
+        };
+    }
+
     @Test
     void storeTempToken_shouldReturnSessionId() throws Exception {
         TempTokenStoreRequest request = new TempTokenStoreRequest();
@@ -71,20 +79,26 @@ class AuthControllerTest {
     }
 
     @Test
-    void getTempToken_shouldReturnToken_whenFound() throws Exception {
-        when(tempTokenService.getAndRemoveToken("session-123")).thenReturn("token-abc");
+    void storeTempToken_shouldRejectAgentApiKeyPrincipal() throws Exception {
+        mockMvc.perform(post("/api/auth/temp-token")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"session-123\",\"accessToken\":\"token-abc\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
+    }
 
+    @Test
+    void getTempToken_pathForm_shouldNotBeSupported() throws Exception {
         mockMvc.perform(get("/api/auth/temp-token/session-123"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.accessToken").value("token-abc"));
+                .andExpect(status().isNotFound());
     }
 
     @Test
     void getTempToken_shouldReturn404_whenNotFound() throws Exception {
         when(tempTokenService.getAndRemoveToken("session-456")).thenReturn(null);
 
-        mockMvc.perform(get("/api/auth/temp-token/session-456"))
+        mockMvc.perform(get("/api/auth/temp-token").param("sessionId", "session-456"))
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("Token not found or expired"));
@@ -99,6 +113,28 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.accessToken").value("token-xyz"));
+    }
+
+    @Test
+    void retrieveTempToken_withRequestBody_shouldReturnToken() throws Exception {
+        when(tempTokenService.getAndRemoveToken("session-body")).thenReturn("token-body");
+
+        mockMvc.perform(post("/api/auth/temp-token/retrieve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"session-body\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.accessToken").value("token-body"));
+    }
+
+    @Test
+    void retrieveTempToken_withoutSessionId_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/api/auth/temp-token/retrieve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Session ID is required"));
     }
 
     @Test

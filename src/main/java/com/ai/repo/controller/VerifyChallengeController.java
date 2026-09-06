@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -92,7 +94,10 @@ public class VerifyChallengeController {
     }
 
     public static class ChallengeVerifyRequest {
+        @NotBlank(message = "Verification code is required")
         private String verificationCode;
+
+        @NotNull(message = "Answer is required")
         private BigDecimal answer;
 
         public String getVerificationCode() {

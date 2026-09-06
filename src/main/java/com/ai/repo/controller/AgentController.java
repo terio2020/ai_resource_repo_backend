@@ -47,6 +47,8 @@ import java.util.*;
 @Tag(name = "Agent API", description = "Agent management operations")
 public class AgentController {
 
+    private static final long MAX_AVATAR_BYTES = 5L * 1024 * 1024;
+
     @Value("${file.storage.base-path:/data/logicoma-files}")
     private String basePath;
 
@@ -59,14 +61,21 @@ public class AgentController {
     @PostMapping
     @RequireAuth
     @Operation(summary = "Create a new agent", description = "Create a new agent for the authenticated user")
-    public ResponseEntity<Result<AgentCreateResponse>> createAgent(@RequestBody AgentCreateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<AgentCreateResponse>> createAgent(@Valid @RequestBody AgentCreateRequest request, HttpServletRequest httpRequest) {
+        if (httpRequest.getAttribute("agentId") != null) {
+            throw new BusinessException(403, "Human user authentication required to create an agent");
+        }
         Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) {
+            throw new BusinessException(401, "User authentication required");
+        }
         Agent agent = new Agent();
         agent.setUserId(userId);
         agent.setName(request.getName());
         agent.setCode(request.getCode());
         agent.setStatus("OFFLINE");
         agent.setType(request.getType());
+        agent.setDescription(request.getDescription());
         agent.setConfig(request.getConfig());
         agent.setSyncEnabled(false);
         agent.setApiKey(apiKeyUtil.generateApiKey());
@@ -79,9 +88,9 @@ public class AgentController {
         response.setCode(createdAgent.getCode());
         response.setStatus(createdAgent.getStatus());
         response.setType(createdAgent.getType());
+        response.setDescription(createdAgent.getDescription());
         response.setConfig(createdAgent.getConfig());
         response.setApiKey(createdAgent.getApiKey());
-        response.setApiKeyHash(createdAgent.getApiKeyHash());
         response.setChallengeVerified(createdAgent.getChallengeVerified());
         return Result.ok(response);
     }
@@ -91,13 +100,19 @@ public class AgentController {
     @Operation(summary = "Update an agent", description = "Update an existing agent's information")
     public ResponseEntity<Result<Agent>> updateAgent(
             @Parameter(description = "Agent ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody Agent agent,
+            @Valid @RequestBody AgentUpdateRequest request,
             HttpServletRequest httpRequest) {
         Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
         if (currentAgentId == null || !currentAgentId.equals(id)) {
             throw new BusinessException(403, "Only the owning agent can update this agent");
         }
+        Agent agent = new Agent();
         agent.setId(id);
+        agent.setName(request.getName());
+        agent.setType(request.getType());
+        agent.setConfig(request.getConfig());
+        agent.setDisplayName(request.getDisplayName());
+        agent.setDescription(request.getDescription());
         Agent updatedAgent = agentService.update(agent);
         return Result.ok(updatedAgent);
     }
@@ -235,6 +250,13 @@ public class AgentController {
             return Result.fail(403, "Access denied");
         }
 
+        if (file.isEmpty()) {
+            return Result.fail(400, "Avatar file is required");
+        }
+        if (file.getSize() > MAX_AVATAR_BYTES) {
+            return Result.fail(413, "Avatar file must not exceed 5 MB");
+        }
+
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null) {
@@ -244,17 +266,14 @@ public class AgentController {
             }
         }
 
-        Set<String> allowedExtensions = Set.of("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg");
+        Set<String> allowedExtensions = Set.of("jpg", "jpeg", "png");
         if (!allowedExtensions.contains(extension)) {
-            return Result.fail(400, "Only image files (jpg, png, gif, webp, svg, bmp) are allowed");
+            return Result.fail(400, "Only static JPEG and PNG image files are allowed");
         }
 
         try {
-            boolean preserveAlpha = "png".equals(extension) || "gif".equals(extension) || "webp".equals(extension);
+            boolean preserveAlpha = "png".equals(extension);
             String outputFormat = preserveAlpha ? "png" : "jpg";
-            if ("svg".equals(extension) || "bmp".equals(extension)) {
-                outputFormat = "png";
-            }
 
             BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(file.getBytes()));
             if (originalImage == null) {
@@ -271,7 +290,8 @@ public class AgentController {
                 int newWidth = Math.max(1, (int) (width * scale));
                 int newHeight = Math.max(1, (int) (height * scale));
 
-                BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+                int imageType = preserveAlpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
+                BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, imageType);
                 Graphics2D g2d = resizedImage.createGraphics();
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);

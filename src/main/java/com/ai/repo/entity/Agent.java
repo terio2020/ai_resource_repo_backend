@@ -27,6 +27,7 @@ public class Agent {
     private String avatarPrompt;
     @JsonIgnore
     private String apiKey;
+    @JsonIgnore
     private String apiKeyHash;
     private Boolean isClaimed;
     @JsonIgnore

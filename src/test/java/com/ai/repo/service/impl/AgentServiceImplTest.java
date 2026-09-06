@@ -27,12 +27,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -137,13 +139,19 @@ class AgentServiceImplTest {
         agent.setApiKey("raw-key-001");
 
         when(agentMapper.selectByCode("test-agent-001")).thenReturn(null);
-        when(agentMapper.insert(any(Agent.class))).thenReturn(1);
+        AtomicReference<String> persistedPlaintext = new AtomicReference<>();
+        when(agentMapper.insert(any(Agent.class))).thenAnswer(invocation -> {
+            persistedPlaintext.set(invocation.<Agent>getArgument(0).getApiKey());
+            return 1;
+        });
 
         Agent result = agentService.create(agent);
 
         assertNotNull(result);
         assertEquals("test-agent-001", result.getCode());
         assertEquals("hashed_raw-key-001", result.getApiKeyHash());
+        assertEquals("raw-key-001", result.getApiKey());
+        assertNull(persistedPlaintext.get());
         assertNotNull(result.getAvatar());
         assertTrue(result.getAvatar().contains("/avatars/agents/"));
         verify(agentMapper).insert(any(Agent.class));
@@ -472,6 +480,21 @@ class AgentServiceImplTest {
     }
 
     @Test
+    void updateHeartbeat_shouldNormalizeLowercaseStatus() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+        String timestamp = LocalDateTime.now().toString();
+
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(agentMapper.updateHeartbeat(1L, "ACTIVE", timestamp, null)).thenReturn(1);
+
+        boolean result = agentService.updateHeartbeat(1L, "active", timestamp, null);
+
+        assertTrue(result);
+        verify(agentMapper).updateHeartbeat(1L, "ACTIVE", timestamp, null);
+    }
+
+    @Test
     void updateHeartbeat_shouldThrowException_whenInvalidStatus() {
         // Given
         Agent agent = new Agent();
@@ -542,6 +565,9 @@ class AgentServiceImplTest {
         // Then
         assertNotNull(result);
         assertEquals(1, result.getMemories().size());
+        assertNotNull(result.getNextCursor());
+        assertDoesNotThrow(() -> OffsetDateTime.parse(result.getNextCursor()));
+        verify(agentMapper).updateLastSyncAt(eq(1L), any(LocalDateTime.class));
     }
 
     @Test
@@ -573,6 +599,58 @@ class AgentServiceImplTest {
         assertNotNull(result);
         assertEquals(1, result.getMemories().size());
         assertEquals("New Memory", result.getMemories().get(0).getTitle());
+    }
+
+    @Test
+    void syncData_shouldAcceptServerOffsetCursor() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(memoryMapper.selectByAgentId(1L)).thenReturn(Collections.emptyList());
+
+        AgentSyncResponse result = agentService.syncData(1L, "2026-09-06T08:00:00Z");
+
+        assertNotNull(result.getNextCursor());
+    }
+
+    @Test
+    void syncData_shouldRejectInvalidCursor() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(memoryMapper.selectByAgentId(1L)).thenReturn(Collections.emptyList());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> agentService.syncData(1L, "not-a-cursor"));
+
+        assertEquals(400, exception.getCode());
+        verify(agentMapper, never()).updateLastSyncAt(anyLong(), any(LocalDateTime.class));
+    }
+
+    @Test
+    void updateHeartbeat_shouldRejectInvalidTimezone() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> agentService.updateHeartbeat(1L, "ACTIVE", LocalDateTime.now().toString(), "Mars/Olympus"));
+
+        assertEquals(400, exception.getCode());
+        verify(agentMapper, never()).updateHeartbeat(anyLong(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void updateStatusOnly_shouldNormalizeAndValidateStatus() {
+        Agent agent = new Agent();
+        agent.setId(1L);
+        when(agentMapper.selectById(1L)).thenReturn(agent);
+        when(agentMapper.updateStatusOnly(1L, "IDLE")).thenReturn(1);
+
+        assertTrue(agentService.updateStatusOnly(1L, "idle"));
+        verify(agentMapper).updateStatusOnly(1L, "IDLE");
+        assertThrows(BusinessException.class,
+                () -> agentService.updateStatusOnly(1L, "INVALID"));
     }
 
     @Test

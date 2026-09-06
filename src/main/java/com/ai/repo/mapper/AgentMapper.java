@@ -31,6 +31,7 @@ public interface AgentMapper {
     int updateStatusOnly(@Param("id") Long id, @Param("status") String status);
     int updateConfigOnly(@Param("id") Long id, @Param("config") String config);
     int updateAvatar(@Param("id") Long id, @Param("avatar") String avatar);
+    int updateLastSyncAt(@Param("id") Long id, @Param("lastSyncAt") LocalDateTime lastSyncAt);
 
     Agent selectByApiKey(String apiKey);
     Agent selectByApiKeyHash(String apiKeyHash);

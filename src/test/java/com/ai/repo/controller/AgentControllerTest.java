@@ -10,6 +10,7 @@ import com.ai.repo.util.ApiKeyUtil;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -100,6 +102,7 @@ class AgentControllerTest {
         createdAgent.setCode("TEST-001");
         createdAgent.setStatus("OFFLINE");
         createdAgent.setType("assistant");
+        createdAgent.setDescription("Test description");
         createdAgent.setApiKey("plaintext-api-key-abc");
         createdAgent.setApiKeyHash("hash-value");
         createdAgent.setChallengeVerified(false);
@@ -110,13 +113,56 @@ class AgentControllerTest {
         mockMvc.perform(post("/api/agents")
                         .with(withUserId(10L))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"TestAgent\",\"code\":\"TEST-001\",\"type\":\"assistant\"}"))
+                        .content("{\"name\":\"TestAgent\",\"code\":\"TEST-001\",\"type\":\"assistant\",\"description\":\"Test description\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.apiKey").value("plaintext-api-key-abc"))
-                .andExpect(jsonPath("$.data.apiKeyHash").value("hash-value"))
+                .andExpect(jsonPath("$.data.apiKeyHash").doesNotExist())
                 .andExpect(jsonPath("$.data.name").value("TestAgent"))
+                .andExpect(jsonPath("$.data.description").value("Test description"))
                 .andExpect(jsonPath("$.data.code").value("TEST-001"));
+
+        ArgumentCaptor<Agent> created = ArgumentCaptor.forClass(Agent.class);
+        verify(agentService).create(created.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(10L, created.getValue().getUserId());
+        org.junit.jupiter.api.Assertions.assertEquals("Test description", created.getValue().getDescription());
+    }
+
+    @Test
+    void createAgent_shouldValidateRequiredFields() throws Exception {
+        mockMvc.perform(post("/api/agents")
+                        .with(withUserId(10L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void createAgent_shouldRejectAgentApiKeyPrincipal() throws Exception {
+        mockMvc.perform(post("/api/agents")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Nested\",\"code\":\"NESTED-1\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void updateAgent_shouldIgnorePrivilegedFields() throws Exception {
+        when(agentService.update(any(Agent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(put("/api/agents/1")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Renamed\",\"userId\":999,\"code\":\"TAKEOVER\",\"status\":\"DISABLED\",\"apiKeyHash\":\"attacker\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Renamed"))
+                .andExpect(jsonPath("$.data.userId").isEmpty())
+                .andExpect(jsonPath("$.data.code").isEmpty())
+                .andExpect(jsonPath("$.data.status").isEmpty())
+                .andExpect(jsonPath("$.data.apiKeyHash").doesNotExist());
     }
 
     @Test
@@ -188,6 +234,32 @@ class AgentControllerTest {
                         .with(withAgentId(1L)))
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void uploadAvatar_shouldRejectUnsupportedImageFormat() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "avatar", "test.svg", "image/svg+xml", "<svg/>".getBytes());
+
+        mockMvc.perform(multipart("/api/agents/1/avatar")
+                        .file(file)
+                        .with(withAgentId(1L)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Only static JPEG and PNG image files are allowed"));
+    }
+
+    @Test
+    void uploadAvatar_shouldRejectFilesLargerThanFiveMegabytes() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "avatar", "large.jpg", "image/jpeg", new byte[5 * 1024 * 1024 + 1]);
+
+        mockMvc.perform(multipart("/api/agents/1/avatar")
+                        .file(file)
+                        .with(withAgentId(1L)))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value(413))
+                .andExpect(jsonPath("$.message").value("Avatar file must not exceed 5 MB"));
     }
 
     @Test

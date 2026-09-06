@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -137,6 +138,12 @@ public class GlobalExceptionHandler {
             log.error("Method not supported: {} {} (supported: {})", req.getMethod(), req.getRequestURI(), e.getSupportedMethods());
         }
         return Result.failRaw(405, "Request method '" + e.getMethod() + "' is not supported for this endpoint");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Result<?>> handleNoResourceFound(NoResourceFoundException e) {
+        log.warn("Resource not found: {}", e.getResourcePath());
+        return Result.failRaw(404, "Endpoint not found");
     }
 
     @ExceptionHandler(IOException.class)

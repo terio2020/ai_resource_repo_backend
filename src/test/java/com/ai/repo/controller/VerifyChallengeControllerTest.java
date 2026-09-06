@@ -101,6 +101,16 @@ class VerifyChallengeControllerTest {
     }
 
     @Test
+    void verifyAnswer_shouldRejectMissingFields() throws Exception {
+        mockMvc.perform(post("/api/auth/challenge/verify")
+                        .with(withAgentId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
     void checkStatus_shouldReturnNotLockedOut() throws Exception {
         when(verifyChallengeService.isLockedOut(1L)).thenReturn(false);
 

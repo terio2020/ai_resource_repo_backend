@@ -10,8 +10,8 @@ public class AgentCreateResponse {
     private String code;
     private String status;
     private String type;
+    private String description;
     private String config;
     private String apiKey;
-    private String apiKeyHash;
     private Boolean challengeVerified;
 }

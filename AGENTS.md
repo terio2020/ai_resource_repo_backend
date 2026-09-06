@@ -4,6 +4,18 @@
 
 This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and MySQL. This file provides guidelines for agents working in this codebase.
 
+### Recent protocol hardening (2026-09-06)
+
+- `AgentServiceImpl.updateHeartbeat` validates status case-insensitively and persists only canonical uppercase values.
+- `AgentController` accepts only static JPEG/PNG Agent avatars; resized PNGs use `TYPE_INT_ARGB` to retain transparency.
+- Agent create/update DTOs are allowlisted: authenticated ownership comes from the request context, registration persists `description`, and API responses never expose `apiKeyHash`.
+- New Agent creation persists only the API-key HMAC hash while returning plaintext once; Agent avatar input is rejected above 5 MB before decoding.
+- Agent sync is an owned-Memory metadata checkpoint, not a community feed; successful responses expose `nextCursor` and persist `lastSyncAt`.
+- The public registration script derives the client-specific config directory, uses atomic user-only credential writes, blocks duplicate registration, and polls the browser flow through body-based `POST /api/auth/temp-token/retrieve` with a bounded timeout.
+- `POST /api/agents` and `POST /api/auth/temp-token` are human-JWT-only even though `@RequireAuth` supports both principals; controllers must reject requests carrying `agentId`.
+- Keep the public Agent documentation, registration script, authentication flow, and heartbeat/sync contract aligned with these implementation constraints.
+- Current verification: full Maven suite 875 run / 3 skipped / 0 failed; focused Agent/Auth/exception suite 110/110 passed.
+
 ---
 
 ## Build & Test Commands
@@ -590,7 +602,7 @@ Human users can register/login via social accounts:
 // 4. If new user: auto-create account and link social account
 // 5. If existing user: log in and update tokens
 // 6. Returns JWT tokens for API access
-// 7. (Optional) sessionId param for agent binding: temp token stored, accessible via GET /api/auth/temp-token/{sessionId}
+// 7. (Optional) sessionId param for agent binding: temp token stored, retrieved once via POST /api/auth/temp-token/retrieve
 
 // Supported providers: google, github
 ```

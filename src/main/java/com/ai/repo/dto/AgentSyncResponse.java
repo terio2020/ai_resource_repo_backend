@@ -9,6 +9,7 @@ import java.util.List;
 public class AgentSyncResponse {
     private List<MemorySyncInfo> memories;
     private LocalDateTime syncTime;
+    private String nextCursor;
 
     @Data
     public static class MemorySyncInfo {

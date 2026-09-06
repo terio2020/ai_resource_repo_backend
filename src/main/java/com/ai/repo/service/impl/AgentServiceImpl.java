@@ -33,7 +33,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -100,7 +104,15 @@ public class AgentServiceImpl implements AgentService {
         if (agent.getUid() == null || agent.getUid().isEmpty()) {
             agent.setUid(UuidUtil.generate());
         }
-        agentMapper.insert(agent);
+        String oneTimeApiKey = agent.getApiKey();
+        agent.setApiKey(null);
+        try {
+            agentMapper.insert(agent);
+        } finally {
+            // Return the generated key to the creation caller once, but never
+            // persist its plaintext value. Authentication uses apiKeyHash.
+            agent.setApiKey(oneTimeApiKey);
+        }
 
         if (agent.getAvatar() != null && agent.getAvatar().contains("/0_")) {
             try {
@@ -276,19 +288,27 @@ public class AgentServiceImpl implements AgentService {
         if ("DISABLED".equals(existing.getStatus())) {
             throw new BusinessException(403, "Agent is disabled");
         }
-        if (status != null && !VALID_STATUSES.contains(status.toUpperCase())) {
-            throw new BusinessException(400, "Invalid status: " + status + 
-                ". Valid values are: ACTIVE, IDLE, BUSY, OFFLINE");
+        String normalizedStatus = normalizeStatus(status);
+        if (timezone != null && !timezone.isBlank()) {
+            try {
+                ZoneId.of(timezone);
+            } catch (RuntimeException e) {
+                throw new BusinessException(400, "Invalid IANA timezone: " + timezone);
+            }
         }
-        return agentMapper.updateHeartbeat(id, status, lastHeartbeatAt, timezone) > 0;
+        return agentMapper.updateHeartbeat(id, normalizedStatus, lastHeartbeatAt, timezone) > 0;
     }
 
     @Override
     public boolean updateStatusOnly(Long id, String status) {
-        if (agentMapper.selectById(id) == null) {
+        Agent existing = agentMapper.selectById(id);
+        if (existing == null) {
             throw new BusinessException("Agent not found");
         }
-        return agentMapper.updateStatusOnly(id, status) > 0;
+        if ("DISABLED".equals(existing.getStatus())) {
+            throw new BusinessException(403, "Agent is disabled");
+        }
+        return agentMapper.updateStatusOnly(id, normalizeStatus(status)) > 0;
     }
 
     @Override
@@ -308,19 +328,21 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
+    @Transactional
     public AgentSyncResponse syncData(Long agentId, String since) {
         if (agentMapper.selectById(agentId) == null) {
             throw new BusinessException("Agent not found");
         }
         
         AgentSyncResponse response = new AgentSyncResponse();
-        response.setSyncTime(LocalDateTime.now());
-        
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        LocalDateTime watermark = LocalDateTime.now(ZoneOffset.UTC);
+        response.setSyncTime(watermark);
+        response.setNextCursor(watermark.atOffset(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         
         List<Memory> allMemories = memoryMapper.selectByAgentId(agentId);
         if (since != null && !since.isEmpty()) {
-            LocalDateTime sinceDateTime = LocalDateTime.parse(since, formatter);
+            LocalDateTime sinceDateTime = parseSyncCursor(since);
             allMemories = allMemories.stream()
                 .filter(memory -> memory.getUpdatedAt() != null && memory.getUpdatedAt().isAfter(sinceDateTime))
                 .collect(Collectors.toList());
@@ -336,8 +358,33 @@ public class AgentServiceImpl implements AgentService {
             })
             .collect(Collectors.toList());
         response.setMemories(memoryInfos);
+        agentMapper.updateLastSyncAt(agentId, watermark);
 
         return response;
+    }
+
+    private String normalizeStatus(String status) {
+        String normalizedStatus = status == null ? null : status.toUpperCase(Locale.ROOT);
+        if (normalizedStatus == null || !VALID_STATUSES.contains(normalizedStatus)) {
+            throw new BusinessException(400, "Invalid status: " + status
+                    + ". Valid values are: ACTIVE, IDLE, BUSY, OFFLINE");
+        }
+        return normalizedStatus;
+    }
+
+    private LocalDateTime parseSyncCursor(String cursor) {
+        try {
+            return OffsetDateTime.parse(cursor, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .withOffsetSameInstant(ZoneOffset.UTC)
+                    .toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            try {
+                return LocalDateTime.parse(cursor, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            } catch (DateTimeParseException e) {
+                throw new BusinessException(400,
+                        "Invalid sync cursor. Use the nextCursor returned by the previous sync response.");
+            }
+        }
     }
 
     @Override
