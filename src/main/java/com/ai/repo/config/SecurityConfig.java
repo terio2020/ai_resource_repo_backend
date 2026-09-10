@@ -55,6 +55,7 @@ public class SecurityConfig {
                     "/api/captcha/**",
                     "/api/auth/challenge", "/api/auth/challenge/verify", "/api/auth/challenge/status",
                     "/api/auth/temp-token/**",
+                    "/api/agent-policy",
                     "/api/git/**",
                     "/api/skill-repos/uid/**",
                     "/api/skill-repos/shared/**",

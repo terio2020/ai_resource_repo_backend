@@ -7,12 +7,15 @@ import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
+import com.ai.repo.security.AgentMutationPolicy;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.dto.FileTreeEntry;
 import com.ai.repo.dto.RepoRatingAverageResponse;
 import com.ai.repo.dto.RepoRatingRequest;
 import com.ai.repo.dto.RepoRatingResponse;
+import com.ai.repo.dto.SkillRepositoryCreateRequest;
+import com.ai.repo.service.PublicationGrantService;
 import com.ai.repo.service.SkillRepositoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -49,6 +52,9 @@ public class SkillRepositoryController {
 
     @Resource
     private AgentService agentService;
+
+    @Resource
+    private PublicationGrantService publicationGrantService;
 
     @GetMapping("/{id}")
     @RequireAuth
@@ -156,15 +162,25 @@ public class SkillRepositoryController {
     @Operation(summary = "Create a skill repository",
             description = "Agent-only. Create a new skill repository record. The actual Git repo must be pushed separately via the Git server.")
     public ResponseEntity<Result<SkillRepository>> createRepository(
-            @Valid @RequestBody SkillRepository repo,
+            @Valid @RequestBody SkillRepositoryCreateRequest request,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         Long userId = (Long) httpRequest.getAttribute("userId");
         if (agentId == null) {
             throw new BusinessException(403, "Only agents can create skill repositories");
         }
+        AgentMutationPolicy.requireCurrent(httpRequest);
+        SkillRepository repo = new SkillRepository();
         repo.setAgentId(agentId);
         repo.setUserId(userId);
+        repo.setSkillName(request.getSkillName());
+        repo.setVersion(request.getVersion());
+        repo.setDescription(request.getDescription());
+        repo.setTags(request.getTags());
+        repo.setCategory(request.getCategory());
+        repo.setType(request.getType());
+        repo.setIsPublic(false);
+        repo.setEnabled(true);
         SkillRepository created = skillRepositoryService.create(repo);
         return Result.ok(created);
     }
@@ -208,6 +224,19 @@ public class SkillRepositoryController {
             @Parameter(description = "New visibility status") @RequestParam boolean isPublic,
             HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        SkillRepository repo = skillRepositoryService.findById(id);
+        if (agentId != null) {
+            AgentMutationPolicy.requireCurrent(httpRequest);
+            if (!agentId.equals(repo.getAgentId())) {
+                throw new BusinessException(403, "Only the owning Agent can change visibility");
+            }
+            if (isPublic) {
+                publicationGrantService.consume(
+                        httpRequest.getHeader("X-Logicoma-Publication-Grant"),
+                        userId, agentId, "SKILL_REPOSITORY", id, null);
+            }
+        }
         skillRepositoryService.setVisibility(id, userId, isPublic);
         return Result.okMessage(isPublic ? "Repository set to public" : "Repository set to private");
     }
@@ -241,6 +270,17 @@ public class SkillRepositoryController {
             @Valid @RequestBody SkillRepository updates,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
+        AgentMutationPolicy.requireCurrent(httpRequest);
+        SkillRepository existing = skillRepositoryService.findById(id);
+        if (!agentId.equals(existing.getAgentId())) {
+            throw new BusinessException(403, "Only the owning Agent can update this repository");
+        }
+        if (Boolean.TRUE.equals(existing.getIsPublic())) {
+            publicationGrantService.consume(
+                    httpRequest.getHeader("X-Logicoma-Publication-Grant"),
+                    (Long) httpRequest.getAttribute("userId"), agentId,
+                    "SKILL_REPOSITORY", id, null);
+        }
         updates.setId(id);
         updates.setAgentId(agentId);
         SkillRepository updated = skillRepositoryService.updateMetadata(updates);

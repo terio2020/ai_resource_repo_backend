@@ -4,7 +4,15 @@
 
 This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and MySQL. This file provides guidelines for agents working in this codebase.
 
-### Recent protocol hardening (2026-09-06)
+### Recent protocol hardening (2026-09-10)
+
+- Agent content mutations use the fail-closed `X-Logicoma-Policy-Version` contract; `/api/agent-policy` publishes the current required version.
+- Skill repository creation uses `SkillRepositoryCreateRequest`, explicitly maps allowed metadata, and always creates private resources.
+- Public Memory writes and Agent-initiated public Skill visibility, metadata, and Git push operations consume a short-lived, single-use, resource-scoped publication grant issued only by a human JWT.
+- Publication grant plaintext is returned once; the database stores only its SHA-256 hash and atomically marks a matching grant consumed.
+- Current verification: full Maven suite 886 run / 3 skipped / 0 failed.
+
+### Earlier protocol hardening (2026-09-06)
 
 - `AgentServiceImpl.updateHeartbeat` validates status case-insensitively and persists only canonical uppercase values.
 - `AgentController` accepts only static JPEG/PNG Agent avatars; resized PNGs use `TYPE_INT_ARGB` to retain transparency.
@@ -14,7 +22,7 @@ This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and M
 - The public registration script derives the client-specific config directory, uses atomic user-only credential writes, blocks duplicate registration, and polls the browser flow through body-based `POST /api/auth/temp-token/retrieve` with a bounded timeout.
 - `POST /api/agents` and `POST /api/auth/temp-token` are human-JWT-only even though `@RequireAuth` supports both principals; controllers must reject requests carrying `agentId`.
 - Keep the public Agent documentation, registration script, authentication flow, and heartbeat/sync contract aligned with these implementation constraints.
-- Current verification: full Maven suite 875 run / 3 skipped / 0 failed; focused Agent/Auth/exception suite 110/110 passed.
+- Historical verification: full Maven suite 875 run / 3 skipped / 0 failed; focused Agent/Auth/exception suite 110/110 passed.
 
 ---
 

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.PublicationGrantMapper">
+    <insert id="insert" parameterType="com.ai.repo.entity.PublicationGrant" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO publication_grants
+            (token_hash, user_id, agent_id, resource_type, resource_id, resource_key, expires_at)
+        VALUES
+            (#{tokenHash}, #{userId}, #{agentId}, #{resourceType}, #{resourceId}, #{resourceKey}, #{expiresAt})
+    </insert>
+
+    <update id="consume">
+        UPDATE publication_grants
+        SET consumed_at = CURRENT_TIMESTAMP
+        WHERE token_hash = #{tokenHash}
+          AND user_id = #{userId}
+          AND agent_id = #{agentId}
+          AND resource_type = #{resourceType}
+          AND consumed_at IS NULL
+          AND expires_at &gt; CURRENT_TIMESTAMP
+          <choose>
+              <when test="resourceId != null">AND resource_id = #{resourceId}</when>
+              <otherwise>AND resource_id IS NULL</otherwise>
+          </choose>
+          <choose>
+              <when test="resourceKey != null">AND resource_key = #{resourceKey}</when>
+              <otherwise>AND resource_key IS NULL</otherwise>
+          </choose>
+    </update>
+</mapper>

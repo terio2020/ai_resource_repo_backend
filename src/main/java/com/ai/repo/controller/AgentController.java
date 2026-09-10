@@ -8,6 +8,7 @@ import com.ai.repo.exception.BusinessException;
 
 import java.util.Map;
 import com.ai.repo.security.ApiKeyAuth;
+import com.ai.repo.security.AgentMutationPolicy;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.AgentService;
@@ -249,6 +250,7 @@ public class AgentController {
         if (currentAgentId == null || !currentAgentId.equals(id)) {
             return Result.fail(403, "Access denied");
         }
+        AgentMutationPolicy.requireCurrent(request);
 
         if (file.isEmpty()) {
             return Result.fail(400, "Avatar file is required");

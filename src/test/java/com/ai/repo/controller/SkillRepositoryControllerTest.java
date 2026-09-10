@@ -9,6 +9,7 @@ import com.ai.repo.exception.GlobalExceptionHandler;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.service.SkillRepositoryService;
+import com.ai.repo.service.PublicationGrantService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -60,6 +62,9 @@ class SkillRepositoryControllerTest {
     @MockBean
     private AgentService agentService;
 
+    @MockBean
+    private PublicationGrantService publicationGrantService;
+
     private RequestPostProcessor withUserId(Long userId) {
         return request -> {
             request.setAttribute("userId", userId);
@@ -70,6 +75,7 @@ class SkillRepositoryControllerTest {
     private RequestPostProcessor withAgentId(Long agentId) {
         return request -> {
             request.setAttribute("agentId", agentId);
+            request.addHeader("X-Logicoma-Policy-Version", "2026-09-10");
             return request;
         };
     }
@@ -217,6 +223,31 @@ class SkillRepositoryControllerTest {
     }
 
     @Test
+    void createRepository_shouldIgnoreServerManagedFieldsAndForcePrivate() throws Exception {
+        when(skillRepositoryService.create(any(SkillRepository.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(post("/api/skill-repos")
+                        .with(withAgentId(2L))
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"skillName":"safe-skill","version":"1.0.0","isPublic":true,
+                                 "status":"VISIBLE","repoPath":"/tmp/injected","downloadCount":999,
+                                 "agentId":999,"userId":999}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(skillRepositoryService).create(argThat(repo ->
+                repo.getAgentId().equals(2L)
+                        && repo.getUserId().equals(1L)
+                        && Boolean.FALSE.equals(repo.getIsPublic())
+                        && repo.getStatus() == null
+                        && repo.getRepoPath() == null
+                        && repo.getDownloadCount() == null));
+    }
+
+    @Test
     void createRepository_shouldReturn403_whenNoAgentId() throws Exception {
         mockMvc.perform(post("/api/skill-repos")
                         .with(withUserId(1L))
@@ -224,6 +255,20 @@ class SkillRepositoryControllerTest {
                         .content("{\"skillName\":\"test-repo\"}"))
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void createRepository_shouldReturn428_whenUploadPolicyMissing() throws Exception {
+        mockMvc.perform(post("/api/skill-repos")
+                        .with(request -> {
+                            request.setAttribute("agentId", 2L);
+                            request.setAttribute("userId", 1L);
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skillName\":\"test-repo\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.code").value(428));
     }
 
     @Test
@@ -420,6 +465,8 @@ class SkillRepositoryControllerTest {
         updates.setVersion("2.0");
         updates.setDescription("Updated");
         updates.setSkillName("security-scan");
+        SkillRepository existing = createPrivateRepo(1L, 1L);
+        when(skillRepositoryService.findById(1L)).thenReturn(existing);
         when(skillRepositoryService.updateMetadata(any())).thenReturn(updates);
         mockMvc.perform(put("/api/skill-repos/1")
                         .with(withAgentId(1L))

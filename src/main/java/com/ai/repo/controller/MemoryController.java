@@ -12,10 +12,12 @@ import com.ai.repo.entity.Memory;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
+import com.ai.repo.security.AgentMutationPolicy;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
 import com.ai.repo.service.ProfileMemoryService;
+import com.ai.repo.service.PublicationGrantService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,6 +57,9 @@ public class MemoryController {
     @Resource
     private ProfileMemoryService profileMemoryService;
 
+    @Resource
+    private PublicationGrantService publicationGrantService;
+
     @PostMapping
     @ApiKeyAuth
     @Operation(summary = "Create or update a memory", description = "Create or update a memory with provided details")
@@ -64,6 +69,7 @@ public class MemoryController {
         if (agentId == null) {
             throw new com.ai.repo.exception.BusinessException(400, "Agent ID is required for memory creation");
         }
+        AgentMutationPolicy.requireCurrent(httpRequest);
         if (request.getAgentId() != null && !agentId.equals(request.getAgentId())) {
             throw new com.ai.repo.exception.BusinessException(403, "Agent ID must match the authenticated Agent");
         }
@@ -134,6 +140,15 @@ public class MemoryController {
             }
             memory.setIsPublic(scopeIsPublic);
             memory.setOwnerType("AGENT");
+            if (scopeIsPublic) {
+                if (request.getClientMemoryKey() == null || request.getClientMemoryKey().isBlank()) {
+                    throw new com.ai.repo.exception.BusinessException(400,
+                            "Public Memory creation requires clientMemoryKey for grant scoping");
+                }
+                publicationGrantService.consume(
+                        httpRequest.getHeader("X-Logicoma-Publication-Grant"),
+                        userId, agentId, "MEMORY", null, request.getClientMemoryKey());
+            }
         }
 
         Memory createdMemory = "USER_PROFILE".equals(memoryType)
@@ -214,6 +229,17 @@ public class MemoryController {
         boolean isOwner = isMemoryOwner(existing, callerUserId, callerAgentId);
         if (!isOwner) {
             throw new com.ai.repo.exception.BusinessException(403, "Only the owner can update this memory");
+        }
+        if (callerAgentId != null) {
+            AgentMutationPolicy.requireCurrent(httpRequest);
+            boolean remainsOrBecomesPublic = request.getIsPublic() == null
+                    ? Boolean.TRUE.equals(existing.getIsPublic())
+                    : Boolean.TRUE.equals(request.getIsPublic());
+            if (remainsOrBecomesPublic) {
+                publicationGrantService.consume(
+                        httpRequest.getHeader("X-Logicoma-Publication-Grant"),
+                        callerUserId, callerAgentId, "MEMORY", id, null);
+            }
         }
         if (callerAgentId == null) {
             callerAgentId = request.getAgentId();
@@ -401,6 +427,7 @@ public class MemoryController {
         if (currentAgentId == null || !currentAgentId.equals(agentId)) {
             throw new com.ai.repo.exception.BusinessException(403, "Agent ID must match the authenticated Agent");
         }
+        AgentMutationPolicy.requireCurrent(httpRequest);
         FileUploadResponse response = fileStorageService.saveFile(file, userId, currentAgentId, "memory", description);
         return Result.ok(response);
     }

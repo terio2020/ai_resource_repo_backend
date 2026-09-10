@@ -10,6 +10,7 @@ import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
 import com.ai.repo.service.ProfileMemoryService;
+import com.ai.repo.service.PublicationGrantService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -62,10 +63,14 @@ class MemoryControllerTest {
     @MockBean
     private ProfileMemoryService profileMemoryService;
 
+    @MockBean
+    private PublicationGrantService publicationGrantService;
+
     private RequestPostProcessor withAgentId(Long agentId) {
         return request -> {
             request.setAttribute("agentId", agentId);
             request.setAttribute("userId", 1L);
+            request.addHeader("X-Logicoma-Policy-Version", "2026-09-10");
             return request;
         };
     }
@@ -114,6 +119,37 @@ class MemoryControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.downloadCount").value(0))
                 .andExpect(jsonPath("$.data.likeCount").value(0));
+    }
+
+    @Test
+    void createMemory_shouldRejectStaleUploadPolicy() throws Exception {
+        mockMvc.perform(post("/api/memories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"Some content\"}")
+                        .with(request -> {
+                            request.setAttribute("agentId", 5L);
+                            request.setAttribute("userId", 1L);
+                            return request;
+                        }))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.code").value(428));
+    }
+
+    @Test
+    void createPublicMemory_shouldConsumeKeyScopedGrant() throws Exception {
+        Memory memory = createMemory(1L, 5L, true);
+        when(memoryService.upsert(any(Memory.class))).thenReturn(memory);
+        mockMvc.perform(post("/api/memories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Logicoma-Publication-Grant", "pgr_public")
+                        .content("""
+                                {"content":"Public knowledge","isPublic":true,
+                                 "sharingScope":"PUBLIC","clientMemoryKey":"public-knowledge-v1"}
+                                """)
+                        .with(withAgentId(5L)))
+                .andExpect(status().isOk());
+        verify(publicationGrantService).consume(
+                "pgr_public", 1L, 5L, "MEMORY", null, "public-knowledge-v1");
     }
 
     // ==================== POST /api/memories/{id}/download ====================

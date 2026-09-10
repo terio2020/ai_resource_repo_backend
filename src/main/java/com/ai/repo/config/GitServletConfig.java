@@ -4,6 +4,8 @@ import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
+import com.ai.repo.service.PublicationGrantService;
+import com.ai.repo.security.AgentMutationPolicy;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +14,7 @@ import org.eclipse.jgit.http.server.GitServlet;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.ReceivePack;
+import org.eclipse.jgit.transport.ReceiveCommand;
 import org.eclipse.jgit.transport.UploadPack;
 import org.eclipse.jgit.transport.resolver.ReceivePackFactory;
 import org.eclipse.jgit.transport.resolver.RepositoryResolver;
@@ -52,6 +55,9 @@ public class GitServletConfig {
 
     @Resource
     private AgentService agentService;
+
+    @Resource
+    private PublicationGrantService publicationGrantService;
 
     @Bean
     public ServletRegistrationBean<GitServlet> gitServlet() {
@@ -133,9 +139,27 @@ public class GitServletConfig {
         if (agentId == null || !agentId.equals(skillRepo.getAgentId())) {
             throw new ServiceNotAuthorizedException();
         }
+        if (!AgentMutationPolicy.CURRENT_VERSION.equals(req.getHeader(AgentMutationPolicy.HEADER))) {
+            throw new ServiceNotAuthorizedException();
+        }
 
         ReceivePack receivePack = new ReceivePack(repo);
         receivePack.setAllowNonFastForwards(false);
+        if (Boolean.TRUE.equals(skillRepo.getIsPublic())) {
+            receivePack.setPreReceiveHook((rp, commands) -> {
+                try {
+                    Agent owner = agentService.findById(agentId);
+                    publicationGrantService.consume(
+                            req.getHeader("X-Logicoma-Publication-Grant"),
+                            owner.getUserId(), agentId, "SKILL_REPOSITORY", skillRepo.getId(), null);
+                } catch (RuntimeException e) {
+                    for (ReceiveCommand command : commands) {
+                        command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
+                                "human publication grant required");
+                    }
+                }
+            });
+        }
         return receivePack;
     }
 

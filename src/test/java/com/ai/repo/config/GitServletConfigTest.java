@@ -4,6 +4,7 @@ import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
+import com.ai.repo.service.PublicationGrantService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.transport.resolver.ServiceNotAuthorizedException;
@@ -20,10 +21,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class GitServletConfigTest {
@@ -33,6 +36,9 @@ class GitServletConfigTest {
 
     @Mock
     private AgentService agentService;
+
+    @Mock
+    private PublicationGrantService publicationGrantService;
 
     private GitServletConfig config;
 
@@ -55,6 +61,10 @@ class GitServletConfigTest {
         field = GitServletConfig.class.getDeclaredField("agentService");
         field.setAccessible(true);
         field.set(config, agentService);
+
+        field = GitServletConfig.class.getDeclaredField("publicationGrantService");
+        field.setAccessible(true);
+        field.set(config, publicationGrantService);
     }
 
     @Test
@@ -201,6 +211,58 @@ class GitServletConfigTest {
 
         assertThrows(ServiceNotEnabledException.class,
                 () -> config.buildReceivePack(null, null, bannedRepo));
+    }
+
+    @Test
+    void buildReceivePack_shouldRejectStaleAgentPolicy() throws Exception {
+        Path repoPath = tempDir.resolve("agent_5/private.git");
+        createBareRepo(repoPath);
+        SkillRepository skillRepo = new SkillRepository();
+        skillRepo.setId(1L);
+        skillRepo.setAgentId(5L);
+        skillRepo.setIsPublic(false);
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer api-key-5");
+        Agent agent = new Agent();
+        agent.setId(5L);
+        when(agentService.findByApiKey("api-key-5")).thenReturn(agent);
+
+        try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
+            assertThrows(ServiceNotAuthorizedException.class,
+                    () -> config.buildReceivePack(req, repo, skillRepo));
+        }
+    }
+
+    @Test
+    void publicPushHook_shouldConsumeRepositoryScopedGrant() throws Exception {
+        Path repoPath = tempDir.resolve("agent_5/public.git");
+        createBareRepo(repoPath);
+        SkillRepository skillRepo = new SkillRepository();
+        skillRepo.setId(42L);
+        skillRepo.setAgentId(5L);
+        skillRepo.setIsPublic(true);
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer api-key-5");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-10");
+        req.addHeader("X-Logicoma-Publication-Grant", "pgr_test");
+        Agent authenticated = new Agent();
+        authenticated.setId(5L);
+        when(agentService.findByApiKey("api-key-5")).thenReturn(authenticated);
+        Agent owner = new Agent();
+        owner.setId(5L);
+        owner.setUserId(1L);
+        when(agentService.findById(5L)).thenReturn(owner);
+
+        try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
+            org.eclipse.jgit.transport.ReceivePack receivePack = config.buildReceivePack(req, repo, skillRepo);
+            receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of());
+            verify(publicationGrantService).consume(
+                    "pgr_test", 1L, 5L, "SKILL_REPOSITORY", 42L, null);
+        }
     }
 
     private void createBareRepo(Path repoPath) throws Exception {
