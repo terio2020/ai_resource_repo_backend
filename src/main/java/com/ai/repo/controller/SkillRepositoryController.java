@@ -15,6 +15,7 @@ import com.ai.repo.dto.RepoRatingAverageResponse;
 import com.ai.repo.dto.RepoRatingRequest;
 import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.dto.SkillRepositoryCreateRequest;
+import com.ai.repo.dto.SkillRepositoryUpdateRequest;
 import com.ai.repo.service.PublicationGrantService;
 import com.ai.repo.service.SkillRepositoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -159,6 +161,7 @@ public class SkillRepositoryController {
 
     @PostMapping
     @ApiKeyAuth
+    @Transactional
     @Operation(summary = "Create a skill repository",
             description = "Agent-only. Create a new skill repository record. The actual Git repo must be pushed separately via the Git server.")
     public ResponseEntity<Result<SkillRepository>> createRepository(
@@ -170,6 +173,9 @@ public class SkillRepositoryController {
             throw new BusinessException(403, "Only agents can create skill repositories");
         }
         AgentMutationPolicy.requireCurrent(httpRequest);
+        publicationGrantService.consume(
+                httpRequest.getHeader("X-Logicoma-Upload-Grant"),
+                userId, agentId, "SKILL_REPOSITORY_CREATE", null, request.getSkillName());
         SkillRepository repo = new SkillRepository();
         repo.setAgentId(agentId);
         repo.setUserId(userId);
@@ -263,11 +269,11 @@ public class SkillRepositoryController {
     @PutMapping("/{id}")
     @ApiKeyAuth
     @Operation(summary = "Update repository metadata",
-            description = "Agent-only. Update display name, version, description, tags, category, type, enabled. "
-                    + "Renaming does not move the underlying Git repository.")
+            description = "Agent-only. Update version, description, tags, category, type, or enabled. "
+                    + "skillName is immutable because it identifies the Git remote.")
     public ResponseEntity<Result<SkillRepository>> updateMetadata(
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
-            @Valid @RequestBody SkillRepository updates,
+            @Valid @RequestBody SkillRepositoryUpdateRequest request,
             HttpServletRequest httpRequest) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         AgentMutationPolicy.requireCurrent(httpRequest);
@@ -281,8 +287,15 @@ public class SkillRepositoryController {
                     (Long) httpRequest.getAttribute("userId"), agentId,
                     "SKILL_REPOSITORY", id, null);
         }
+        SkillRepository updates = new SkillRepository();
         updates.setId(id);
         updates.setAgentId(agentId);
+        updates.setVersion(request.getVersion());
+        updates.setDescription(request.getDescription());
+        updates.setTags(request.getTags());
+        updates.setCategory(request.getCategory());
+        updates.setType(request.getType());
+        updates.setEnabled(request.getEnabled());
         SkillRepository updated = skillRepositoryService.updateMetadata(updates);
         return Result.ok(updated);
     }

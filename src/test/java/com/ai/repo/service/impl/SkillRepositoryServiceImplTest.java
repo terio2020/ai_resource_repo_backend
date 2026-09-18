@@ -189,11 +189,10 @@ class SkillRepositoryServiceImplTest {
     }
 
     @Test
-    void updateMetadata_shouldRenameWithoutMovingGitRepository() {
+    void updateMetadata_shouldIgnoreSkillNameRename() {
         SkillRepository existing = createSampleRepo(1L, 10L, "qoder-official-security-scan");
         existing.setRepoPath("/data/git_repos/agent_10/qoder-official-security-scan.git");
         when(skillRepositoryMapper.selectById(1L)).thenReturn(existing);
-        when(skillRepositoryMapper.selectByAgentIdAndSkillName(10L, "security-scan")).thenReturn(null);
 
         SkillRepository updates = new SkillRepository();
         updates.setId(1L);
@@ -204,23 +203,7 @@ class SkillRepositoryServiceImplTest {
         service.updateMetadata(updates);
 
         verify(skillRepositoryMapper).updateMetadata(updates);
-        assertNull(updates.getRepoPath(), "Metadata rename must not rewrite repo_path");
-    }
-
-    @Test
-    void updateMetadata_shouldRejectDuplicateSkillNameForAgent() {
-        SkillRepository existing = createSampleRepo(1L, 10L, "old-name");
-        SkillRepository conflict = createSampleRepo(2L, 10L, "new-name");
-        when(skillRepositoryMapper.selectById(1L)).thenReturn(existing);
-        when(skillRepositoryMapper.selectByAgentIdAndSkillName(10L, "new-name")).thenReturn(conflict);
-
-        SkillRepository updates = new SkillRepository();
-        updates.setId(1L);
-        updates.setAgentId(10L);
-        updates.setSkillName("new-name");
-
-        assertThrows(BusinessException.class, () -> service.updateMetadata(updates));
-        verify(skillRepositoryMapper, never()).updateMetadata(any());
+        assertNull(updates.getSkillName(), "Metadata update must not rename the Git remote");
     }
 
     // ==================== delete ====================
@@ -510,7 +493,7 @@ class SkillRepositoryServiceImplTest {
     @Test
     void getFileTree_shouldReturnEmpty_whenNoCommits() {
         SkillRepository repo = createSampleRepo(1L, 10L, "weather");
-        repo.setRepoPath("/tmp/nonexistent_repo_path");
+        repo.setRepoPath(tempDir.resolve("empty-repo.git").toString());
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
         List<FileTreeEntry> result = service.getFileTree(1L);
@@ -520,30 +503,29 @@ class SkillRepositoryServiceImplTest {
     @Test
     void getFileTree_shouldReturnFiles_whenRepoHasCommits() throws Exception {
         java.nio.file.Path repoDir = java.nio.file.Files.createTempDirectory("gittree_test");
-        org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.init().setBare(true).setDirectory(repoDir.toFile()).call();
+        org.eclipse.jgit.lib.Repository bareRepository = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoDir.toFile())
+                .setBare()
+                .build();
+        bareRepository.create(true);
+        bareRepository.close();
         java.nio.file.Path workDir = java.nio.file.Files.createTempDirectory("gittree_work");
-        git.close();
-
-        // Clone and make a commit
-        org.eclipse.jgit.api.Git.cloneRepository()
-                .setURI(repoDir.toAbsolutePath().toString())
-                .setDirectory(workDir.toFile())
-                .call()
-                .getRepository()
-                .close();
+        org.eclipse.jgit.lib.Repository workRepository = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(workDir.resolve(".git").toFile())
+                .setWorkTree(workDir.toFile())
+                .build();
+        workRepository.create();
+        org.eclipse.jgit.api.Git git = new org.eclipse.jgit.api.Git(workRepository);
 
         java.nio.file.Files.writeString(workDir.resolve("README.md"), "# Hello");
         java.nio.file.Files.writeString(workDir.resolve("manifest.json"), "{}");
         java.nio.file.Files.createDirectories(workDir.resolve("src"));
         java.nio.file.Files.writeString(workDir.resolve("src/main.py"), "print('hello')");
 
-        git = org.eclipse.jgit.api.Git.open(workDir.toFile());
         git.add().addFilepattern(".").call();
         git.commit().setMessage("Initial").call();
-        git.getRepository().close();
 
         // Now push to bare repo
-        git = org.eclipse.jgit.api.Git.open(workDir.toFile());
         git.push().setRemote(repoDir.toAbsolutePath().toString()).call();
         git.close();
 
@@ -567,24 +549,26 @@ class SkillRepositoryServiceImplTest {
     @Test
     void getFileContent_shouldReturnContent_whenFileExists() throws Exception {
         java.nio.file.Path repoDir = java.nio.file.Files.createTempDirectory("gitcontent_test");
-        org.eclipse.jgit.api.Git.init().setBare(true).setDirectory(repoDir.toFile()).call().close();
+        org.eclipse.jgit.lib.Repository bareRepository = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoDir.toFile())
+                .setBare()
+                .build();
+        bareRepository.create(true);
+        bareRepository.close();
 
         java.nio.file.Path workDir = java.nio.file.Files.createTempDirectory("gitcontent_work");
-        org.eclipse.jgit.api.Git.cloneRepository()
-                .setURI(repoDir.toAbsolutePath().toString())
-                .setDirectory(workDir.toFile())
-                .call()
-                .getRepository()
-                .close();
+        org.eclipse.jgit.lib.Repository workRepository = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(workDir.resolve(".git").toFile())
+                .setWorkTree(workDir.toFile())
+                .build();
+        workRepository.create();
+        org.eclipse.jgit.api.Git git = new org.eclipse.jgit.api.Git(workRepository);
 
         java.nio.file.Files.writeString(workDir.resolve("hello.txt"), "Hello World!");
 
-        org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.open(workDir.toFile());
         git.add().addFilepattern(".").call();
         git.commit().setMessage("Initial").call();
-        git.getRepository().close();
 
-        git = org.eclipse.jgit.api.Git.open(workDir.toFile());
         git.push().setRemote(repoDir.toAbsolutePath().toString()).call();
         git.close();
 
@@ -612,7 +596,7 @@ class SkillRepositoryServiceImplTest {
     @Test
     void getFileContent_shouldThrow_whenRepoPathInvalid() {
         SkillRepository repo = createSampleRepo(1L, 10L, "weather");
-        repo.setRepoPath("/tmp/nonexistent_repo");
+        repo.setRepoPath(tempDir.resolve("missing-repo.git").toString());
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
         assertThrows(RepositoryNotFoundException.class, () -> service.getFileContent(1L, "test.txt"));

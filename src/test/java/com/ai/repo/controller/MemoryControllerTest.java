@@ -70,7 +70,7 @@ class MemoryControllerTest {
         return request -> {
             request.setAttribute("agentId", agentId);
             request.setAttribute("userId", 1L);
-            request.addHeader("X-Logicoma-Policy-Version", "2026-09-10");
+            request.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
             return request;
         };
     }

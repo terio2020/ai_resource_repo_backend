@@ -75,7 +75,7 @@ class SkillRepositoryControllerTest {
     private RequestPostProcessor withAgentId(Long agentId) {
         return request -> {
             request.setAttribute("agentId", agentId);
-            request.addHeader("X-Logicoma-Policy-Version", "2026-09-10");
+            request.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
             return request;
         };
     }
@@ -215,11 +215,19 @@ class SkillRepositoryControllerTest {
         mockMvc.perform(post("/api/skill-repos")
                         .with(withAgentId(2L))
                         .with(withUserId(1L))
+                        .header("X-Logicoma-Upload-Grant", "pgr_create")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"skillName\":\"test-repo\",\"version\":\"1.0\"}"))
+                        .content("{\"skillName\":\"test-repo\",\"version\":\"1.0.0\","
+                                + "\"description\":\"Run repository tests\","
+                                + "\"tags\":\"testing,repository,automation\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.id").value(10));
+                .andExpect(jsonPath("$.data.id").value(10))
+                .andExpect(jsonPath("$.data.gitPath")
+                        .value("/api/git/agent_2/test-repo.git"))
+                .andExpect(jsonPath("$.data.repoPath").doesNotExist());
+        verify(publicationGrantService).consume(
+                "pgr_create", 1L, 2L, "SKILL_REPOSITORY_CREATE", null, "test-repo");
     }
 
     @Test
@@ -232,7 +240,8 @@ class SkillRepositoryControllerTest {
                         .with(withUserId(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"skillName":"safe-skill","version":"1.0.0","isPublic":true,
+                                {"skillName":"safe-skill","version":"1.0.0",
+                                 "description":"Validate safe skills","tags":"safety,skills,validation","isPublic":true,
                                  "status":"VISIBLE","repoPath":"/tmp/injected","downloadCount":999,
                                  "agentId":999,"userId":999}
                                 """))
@@ -252,7 +261,9 @@ class SkillRepositoryControllerTest {
         mockMvc.perform(post("/api/skill-repos")
                         .with(withUserId(1L))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"skillName\":\"test-repo\"}"))
+                        .content("{\"skillName\":\"test-repo\",\"version\":\"1.0.0\","
+                                + "\"description\":\"Run repository tests\","
+                                + "\"tags\":\"testing,repository,automation\"}"))
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.code").value(403));
     }
@@ -266,9 +277,22 @@ class SkillRepositoryControllerTest {
                             return request;
                         })
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"skillName\":\"test-repo\"}"))
+                        .content("{\"skillName\":\"test-repo\",\"version\":\"1.0.0\","
+                                + "\"description\":\"Run repository tests\","
+                                + "\"tags\":\"testing,repository,automation\"}"))
                 .andExpect(status().isPreconditionRequired())
                 .andExpect(jsonPath("$.code").value(428));
+    }
+
+    @Test
+    void createRepository_shouldRejectNonCanonicalMetadata() throws Exception {
+        mockMvc.perform(post("/api/skill-repos")
+                        .with(withAgentId(2L))
+                        .with(withUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skillName\":\"Unsafe Name\",\"version\":\"1.0\","
+                                + "\"description\":\"Bad metadata\",\"tags\":\"one,two\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -462,20 +486,24 @@ class SkillRepositoryControllerTest {
     @Test
     void updateMetadata_shouldSucceed() throws Exception {
         SkillRepository updates = createRepo(1L, 1L);
-        updates.setVersion("2.0");
+        updates.setVersion("2.0.0");
         updates.setDescription("Updated");
-        updates.setSkillName("security-scan");
+        updates.setTags("security,scanning,automation");
         SkillRepository existing = createPrivateRepo(1L, 1L);
         when(skillRepositoryService.findById(1L)).thenReturn(existing);
-        when(skillRepositoryService.updateMetadata(any())).thenReturn(updates);
+        SkillRepository response = createRepo(1L, 1L);
+        response.setVersion("2.0.0");
+        response.setDescription("Updated");
+        response.setTags("security,scanning,automation");
+        when(skillRepositoryService.updateMetadata(any())).thenReturn(response);
         mockMvc.perform(put("/api/skill-repos/1")
                         .with(withAgentId(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updates)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.skillName").value("security-scan"))
-                .andExpect(jsonPath("$.data.version").value("2.0"));
+                .andExpect(jsonPath("$.data.skillName").value("test-repo"))
+                .andExpect(jsonPath("$.data.version").value("2.0.0"));
     }
 
     @Test

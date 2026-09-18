@@ -246,7 +246,7 @@ class GitServletConfigTest {
         org.springframework.mock.web.MockHttpServletRequest req =
                 new org.springframework.mock.web.MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer api-key-5");
-        req.addHeader("X-Logicoma-Policy-Version", "2026-09-10");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
         req.addHeader("X-Logicoma-Publication-Grant", "pgr_test");
         Agent authenticated = new Agent();
         authenticated.setId(5L);
@@ -262,6 +262,37 @@ class GitServletConfigTest {
             receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of());
             verify(publicationGrantService).consume(
                     "pgr_test", 1L, 5L, "SKILL_REPOSITORY", 42L, null);
+        }
+    }
+
+    @Test
+    void privatePushHook_shouldConsumeRepositoryScopedUploadGrant() throws Exception {
+        Path repoPath = tempDir.resolve("agent_5/private.git");
+        createBareRepo(repoPath);
+        SkillRepository skillRepo = new SkillRepository();
+        skillRepo.setId(42L);
+        skillRepo.setAgentId(5L);
+        skillRepo.setSkillName("private-skill");
+        skillRepo.setIsPublic(false);
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer api-key-5");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
+        req.addHeader("X-Logicoma-Upload-Grant", "pgr_upload");
+        Agent authenticated = new Agent();
+        authenticated.setId(5L);
+        when(agentService.findByApiKey("api-key-5")).thenReturn(authenticated);
+        Agent owner = new Agent();
+        owner.setId(5L);
+        owner.setUserId(1L);
+        when(agentService.findById(5L)).thenReturn(owner);
+
+        try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
+            org.eclipse.jgit.transport.ReceivePack receivePack = config.buildReceivePack(req, repo, skillRepo);
+            receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of());
+            verify(publicationGrantService).consume(
+                    "pgr_upload", 1L, 5L, "SKILL_REPOSITORY_UPLOAD", 42L, null);
         }
     }
 

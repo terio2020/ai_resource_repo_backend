@@ -80,6 +80,25 @@ class PublicationGrantServiceImplTest {
     }
 
     @Test
+    void issuesCreateGrantBoundToCanonicalSkillName() {
+        Agent agent = new Agent();
+        agent.setId(5L);
+        agent.setUserId(1L);
+        when(agentService.findById(5L)).thenReturn(agent);
+
+        PublicationGrantCreateRequest request = new PublicationGrantCreateRequest();
+        request.setAgentId(5L);
+        request.setResourceType("SKILL_REPOSITORY_CREATE");
+        request.setResourceKey("safe-skill");
+        service.issue(1L, request);
+
+        ArgumentCaptor<PublicationGrant> captor = ArgumentCaptor.forClass(PublicationGrant.class);
+        verify(mapper).insert(captor.capture());
+        assertEquals("SKILL_REPOSITORY_CREATE", captor.getValue().getResourceType());
+        assertEquals("safe-skill", captor.getValue().getResourceKey());
+    }
+
+    @Test
     void consumeFailsClosedUnlessExactlyOneRowMatches() {
         when(mapper.consume(any(), any(), any(), any(), any(), any())).thenReturn(0);
         BusinessException error = assertThrows(BusinessException.class,

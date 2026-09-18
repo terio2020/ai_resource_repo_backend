@@ -135,14 +135,8 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
         if (!existing.getAgentId().equals(repo.getAgentId())) {
             throw new BusinessException(403, "Only the owning agent can update metadata");
         }
-        if (repo.getSkillName() != null && !repo.getSkillName().isBlank()
-                && !repo.getSkillName().equals(existing.getSkillName())) {
-            SkillRepository conflict = skillRepositoryMapper.selectByAgentIdAndSkillName(
-                    repo.getAgentId(), repo.getSkillName());
-            if (conflict != null && !conflict.getId().equals(repo.getId())) {
-                throw new BusinessException(409, "Skill name already exists for this agent");
-            }
-        }
+        // The canonical skillName is also the Git remote path segment. Keep it immutable.
+        repo.setSkillName(null);
         skillRepositoryMapper.updateMetadata(repo);
         return skillRepositoryMapper.selectById(repo.getId());
     }

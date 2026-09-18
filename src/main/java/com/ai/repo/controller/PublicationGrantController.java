@@ -18,7 +18,7 @@ import com.ai.repo.security.RequireAuth;
 import com.ai.repo.service.PublicationGrantService;
 
 @RestController
-@RequestMapping("/api/publication-grants")
+@RequestMapping({"/api/publication-grants", "/api/agent-action-grants"})
 public class PublicationGrantController {
     @Resource
     private PublicationGrantService publicationGrantService;
@@ -29,7 +29,7 @@ public class PublicationGrantController {
             @Valid @RequestBody PublicationGrantCreateRequest request,
             HttpServletRequest httpRequest) {
         if (httpRequest.getAttribute("agentId") != null) {
-            throw new BusinessException(403, "Only an authenticated human user can issue publication grants");
+            throw new BusinessException(403, "Only an authenticated human user can issue action grants");
         }
         Long userId = (Long) httpRequest.getAttribute("userId");
         return Result.ok(publicationGrantService.issue(userId, request));

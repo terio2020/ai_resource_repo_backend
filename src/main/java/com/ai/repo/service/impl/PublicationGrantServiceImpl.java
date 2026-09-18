@@ -27,6 +27,7 @@ import com.ai.repo.service.SkillRepositoryService;
 @Service
 public class PublicationGrantServiceImpl implements PublicationGrantService {
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String SKILL_NAME_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*";
 
     @Resource
     private PublicationGrantMapper publicationGrantMapper;
@@ -86,6 +87,18 @@ public class PublicationGrantServiceImpl implements PublicationGrantService {
             }
             return;
         }
+        if ("SKILL_REPOSITORY_CREATE".equals(resourceType)) {
+            if (hasId || !hasKey) {
+                throw new BusinessException(400,
+                        "SKILL_REPOSITORY_CREATE grants require resourceKey only");
+            }
+            if (request.getResourceKey().length() > 64
+                    || !request.getResourceKey().matches(SKILL_NAME_PATTERN)) {
+                throw new BusinessException(400,
+                        "SKILL_REPOSITORY_CREATE resourceKey must be a canonical skillName");
+            }
+            return;
+        }
         if (!hasId || hasKey) {
             throw new BusinessException(400, "SKILL_REPOSITORY grants require resourceId only");
         }
@@ -97,8 +110,11 @@ public class PublicationGrantServiceImpl implements PublicationGrantService {
 
     private String normalizeType(String value) {
         String normalized = value == null ? "" : value.toUpperCase(Locale.ROOT);
-        if (!"MEMORY".equals(normalized) && !"SKILL_REPOSITORY".equals(normalized)) {
-            throw new BusinessException(400, "resourceType must be MEMORY or SKILL_REPOSITORY");
+        if (!"MEMORY".equals(normalized)
+                && !"SKILL_REPOSITORY".equals(normalized)
+                && !"SKILL_REPOSITORY_CREATE".equals(normalized)
+                && !"SKILL_REPOSITORY_UPLOAD".equals(normalized)) {
+            throw new BusinessException(400, "unsupported grant resourceType");
         }
         return normalized;
     }

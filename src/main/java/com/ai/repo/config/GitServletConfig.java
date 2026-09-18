@@ -5,6 +5,7 @@ import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.PublicationGrantService;
+import com.ai.repo.service.SkillRepositoryContentValidator;
 import com.ai.repo.security.AgentMutationPolicy;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -145,8 +146,30 @@ public class GitServletConfig {
 
         ReceivePack receivePack = new ReceivePack(repo);
         receivePack.setAllowNonFastForwards(false);
-        if (Boolean.TRUE.equals(skillRepo.getIsPublic())) {
-            receivePack.setPreReceiveHook((rp, commands) -> {
+        receivePack.setPreReceiveHook((rp, commands) -> {
+            try {
+                for (ReceiveCommand command : commands) {
+                    if (!"refs/heads/master".equals(command.getRefName())) {
+                        throw new IllegalArgumentException("only refs/heads/master may be updated");
+                    }
+                    if (command.getType() == ReceiveCommand.Type.DELETE) {
+                        throw new IllegalArgumentException("master branch deletion is not allowed");
+                    }
+                    if (command.getType() == ReceiveCommand.Type.UPDATE_NONFASTFORWARD) {
+                        throw new IllegalArgumentException("non-fast-forward updates are not allowed");
+                    }
+                    SkillRepositoryContentValidator.validate(
+                            repo, command.getNewId(), skillRepo.getSkillName());
+                }
+            } catch (IOException | IllegalArgumentException e) {
+                for (ReceiveCommand command : commands) {
+                    command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
+                            "invalid Skill repository: " + e.getMessage());
+                }
+                return;
+            }
+
+            if (Boolean.TRUE.equals(skillRepo.getIsPublic())) {
                 try {
                     Agent owner = agentService.findById(agentId);
                     publicationGrantService.consume(
@@ -158,8 +181,21 @@ public class GitServletConfig {
                                 "human publication grant required");
                     }
                 }
-            });
-        }
+            } else {
+                try {
+                    Agent owner = agentService.findById(agentId);
+                    publicationGrantService.consume(
+                            req.getHeader("X-Logicoma-Upload-Grant"),
+                            owner.getUserId(), agentId,
+                            "SKILL_REPOSITORY_UPLOAD", skillRepo.getId(), null);
+                } catch (RuntimeException e) {
+                    for (ReceiveCommand command : commands) {
+                        command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
+                                "human upload grant required");
+                    }
+                }
+            }
+        });
         return receivePack;
     }
 

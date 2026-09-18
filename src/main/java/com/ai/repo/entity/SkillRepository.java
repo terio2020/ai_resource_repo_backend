@@ -1,8 +1,9 @@
 package com.ai.repo.entity;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.Data;
 
 @Data
 public class SkillRepository {
@@ -20,10 +21,18 @@ public class SkillRepository {
     private Boolean isPublic;
     private String status;
     private String shareId;
+    @JsonIgnore
     private String repoPath;
     private Long parentId;
     private Integer downloadCount;
     private Integer likeCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public String getGitPath() {
+        if (agentId == null || skillName == null || skillName.isBlank()) {
+            return null;
+        }
+        return "/api/git/agent_" + agentId + "/" + skillName + ".git";
+    }
 }
