@@ -4,6 +4,7 @@ import com.ai.repo.dto.ProfileMemoryItemRequest;
 import com.ai.repo.dto.ProfileMemoryPayload;
 import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.MemoryMapper;
 import com.ai.repo.mapper.ProfileMemoryItemMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -94,13 +95,49 @@ class ProfileMemoryServiceImplTest {
         existing.setUid("stored-profile-uid");
         existing.setRevision(1);
         when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
-                .thenReturn(existing);
+                .thenAnswer(invocation -> {
+                    existing.setProfileRequestHash(memory.getProfileRequestHash());
+                    return existing;
+                });
 
         Memory result = service.upsert(memory, payload(item("UPSERT", "zh-CN")));
 
         assertEquals(existing, result);
         verify(memoryMapper, never()).updateProfileIfRevisionOlder(any());
         verify(itemMapper, never()).upsert(any());
+    }
+
+    @Test
+    void upsert_shouldRejectDifferentPayloadWithSameRevision() {
+        Memory memory = profileMemory();
+        Memory existing = profileMemory();
+        existing.setUid("stored-profile-uid");
+        existing.setRevision(1);
+        existing.setProfileRequestHash("hash-of-first-payload");
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
+                .thenReturn(existing);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.upsert(memory, payload(item("UPSERT", "English"))));
+
+        assertEquals(409, error.getCode());
+        verify(memoryMapper, never()).updateProfileIfRevisionOlder(any());
+        verify(itemMapper, never()).upsert(any());
+    }
+
+    @Test
+    void upsert_shouldRejectLegacySameRevisionWithoutFingerprint() {
+        Memory memory = profileMemory();
+        Memory existing = profileMemory();
+        existing.setUid("stored-profile-uid");
+        existing.setRevision(1);
+        when(memoryMapper.selectProfileByKeyForUpdate(1L, 5L, "codex-user-profile"))
+                .thenReturn(existing);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.upsert(memory, payload(item("UPSERT", "zh-CN"))));
+
+        assertEquals(409, error.getCode());
     }
 
     @Test

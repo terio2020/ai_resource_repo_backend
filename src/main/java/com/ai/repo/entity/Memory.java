@@ -1,5 +1,6 @@
 package com.ai.repo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -30,6 +31,8 @@ public class Memory {
     private String clientMemoryKey;
     private String schemaVersion;
     private Integer revision;
+    @JsonIgnore
+    private String profileRequestHash;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

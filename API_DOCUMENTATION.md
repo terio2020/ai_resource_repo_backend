@@ -1190,6 +1190,8 @@ Resolve a public skill repository by its share UID.
 
 Profile upload is an idempotent Agent-authenticated `POST /api/memories`. `clientMemoryKey` identifies the source document and `itemKey` identifies each independently updateable fact.
 
+Increase `profile.revision` after an accepted change. Replaying an identical request at the same revision succeeds without rewriting items; reusing that revision with different content returns `409`. Profile rows created before the request-fingerprint migration require a newer revision even for a retry, because their original request cannot be verified.
+
 ```json
 {
   "memoryType": "USER_PROFILE",

@@ -22,9 +22,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -80,6 +82,14 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
 
         memory.setSchemaVersion(schemaVersion);
         memory.setRevision(revision);
+        memory.setProfileRequestHash(hash(serialize(Arrays.asList(
+                memory.getUserId(), memory.getAgentId(), memory.getClientMemoryKey(),
+                memory.getTitle(), memory.getContent(), memory.getVersion(),
+                memory.getDescription(), memory.getFilePath(), memory.getFileSize(),
+                memory.getMimeType(), memory.getTags(), memory.getCategory(),
+                memory.getIsPublic(), memory.getStatus(), memory.getMetadata(),
+                memory.getMemoryType(), memory.getSharingScope(), memory.getOwnerType(),
+                schemaVersion, revision, profile.getItems()))));
         if (memory.getUid() == null || memory.getUid().isBlank()) {
             memory.setUid(UuidUtil.generate());
         }
@@ -104,7 +114,7 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
                 throw new BusinessException(409, "Profile revision is older than the stored revision");
             }
             if (revision == storedRevision) {
-                return current;
+                return acceptIdenticalReplay(memory, current);
             }
 
             memory.setId(current.getId());
@@ -113,7 +123,7 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
                 Memory latest = memoryMapper.selectProfileByKeyForUpdate(
                         memory.getUserId(), memory.getAgentId(), memory.getClientMemoryKey());
                 if (latest != null && revision == latest.getRevision()) {
-                    return latest;
+                    return acceptIdenticalReplay(memory, latest);
                 }
                 throw new BusinessException(409, "Profile revision was superseded by a concurrent update");
             }
@@ -134,6 +144,14 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
         profileMemoryItemMapper.reconcileConflicts(saved.getUserId());
         Memory refreshed = memoryMapper.selectById(saved.getId());
         return refreshed != null ? refreshed : saved;
+    }
+
+    private Memory acceptIdenticalReplay(Memory incoming, Memory stored) {
+        if (stored.getProfileRequestHash() != null
+                && Objects.equals(incoming.getProfileRequestHash(), stored.getProfileRequestHash())) {
+            return stored;
+        }
+        throw new BusinessException(409, "Profile revision conflicts with the stored request");
     }
 
     @Override

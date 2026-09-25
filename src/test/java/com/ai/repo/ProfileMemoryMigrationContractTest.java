@@ -32,6 +32,17 @@ class ProfileMemoryMigrationContractTest {
         assertTrue(sql.contains("FOR UPDATE"));
         assertTrue(sql.contains("<update id=\"updateProfileIfRevisionOlder\""));
         assertTrue(sql.contains("revision &lt; #{revision}"));
+        assertTrue(sql.contains("profile_request_hash = #{profileRequestHash}"));
+    }
+
+    @Test
+    void requestFingerprintMigrationHasPairedUndo() throws Exception {
+        String migration = Files.readString(Path.of(
+                "src/main/resources/db/migration/V9_1__add_profile_request_hash.sql"));
+        String undo = Files.readString(Path.of(
+                "src/main/resources/db/migration-undo/V9_1__add_profile_request_hash-undo.sql"));
+        assertTrue(migration.contains("ADD COLUMN profile_request_hash CHAR(64) NULL"));
+        assertTrue(undo.contains("DROP COLUMN profile_request_hash"));
     }
 
     @Test

@@ -27,6 +27,7 @@
         <result column="client_memory_key" property="clientMemoryKey" jdbcType="VARCHAR"/>
         <result column="schema_version" property="schemaVersion" jdbcType="VARCHAR"/>
         <result column="revision" property="revision" jdbcType="INTEGER"/>
+        <result column="profile_request_hash" property="profileRequestHash" jdbcType="VARCHAR"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
     </resultMap>
@@ -35,6 +36,7 @@
         uid, id, user_id, agent_id, title, content, version, description, file_path, file_size,
         mime_type, tags, category, is_public, status, download_count, like_count, metadata,
         memory_type, sharing_scope, owner_type, client_memory_key, schema_version, revision,
+        profile_request_hash,
         created_at, updated_at
     </sql>
     <insert id="insert" parameterType="com.ai.repo.entity.Memory" useGeneratedKeys="true" keyProperty="id">
@@ -248,11 +250,13 @@
         INSERT INTO memories
             (uid, user_id, agent_id, title, content, version, description, file_path, file_size,
              mime_type, tags, category, is_public, status, download_count, like_count, metadata,
-             memory_type, sharing_scope, owner_type, client_memory_key, schema_version, revision)
+             memory_type, sharing_scope, owner_type, client_memory_key, schema_version, revision,
+             profile_request_hash)
         VALUES
             (#{uid}, #{userId}, #{agentId}, #{title}, #{content}, #{version}, #{description}, #{filePath}, #{fileSize},
              #{mimeType}, #{tags}, #{category}, #{isPublic}, #{status}, #{downloadCount}, #{likeCount}, #{metadata},
-             #{memoryType}, #{sharingScope}, #{ownerType}, #{clientMemoryKey}, #{schemaVersion}, #{revision})
+             #{memoryType}, #{sharingScope}, #{ownerType}, #{clientMemoryKey}, #{schemaVersion}, #{revision},
+             #{profileRequestHash})
         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
     </insert>
 
@@ -283,7 +287,8 @@
             sharing_scope = #{sharingScope},
             owner_type = #{ownerType},
             schema_version = #{schemaVersion},
-            revision = #{revision}
+            revision = #{revision},
+            profile_request_hash = #{profileRequestHash}
         WHERE id = #{id}
           AND revision &lt; #{revision}
     </update>
