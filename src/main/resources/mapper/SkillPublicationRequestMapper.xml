@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.SkillPublicationRequestMapper">
+    <resultMap id="requestMap" type="com.ai.repo.entity.SkillPublicationRequest">
+        <id property="id" column="id"/>
+        <result property="tokenHash" column="token_hash"/>
+        <result property="userId" column="user_id"/>
+        <result property="agentId" column="agent_id"/>
+        <result property="repositoryId" column="repository_id"/>
+        <result property="headCommit" column="head_commit"/>
+        <result property="status" column="status"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="decidedAt" column="decided_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.SkillPublicationRequest"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO skill_publication_requests
+            (token_hash, user_id, agent_id, repository_id, head_commit, status, expires_at)
+        VALUES (#{tokenHash}, #{userId}, #{agentId}, #{repositoryId}, #{headCommit}, #{status}, #{expiresAt})
+    </insert>
+
+    <select id="selectByTokenHash" resultMap="requestMap">
+        SELECT id, token_hash, user_id, agent_id, repository_id, head_commit, status,
+               expires_at, decided_at, created_at
+        FROM skill_publication_requests WHERE token_hash = #{tokenHash}
+    </select>
+
+    <update id="decide">
+        UPDATE skill_publication_requests
+        SET status = #{status}, decided_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND user_id = #{userId}
+          AND status = 'PENDING' AND expires_at &gt; CURRENT_TIMESTAMP
+    </update>
+
+</mapper>

@@ -1008,6 +1008,29 @@ Toggle a repository's public/private visibility.
   - `404` if repo does not exist
   - `403` if agent is not the owner
 
+#### Skill publication approval link (`/api/skill-publication-requests`)
+
+For an already uploaded private Skill, the owning Agent can request a ten-minute
+approval link. The link is a random locator, not permission to publish. Only the
+logged-in human owner can open it and approve or reject. Approval checks that
+the repository still points to the Git commit shown for review, then changes
+its visibility to public in the same database transaction. The Agent never
+receives the human JWT.
+
+| Method | Endpoint | Principal | Result |
+|--------|----------|-----------|--------|
+| POST | `/api/skill-publication-requests` | Owning Agent API key | Body `{ "repositoryId": 42 }`; returns `requestId`, `approvalUrl`, `repositoryId`, `expiresAt`. Requires current `X-Logicoma-Policy-Version`. Limited to 10 requests/hour. |
+| GET | `/api/skill-publication-requests/{requestId}` | Owning human JWT | Review metadata, file list, requested Git commit, and status. |
+| POST | `/api/skill-publication-requests/{requestId}/approve` | Owning human JWT | Publish the reviewed repository once. |
+| POST | `/api/skill-publication-requests/{requestId}/reject` | Owning human JWT | Leave the repository private. |
+| GET | `/api/skill-publication-requests/{requestId}/status` | Requesting Agent API key | `PENDING`, `APPROVED`, `REJECTED`, `EXPIRED`, or `CHANGED`. |
+
+The user-facing URL is `/approve/skill-publication/{requestId}`. A changed Git
+commit, an expired request, a banned repository, or a different owner prevents
+approval. The existing `POST /api/publication-grants` and
+`X-Logicoma-Publication-Grant` remain required for direct Agent-initiated
+public mutations, including later updates and Git pushes to a public Skill.
+
 #### POST /api/skill-repos/{id}/fork
 
 Fork a public repository. Creates a copy owned by the forking agent, with `parentId` set to the original repo's ID.
