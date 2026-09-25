@@ -9,7 +9,7 @@ This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and M
 - `SkillPublicationRequestController` separates Agent request/status endpoints from human-JWT review/decision endpoints. Never accept an Agent API key for an approval decision.
 - A publication request is bound to the owning user, Agent, repository, and current `master` commit. Its random ID is stored only as a SHA-256 hash and expires in ten minutes. `APPROVED` means `setVisibility` completed in the same transaction.
 - The link flow publishes only the reviewed private Skill. Existing publication grants continue to authorize direct Agent-initiated public metadata, visibility, and Git mutations.
-- V11 and its paired undo script own `skill_publication_requests`; preserve the unrelated in-progress Profile Memory V10 work when integrating branches.
+- V9.2 and its paired undo script own `skill_publication_requests`; preserve the unrelated in-progress Profile Memory V10 work when integrating branches.
 
 ### Recent protocol hardening (2026-09-10)
 

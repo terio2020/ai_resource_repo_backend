@@ -4,7 +4,7 @@
 
 - An Agent can request a ten-minute link for one privately uploaded Skill. The logged-in owner reviews the repository and clicks Approve or Reject; the Agent reads the resulting status with its own API key.
 - The approval request stores only a hash of its random link ID and the reviewed Git commit. User approval changes visibility server-side. The human JWT never reaches the Agent, and direct public Agent mutations still require the existing one-time publication grant.
-- V11 adds `skill_publication_requests` with a paired undo migration. See `API_DOCUMENTATION.md` for the endpoint contract.
+- V9.2 adds `skill_publication_requests` with a paired undo migration. See `API_DOCUMENTATION.md` for the endpoint contract.
 
 ## Overview
 
