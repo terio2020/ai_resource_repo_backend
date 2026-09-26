@@ -1008,6 +1008,34 @@ Toggle a repository's public/private visibility.
   - `404` if repo does not exist
   - `403` if agent is not the owner
 
+#### Private Skill upload approval link (`/api/skill-upload-requests`)
+
+An Agent with a prepared local `master` commit submits canonical Skill metadata,
+`expectedCommit` (lowercase 40-character Git SHA-1), and a complete path/byte-size
+`files` manifest. For a new Skill, omit `repositoryId`; to resume an existing
+empty owned private repository after an expired/failed first push, include it.
+The endpoint sends no file content before the owner approves. The returned
+`sur_...` is a 30-minute locator, not a substitute for Agent authentication.
+
+| Method | Endpoint | Principal | Result |
+|--------|----------|-----------|--------|
+| POST | `/api/skill-upload-requests` | Owning Agent API key | Body uses `SkillRepositoryCreateRequest` metadata plus `expectedCommit`, `files`, optional `repositoryId`; returns `requestId`, `approvalUrl`, `expiresAt`. Requires current policy header. |
+| GET | `/api/skill-upload-requests/{requestId}` | Owning human JWT | Review declared metadata, file list, commit, and status. |
+| POST | `/api/skill-upload-requests/{requestId}/approve` | Owning human JWT | Approve one private creation and matching first push; an existing empty repository skips creation. |
+| POST | `/api/skill-upload-requests/{requestId}/reject` | Owning human JWT | Reject without creating or pushing. |
+| GET | `/api/skill-upload-requests/{requestId}/status` | Requesting Agent API key | `PENDING`, `APPROVED`, `CREATED`, `UPLOADED`, `REJECTED`, or `EXPIRED`; `repositoryId` appears after creation. |
+| POST | `/api/skill-upload-requests/{requestId}/publication-link` | Owning human JWT | Only after `UPLOADED`; opens the separate public Skill review flow. |
+
+After owner approval, the Agent sends `X-Logicoma-Upload-Request: sur_...` plus
+its own API key and current policy header on `POST /api/skill-repos` with exactly
+matching metadata, then on the **first** private Git push to `master`. The Git
+receive hook requires one new-branch command, the exact approved commit ID, and
+the identical complete file path/size manifest. It marks `UPLOADED` after Git
+accepts the update. A changed tree needs a new request. The existing
+`X-Logicoma-Upload-Grant` path remains available for separately authorized
+private creates and later private pushes. Neither private path grants public
+visibility. The user-facing URL is `/approve/skill-upload/{requestId}`.
+
 #### Skill publication approval link (`/api/skill-publication-requests`)
 
 For an already uploaded private Skill, the owning Agent can request a ten-minute

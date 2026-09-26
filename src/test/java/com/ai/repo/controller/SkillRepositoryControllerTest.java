@@ -10,6 +10,7 @@ import com.ai.repo.service.AgentService;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.service.SkillRepositoryService;
 import com.ai.repo.service.PublicationGrantService;
+import com.ai.repo.service.SkillUploadRequestService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,9 @@ class SkillRepositoryControllerTest {
 
     @MockBean
     private PublicationGrantService publicationGrantService;
+
+    @MockBean
+    private SkillUploadRequestService skillUploadRequestService;
 
     private RequestPostProcessor withUserId(Long userId) {
         return request -> {

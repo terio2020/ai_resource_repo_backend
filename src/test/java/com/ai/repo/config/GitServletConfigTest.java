@@ -5,6 +5,7 @@ import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.PublicationGrantService;
+import com.ai.repo.service.SkillUploadRequestService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.transport.resolver.ServiceNotAuthorizedException;
@@ -40,6 +41,9 @@ class GitServletConfigTest {
     @Mock
     private PublicationGrantService publicationGrantService;
 
+    @Mock
+    private SkillUploadRequestService skillUploadRequestService;
+
     private GitServletConfig config;
 
     @TempDir
@@ -65,6 +69,10 @@ class GitServletConfigTest {
         field = GitServletConfig.class.getDeclaredField("publicationGrantService");
         field.setAccessible(true);
         field.set(config, publicationGrantService);
+
+        field = GitServletConfig.class.getDeclaredField("skillUploadRequestService");
+        field.setAccessible(true);
+        field.set(config, skillUploadRequestService);
     }
 
     @Test
@@ -293,6 +301,49 @@ class GitServletConfigTest {
             receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of());
             verify(publicationGrantService).consume(
                     "pgr_upload", 1L, 5L, "SKILL_REPOSITORY_UPLOAD", 42L, null);
+        }
+    }
+
+    @Test
+    void approvedFirstPushMustMatchRequestAndCompletesAfterGitAccepts() throws Exception {
+        Path checkout = tempDir.resolve("private-first-upload");
+        Files.createDirectories(checkout);
+        Files.writeString(checkout.resolve("SKILL.md"),
+                "---\nname: private-skill\ndescription: A focused workflow\n---\n\n# Skill\n");
+        SkillRepository skillRepo = new SkillRepository();
+        skillRepo.setId(42L);
+        skillRepo.setAgentId(5L);
+        skillRepo.setSkillName("private-skill");
+        skillRepo.setIsPublic(false);
+        org.springframework.mock.web.MockHttpServletRequest req =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer api-key-5");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
+        req.addHeader("X-Logicoma-Upload-Request", "sur_approved");
+        Agent authenticated = new Agent();
+        authenticated.setId(5L);
+        when(agentService.findByApiKey("api-key-5")).thenReturn(authenticated);
+        Agent owner = new Agent();
+        owner.setId(5L);
+        owner.setUserId(1L);
+        when(agentService.findById(5L)).thenReturn(owner);
+
+        try (Git git = Git.init().setDirectory(checkout.toFile()).call()) {
+            git.add().addFilepattern("SKILL.md").call();
+            org.eclipse.jgit.lib.ObjectId commit = git.commit().setMessage("Initial Skill")
+                    .setAuthor("Agent", "agent@example.invalid").call().getId();
+            org.eclipse.jgit.transport.ReceiveCommand command =
+                    new org.eclipse.jgit.transport.ReceiveCommand(
+                            org.eclipse.jgit.lib.ObjectId.zeroId(), commit, "refs/heads/master");
+            org.eclipse.jgit.transport.ReceivePack receivePack =
+                    config.buildReceivePack(req, git.getRepository(), skillRepo);
+            receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of(command));
+            verify(skillUploadRequestService).verifyFirstPush(
+                    "sur_approved", 1L, 5L, 42L, git.getRepository(),
+                    org.eclipse.jgit.lib.ObjectId.zeroId(), commit);
+            command.setResult(org.eclipse.jgit.transport.ReceiveCommand.Result.OK);
+            receivePack.getPostReceiveHook().onPostReceive(receivePack, List.of(command));
+            verify(skillUploadRequestService).completeFirstPush("sur_approved", 5L, 42L);
         }
     }
 

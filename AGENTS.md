@@ -4,6 +4,13 @@
 
 This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and MySQL. This file provides guidelines for agents working in this codebase.
 
+### Private Skill upload approval links (2026-09-25)
+
+- `SkillUploadRequestController` separates Agent request/status from human-JWT review/decision. The `sur_...` ID is only a locator; Agent API key, owner, expiry, exact metadata, first commit, and full path/size manifest are enforced server-side.
+- `SkillRepositoryController` consumes the approved create stage transactionally; `GitServletConfig` verifies the first push before receive and marks `UPLOADED` only after an accepted Git update. Never allow a request to authorize later pushes or public visibility.
+- A previously created but empty private repository may use a new approval request with its `repositoryId` to recover from expiry or a failed first push. V9.3 and its undo script own `skill_upload_requests`; it precedes the unrelated in-progress Profile Memory V10.
+- The owner may start the existing publication review only after status `UPLOADED`; this is a separate human decision. Keep legacy one-time upload grants as a separate integration path.
+
 ### Skill publication approval links (2026-09-25)
 
 - `SkillPublicationRequestController` separates Agent request/status endpoints from human-JWT review/decision endpoints. Never accept an Agent API key for an approval decision.

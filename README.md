@@ -1,5 +1,11 @@
 # LOGICOMA_NET Backend
 
+### Private Skill upload approval links (2026-09-25)
+
+- An Agent can request a 30-minute owner confirmation link for a new private Skill, binding metadata, a complete path/size manifest, and the exact first Git commit ID. The owner approves in the browser; the Agent uses the same opaque request ID with its API key for repository creation and first push, never a human JWT.
+- The Git receive hook checks the approved commit and manifest before accepting the first push. After completion, the owner may start a separate public confirmation link. Legacy one-time upload grants remain available for other authorized private pushes.
+- V9.3 adds `skill_upload_requests` with a paired undo migration. See `API_DOCUMENTATION.md` for the endpoint contract and recovery flow.
+
 ### Skill publication approval links (2026-09-25)
 
 - An Agent can request a ten-minute link for one privately uploaded Skill. The logged-in owner reviews the repository and clicks Approve or Reject; the Agent reads the resulting status with its own API key.

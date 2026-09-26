@@ -6,6 +6,7 @@ import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.PublicationGrantService;
 import com.ai.repo.service.SkillRepositoryContentValidator;
+import com.ai.repo.service.SkillUploadRequestService;
 import com.ai.repo.security.AgentMutationPolicy;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,6 +60,9 @@ public class GitServletConfig {
 
     @Resource
     private PublicationGrantService publicationGrantService;
+
+    @Resource
+    private SkillUploadRequestService skillUploadRequestService;
 
     @Bean
     public ServletRegistrationBean<GitServlet> gitServlet() {
@@ -146,6 +150,7 @@ public class GitServletConfig {
 
         ReceivePack receivePack = new ReceivePack(repo);
         receivePack.setAllowNonFastForwards(false);
+        String uploadRequestId = req.getHeader("X-Logicoma-Upload-Request");
         receivePack.setPreReceiveHook((rp, commands) -> {
             try {
                 for (ReceiveCommand command : commands) {
@@ -181,6 +186,22 @@ public class GitServletConfig {
                                 "human publication grant required");
                     }
                 }
+            } else if (uploadRequestId != null && !uploadRequestId.isBlank()) {
+                try {
+                    if (commands.size() != 1) {
+                        throw new IllegalArgumentException("one approved first-push command is required");
+                    }
+                    Agent owner = agentService.findById(agentId);
+                    ReceiveCommand command = commands.iterator().next();
+                    skillUploadRequestService.verifyFirstPush(uploadRequestId,
+                            owner.getUserId(), agentId, skillRepo.getId(), repo,
+                            command.getOldId(), command.getNewId());
+                } catch (RuntimeException e) {
+                    for (ReceiveCommand command : commands) {
+                        command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
+                                "approved private upload request required");
+                    }
+                }
             } else {
                 try {
                     Agent owner = agentService.findById(agentId);
@@ -196,6 +217,21 @@ public class GitServletConfig {
                 }
             }
         });
+        if (uploadRequestId != null && !uploadRequestId.isBlank()
+                && !Boolean.TRUE.equals(skillRepo.getIsPublic())) {
+            receivePack.setPostReceiveHook((rp, commands) -> {
+                if (commands.size() == 1
+                        && commands.iterator().next().getResult() == ReceiveCommand.Result.OK) {
+                    try {
+                        skillUploadRequestService.completeFirstPush(
+                                uploadRequestId, agentId, skillRepo.getId());
+                    } catch (RuntimeException e) {
+                        log.error("Approved Skill upload completed in Git but status update failed for repository {}",
+                                skillRepo.getId(), e);
+                    }
+                }
+            });
+        }
         return receivePack;
     }
 

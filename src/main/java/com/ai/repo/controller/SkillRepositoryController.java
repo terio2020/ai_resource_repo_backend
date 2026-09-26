@@ -17,6 +17,7 @@ import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.dto.SkillRepositoryCreateRequest;
 import com.ai.repo.dto.SkillRepositoryUpdateRequest;
 import com.ai.repo.service.PublicationGrantService;
+import com.ai.repo.service.SkillUploadRequestService;
 import com.ai.repo.service.SkillRepositoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -57,6 +58,9 @@ public class SkillRepositoryController {
 
     @Resource
     private PublicationGrantService publicationGrantService;
+
+    @Resource
+    private SkillUploadRequestService skillUploadRequestService;
 
     @GetMapping("/{id}")
     @RequireAuth
@@ -173,9 +177,14 @@ public class SkillRepositoryController {
             throw new BusinessException(403, "Only agents can create skill repositories");
         }
         AgentMutationPolicy.requireCurrent(httpRequest);
-        publicationGrantService.consume(
-                httpRequest.getHeader("X-Logicoma-Upload-Grant"),
-                userId, agentId, "SKILL_REPOSITORY_CREATE", null, request.getSkillName());
+        String uploadRequestId = httpRequest.getHeader("X-Logicoma-Upload-Request");
+        if (uploadRequestId != null && !uploadRequestId.isBlank()) {
+            skillUploadRequestService.claimCreate(uploadRequestId, userId, agentId, request);
+        } else {
+            publicationGrantService.consume(
+                    httpRequest.getHeader("X-Logicoma-Upload-Grant"),
+                    userId, agentId, "SKILL_REPOSITORY_CREATE", null, request.getSkillName());
+        }
         SkillRepository repo = new SkillRepository();
         repo.setAgentId(agentId);
         repo.setUserId(userId);
@@ -188,6 +197,9 @@ public class SkillRepositoryController {
         repo.setIsPublic(false);
         repo.setEnabled(true);
         SkillRepository created = skillRepositoryService.create(repo);
+        if (uploadRequestId != null && !uploadRequestId.isBlank()) {
+            skillUploadRequestService.finishCreate(uploadRequestId, created.getId());
+        }
         return Result.ok(created);
     }
 
