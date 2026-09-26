@@ -1,20 +1,16 @@
 package com.ai.repo.entity;
 
 import java.time.LocalDateTime;
-
 import lombok.Data;
 
 @Data
-public class SkillPublicationRequest {
+public class MemoryPublicationRequest {
     private Long id;
     private String tokenHash;
     private Long userId;
     private Long agentId;
-    private Long repositoryId;
-    private String headCommit;
-    private String metadataHash;
+    private Long memoryId;
+    private String contentHash;
     private String status;
     private LocalDateTime expiresAt;
-    private LocalDateTime decidedAt;
-    private LocalDateTime createdAt;
 }

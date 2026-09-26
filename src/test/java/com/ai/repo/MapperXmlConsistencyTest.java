@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class MapperXmlConsistencyTest {
 
     private static final Pattern SQL_COLUMN = Pattern.compile(
-            "(?i)^\\s+(?:(?:ADD|MODIFY)\\s+COLUMN\\s+)?`?(\\w+)`?\\s+"
+            "(?i)^(?:\\s*ALTER\\s+TABLE\\s+`?\\w+`?\\s+|\\s+)(?:(?:ADD|MODIFY)\\s+COLUMN\\s+)?`?(\\w+)`?\\s+"
                     + "(VARCHAR|BIGINT|INT|TINYINT|BOOLEAN|TEXT|DATETIME|TIMESTAMP|JSON|DOUBLE|DECIMAL|FLOAT|BLOB|MEDIUMTEXT|LONGTEXT|CHAR|DATE|TIME|ENUM)"
     );
     private static final Pattern MYBATIS_RESULT_COLUMN = Pattern.compile(
@@ -35,6 +35,13 @@ public class MapperXmlConsistencyTest {
         String dir = System.getProperty("user.dir");
         while (dir != null && !new File(dir, "pom.xml").exists()) dir = new File(dir).getParent();
         return dir != null ? dir : ".";
+    }
+
+    @Test
+    void recognizesInlineAlterColumn() {
+        Matcher matcher = SQL_COLUMN.matcher("ALTER TABLE skill_publication_requests ADD COLUMN metadata_hash CHAR(64) NULL;");
+        assertTrue(matcher.find());
+        org.junit.jupiter.api.Assertions.assertEquals("metadata_hash", matcher.group(1));
     }
 
     @Test

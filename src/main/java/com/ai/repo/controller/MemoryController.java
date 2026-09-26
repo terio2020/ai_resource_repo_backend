@@ -17,7 +17,6 @@ import com.ai.repo.service.AgentService;
 import com.ai.repo.service.FileStorageService;
 import com.ai.repo.service.MemoryService;
 import com.ai.repo.service.ProfileMemoryService;
-import com.ai.repo.service.PublicationGrantService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,9 +55,6 @@ public class MemoryController {
 
     @Resource
     private ProfileMemoryService profileMemoryService;
-
-    @Resource
-    private PublicationGrantService publicationGrantService;
 
     @PostMapping
     @ApiKeyAuth
@@ -141,13 +137,8 @@ public class MemoryController {
             memory.setIsPublic(scopeIsPublic);
             memory.setOwnerType("AGENT");
             if (scopeIsPublic) {
-                if (request.getClientMemoryKey() == null || request.getClientMemoryKey().isBlank()) {
-                    throw new com.ai.repo.exception.BusinessException(400,
-                            "Public Memory creation requires clientMemoryKey for grant scoping");
-                }
-                publicationGrantService.consume(
-                        httpRequest.getHeader("X-Logicoma-Publication-Grant"),
-                        userId, agentId, "MEMORY", null, request.getClientMemoryKey());
+                throw new com.ai.repo.exception.BusinessException(403,
+                        "Upload Memory privately first, then request a Memory publication approval link");
             }
         }
 
@@ -230,15 +221,17 @@ public class MemoryController {
         if (!isOwner) {
             throw new com.ai.repo.exception.BusinessException(403, "Only the owner can update this memory");
         }
+        if ("USER_PROFILE".equals(existing.getMemoryType()) && Boolean.TRUE.equals(request.getIsPublic())) {
+            throw new com.ai.repo.exception.BusinessException(400, "USER_PROFILE Memory must never be public");
+        }
         if (callerAgentId != null) {
             AgentMutationPolicy.requireCurrent(httpRequest);
             boolean remainsOrBecomesPublic = request.getIsPublic() == null
                     ? Boolean.TRUE.equals(existing.getIsPublic())
                     : Boolean.TRUE.equals(request.getIsPublic());
             if (remainsOrBecomesPublic) {
-                publicationGrantService.consume(
-                        httpRequest.getHeader("X-Logicoma-Publication-Grant"),
-                        callerUserId, callerAgentId, "MEMORY", id, null);
+                throw new com.ai.repo.exception.BusinessException(403,
+                        "Make Memory private before editing, then request a new publication approval link");
             }
         }
         if (callerAgentId == null) {
@@ -262,6 +255,13 @@ public class MemoryController {
 
         memory.setCategory(request.getCategory());
         memory.setIsPublic(request.getIsPublic());
+        if (httpRequest.getAttribute("agentId") != null) {
+            memory.setIsPublic(false);
+            memory.setSharingScope("USER_PROFILE".equals(existing.getMemoryType())
+                    ? existing.getSharingScope() : "AGENT_PRIVATE");
+        } else if (request.getIsPublic() != null && !"USER_PROFILE".equals(existing.getMemoryType())) {
+            memory.setSharingScope(request.getIsPublic() ? "PUBLIC" : "AGENT_PRIVATE");
+        }
         memory.setMetadata(serializeMetadata(request.getMetadata()));
         Memory updatedMemory = memoryService.update(memory);
         return Result.ok(updatedMemory);

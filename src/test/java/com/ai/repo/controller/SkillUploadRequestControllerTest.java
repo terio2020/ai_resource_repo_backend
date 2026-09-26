@@ -42,8 +42,9 @@ class SkillUploadRequestControllerTest {
         assertEquals(428, assertThrows(BusinessException.class,
                 () -> controller.create(body, request)).getCode());
         request.addHeader(AgentMutationPolicy.HEADER, AgentMutationPolicy.CURRENT_VERSION);
-        controller.create(body, request);
-        verify(uploadService).create(5L, 1L, body);
+        assertEquals(410, assertThrows(BusinessException.class,
+                () -> controller.create(body, request)).getCode());
+        org.mockito.Mockito.verifyNoInteractions(uploadService);
     }
 
     @Test

@@ -79,7 +79,7 @@ class SkillRepositoryControllerTest {
     private RequestPostProcessor withAgentId(Long agentId) {
         return request -> {
             request.setAttribute("agentId", agentId);
-            request.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
+            request.addHeader("X-Logicoma-Policy-Version", "2026-09-26");
             return request;
         };
     }
@@ -219,7 +219,6 @@ class SkillRepositoryControllerTest {
         mockMvc.perform(post("/api/skill-repos")
                         .with(withAgentId(2L))
                         .with(withUserId(1L))
-                        .header("X-Logicoma-Upload-Grant", "pgr_create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"skillName\":\"test-repo\",\"version\":\"1.0.0\","
                                 + "\"description\":\"Run repository tests\","
@@ -230,8 +229,7 @@ class SkillRepositoryControllerTest {
                 .andExpect(jsonPath("$.data.gitPath")
                         .value("/api/git/agent_2/test-repo.git"))
                 .andExpect(jsonPath("$.data.repoPath").doesNotExist());
-        verify(publicationGrantService).consume(
-                "pgr_create", 1L, 2L, "SKILL_REPOSITORY_CREATE", null, "test-repo");
+        org.mockito.Mockito.verifyNoInteractions(publicationGrantService, skillUploadRequestService);
     }
 
     @Test
@@ -384,6 +382,16 @@ class SkillRepositoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").value("# Hello"));
+    }
+
+    @Test
+    void agentCannotPublishDirectlyEvenWithLegacyGrant() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 2L));
+        mockMvc.perform(patch("/api/skill-repos/1/visibility?isPublic=true")
+                        .with(withAgentId(2L)).with(withUserId(1L))
+                        .header("X-Logicoma-Publication-Grant", "legacy-grant"))
+                .andExpect(status().isForbidden());
+        verify(skillRepositoryService, org.mockito.Mockito.never()).setVisibility(any(), any(), eq(true));
     }
 
     @Test

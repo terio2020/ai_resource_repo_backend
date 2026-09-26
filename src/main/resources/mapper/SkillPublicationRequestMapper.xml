@@ -8,6 +8,7 @@
         <result property="agentId" column="agent_id"/>
         <result property="repositoryId" column="repository_id"/>
         <result property="headCommit" column="head_commit"/>
+        <result property="metadataHash" column="metadata_hash"/>
         <result property="status" column="status"/>
         <result property="expiresAt" column="expires_at"/>
         <result property="decidedAt" column="decided_at"/>
@@ -17,12 +18,12 @@
     <insert id="insert" parameterType="com.ai.repo.entity.SkillPublicationRequest"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO skill_publication_requests
-            (token_hash, user_id, agent_id, repository_id, head_commit, status, expires_at)
-        VALUES (#{tokenHash}, #{userId}, #{agentId}, #{repositoryId}, #{headCommit}, #{status}, #{expiresAt})
+            (token_hash, user_id, agent_id, repository_id, head_commit, metadata_hash, status, expires_at)
+        VALUES (#{tokenHash}, #{userId}, #{agentId}, #{repositoryId}, #{headCommit}, #{metadataHash}, #{status}, #{expiresAt})
     </insert>
 
     <select id="selectByTokenHash" resultMap="requestMap">
-        SELECT id, token_hash, user_id, agent_id, repository_id, head_commit, status,
+        SELECT id, token_hash, user_id, agent_id, repository_id, head_commit, metadata_hash, status,
                expires_at, decided_at, created_at
         FROM skill_publication_requests WHERE token_hash = #{tokenHash}
     </select>

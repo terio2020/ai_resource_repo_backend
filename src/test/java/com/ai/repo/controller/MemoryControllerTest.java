@@ -70,7 +70,7 @@ class MemoryControllerTest {
         return request -> {
             request.setAttribute("agentId", agentId);
             request.setAttribute("userId", 1L);
-            request.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
+            request.addHeader("X-Logicoma-Policy-Version", "2026-09-26");
             return request;
         };
     }
@@ -136,9 +136,7 @@ class MemoryControllerTest {
     }
 
     @Test
-    void createPublicMemory_shouldConsumeKeyScopedGrant() throws Exception {
-        Memory memory = createMemory(1L, 5L, true);
-        when(memoryService.upsert(any(Memory.class))).thenReturn(memory);
+    void createPublicMemory_shouldRequireApprovalLinkEvenWithLegacyGrant() throws Exception {
         mockMvc.perform(post("/api/memories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-Logicoma-Publication-Grant", "pgr_public")
@@ -147,9 +145,8 @@ class MemoryControllerTest {
                                  "sharingScope":"PUBLIC","clientMemoryKey":"public-knowledge-v1"}
                                 """)
                         .with(withAgentId(5L)))
-                .andExpect(status().isOk());
-        verify(publicationGrantService).consume(
-                "pgr_public", 1L, 5L, "MEMORY", null, "public-knowledge-v1");
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoInteractions(publicationGrantService, memoryService);
     }
 
     // ==================== POST /api/memories/{id}/download ====================

@@ -4,25 +4,26 @@
 
 This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and MySQL. This file provides guidelines for agents working in this codebase.
 
-### Private Skill upload approval links (2026-09-25)
+### Autonomous private uploads and human-click publication (2026-09-26)
 
-- `SkillUploadRequestController` separates Agent request/status from human-JWT review/decision. The `sur_...` ID is only a locator; Agent API key, owner, expiry, exact metadata, first commit, and full path/size manifest are enforced server-side.
-- `SkillRepositoryController` consumes the approved create stage transactionally; `GitServletConfig` verifies the first push before receive and marks `UPLOADED` only after an accepted Git update. Never allow a request to authorize later pushes or public visibility.
-- A previously created but empty private repository may use a new approval request with its `repositoryId` to recover from expiry or a failed first push. V9.3 and its undo script own `skill_upload_requests`; it precedes the unrelated in-progress Profile Memory V10.
-- The owner may start the existing publication review only after status `UPLOADED`; this is a separate human decision. Keep legacy one-time upload grants as a separate integration path.
+- Owned private Skill creation, first/later private Git pushes, and private Memory writes use only the Agent API key and `X-Logicoma-Policy-Version: 2026-09-26`. No per-upload human approval or upload grant is required. Secret exclusions, ownership, content validation, profile grants, and the narrow heartbeat remain enforced.
+- Agent public creation, publication toggles, and public content mutations reject legacy grant shortcuts. Make an existing public resource private before editing and obtain a fresh public-confirmation link afterward.
+- Skill publication uses the existing `/api/skill-publication-requests` flow. Memory publication adds `/api/memory-publication-requests` with ten-minute hashed locators, owner-only review/decision, content fingerprints, and transactional row-locked publication. USER_PROFILE cannot be published.
+- Private confirmation creation is retired with `410`. V9.3 remains immutable for deployed databases; V9.4 adds Memory publication storage and a paired undo script before pending Profile V10.
+- Skill approval binds both Git HEAD and disclosure metadata. A striped mutation lock coordinates Git receive, metadata edits, and publication through transaction completion on the current single application instance. Horizontal scaling requires a shared lock before enabling multiple writers.
 
 ### Skill publication approval links (2026-09-25)
 
 - `SkillPublicationRequestController` separates Agent request/status endpoints from human-JWT review/decision endpoints. Never accept an Agent API key for an approval decision.
-- A publication request is bound to the owning user, Agent, repository, and current `master` commit. Its random ID is stored only as a SHA-256 hash and expires in ten minutes. `APPROVED` means `setVisibility` completed in the same transaction.
-- The link flow publishes only the reviewed private Skill. Existing publication grants continue to authorize direct Agent-initiated public metadata, visibility, and Git mutations.
+- A publication request is bound to the owning user, Agent, repository, current `master` commit, and disclosure metadata fingerprint. Its random ID is stored only as a SHA-256 hash and expires in ten minutes. `APPROVED` means `setVisibility` completed in the same transaction.
+- The link flow publishes only the reviewed private Skill. Under policy 2026-09-26, legacy grants no longer bypass owner-confirmed public links; private uploads need no grants.
 - V9.2 and its paired undo script own `skill_publication_requests`; preserve the unrelated in-progress Profile Memory V10 work when integrating branches.
 
 ### Recent protocol hardening (2026-09-10)
 
 - Agent content mutations use the fail-closed `X-Logicoma-Policy-Version` contract; `/api/agent-policy` publishes the current required version.
 - Skill repository creation uses `SkillRepositoryCreateRequest`, explicitly maps allowed metadata, and always creates private resources.
-- Public Memory writes and Agent-initiated public Skill visibility, metadata, and Git push operations consume a short-lived, single-use, resource-scoped publication grant issued only by a human JWT.
+- Historical policy (superseded on 2026-09-26): public mutations consumed a human-issued publication grant. Current Agent publication requires owner confirmation links, and private uploads need no grants.
 - Publication grant plaintext is returned once; the database stores only its SHA-256 hash and atomically marks a matching grant consumed.
 - Current verification: full Maven suite 886 run / 3 skipped / 0 failed.
 

@@ -15,6 +15,8 @@ public interface MemoryMapper {
     int deleteGeneralByAgentId(@Param("agentId") Long agentId);
     int detachProfileByAgentId(@Param("agentId") Long agentId);
     Memory selectById(Long id);
+    Memory selectByIdForUpdate(Long id);
+    int publishPrivateGeneral(@Param("id") Long id, @Param("userId") Long userId, @Param("agentId") Long agentId);
     Memory selectByUid(@Param("uid") String uid);
     List<Memory> selectAll();
     List<Memory> selectByUserId(Long userId);

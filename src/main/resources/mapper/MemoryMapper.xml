@@ -99,6 +99,14 @@
         WHERE id = #{id}
     </select>
 
+    <select id="selectByIdForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM memories WHERE id = #{id} FOR UPDATE
+    </select>
+    <update id="publishPrivateGeneral">
+        UPDATE memories SET is_public = TRUE, sharing_scope = 'PUBLIC', updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND user_id = #{userId} AND agent_id = #{agentId}
+          AND memory_type = 'GENERAL' AND is_public = FALSE AND status = 'VISIBLE'
+    </update>
     <select id="selectAll" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM memories

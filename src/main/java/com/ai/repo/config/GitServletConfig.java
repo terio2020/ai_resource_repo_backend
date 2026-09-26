@@ -4,10 +4,9 @@ import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.SkillRepository;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.AgentService;
-import com.ai.repo.service.PublicationGrantService;
 import com.ai.repo.service.SkillRepositoryContentValidator;
-import com.ai.repo.service.SkillUploadRequestService;
 import com.ai.repo.security.AgentMutationPolicy;
+import com.ai.repo.util.SkillMutationLock;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -57,12 +56,6 @@ public class GitServletConfig {
 
     @Resource
     private AgentService agentService;
-
-    @Resource
-    private PublicationGrantService publicationGrantService;
-
-    @Resource
-    private SkillUploadRequestService skillUploadRequestService;
 
     @Bean
     public ServletRegistrationBean<GitServlet> gitServlet() {
@@ -148,10 +141,27 @@ public class GitServletConfig {
             throw new ServiceNotAuthorizedException();
         }
 
-        ReceivePack receivePack = new ReceivePack(repo);
+        ReceivePack receivePack = new ReceivePack(repo) {
+            @Override
+            public void receive(java.io.InputStream input, java.io.OutputStream output,
+                                java.io.OutputStream messages) throws IOException {
+                try (SkillMutationLock ignored = SkillMutationLock.acquire(skillRepo.getId())) {
+                    super.receive(input, output, messages);
+                }
+            }
+        };
         receivePack.setAllowNonFastForwards(false);
-        String uploadRequestId = req.getHeader("X-Logicoma-Upload-Request");
         receivePack.setPreReceiveHook((rp, commands) -> {
+            // Re-read visibility inside the receive lock rather than trusting factory-time state.
+            SkillRepository current = skillRepositoryMapper.selectById(skillRepo.getId());
+            if (current == null || Boolean.TRUE.equals(current.getIsPublic())
+                    || "BANNED".equals(current.getStatus()) || !agentId.equals(current.getAgentId())) {
+                for (ReceiveCommand command : commands) {
+                    command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
+                            "only an owned private visible Skill may receive a push");
+                }
+                return;
+            }
             try {
                 for (ReceiveCommand command : commands) {
                     if (!"refs/heads/master".equals(command.getRefName())) {
@@ -175,63 +185,12 @@ public class GitServletConfig {
             }
 
             if (Boolean.TRUE.equals(skillRepo.getIsPublic())) {
-                try {
-                    Agent owner = agentService.findById(agentId);
-                    publicationGrantService.consume(
-                            req.getHeader("X-Logicoma-Publication-Grant"),
-                            owner.getUserId(), agentId, "SKILL_REPOSITORY", skillRepo.getId(), null);
-                } catch (RuntimeException e) {
-                    for (ReceiveCommand command : commands) {
-                        command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
-                                "human publication grant required");
-                    }
-                }
-            } else if (uploadRequestId != null && !uploadRequestId.isBlank()) {
-                try {
-                    if (commands.size() != 1) {
-                        throw new IllegalArgumentException("one approved first-push command is required");
-                    }
-                    Agent owner = agentService.findById(agentId);
-                    ReceiveCommand command = commands.iterator().next();
-                    skillUploadRequestService.verifyFirstPush(uploadRequestId,
-                            owner.getUserId(), agentId, skillRepo.getId(), repo,
-                            command.getOldId(), command.getNewId());
-                } catch (RuntimeException e) {
-                    for (ReceiveCommand command : commands) {
-                        command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
-                                "approved private upload request required");
-                    }
-                }
-            } else {
-                try {
-                    Agent owner = agentService.findById(agentId);
-                    publicationGrantService.consume(
-                            req.getHeader("X-Logicoma-Upload-Grant"),
-                            owner.getUserId(), agentId,
-                            "SKILL_REPOSITORY_UPLOAD", skillRepo.getId(), null);
-                } catch (RuntimeException e) {
-                    for (ReceiveCommand command : commands) {
-                        command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
-                                "human upload grant required");
-                    }
+                for (ReceiveCommand command : commands) {
+                    command.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON,
+                            "make Skill private before pushing, then use a publication approval link");
                 }
             }
         });
-        if (uploadRequestId != null && !uploadRequestId.isBlank()
-                && !Boolean.TRUE.equals(skillRepo.getIsPublic())) {
-            receivePack.setPostReceiveHook((rp, commands) -> {
-                if (commands.size() == 1
-                        && commands.iterator().next().getResult() == ReceiveCommand.Result.OK) {
-                    try {
-                        skillUploadRequestService.completeFirstPush(
-                                uploadRequestId, agentId, skillRepo.getId());
-                    } catch (RuntimeException e) {
-                        log.error("Approved Skill upload completed in Git but status update failed for repository {}",
-                                skillRepo.getId(), e);
-                    }
-                }
-            });
-        }
         return receivePack;
     }
 

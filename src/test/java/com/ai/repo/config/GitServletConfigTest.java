@@ -66,13 +66,6 @@ class GitServletConfigTest {
         field.setAccessible(true);
         field.set(config, agentService);
 
-        field = GitServletConfig.class.getDeclaredField("publicationGrantService");
-        field.setAccessible(true);
-        field.set(config, publicationGrantService);
-
-        field = GitServletConfig.class.getDeclaredField("skillUploadRequestService");
-        field.setAccessible(true);
-        field.set(config, skillUploadRequestService);
     }
 
     @Test
@@ -244,37 +237,33 @@ class GitServletConfigTest {
     }
 
     @Test
-    void publicPushHook_shouldConsumeRepositoryScopedGrant() throws Exception {
+    void publicPushHook_shouldNotConsumeLegacyGrant() throws Exception {
         Path repoPath = tempDir.resolve("agent_5/public.git");
         createBareRepo(repoPath);
         SkillRepository skillRepo = new SkillRepository();
         skillRepo.setId(42L);
         skillRepo.setAgentId(5L);
         skillRepo.setIsPublic(true);
+        when(skillRepositoryMapper.selectById(42L)).thenReturn(skillRepo);
         org.springframework.mock.web.MockHttpServletRequest req =
                 new org.springframework.mock.web.MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer api-key-5");
-        req.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-26");
         req.addHeader("X-Logicoma-Publication-Grant", "pgr_test");
         Agent authenticated = new Agent();
         authenticated.setId(5L);
         when(agentService.findByApiKey("api-key-5")).thenReturn(authenticated);
-        Agent owner = new Agent();
-        owner.setId(5L);
-        owner.setUserId(1L);
-        when(agentService.findById(5L)).thenReturn(owner);
 
         try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
                 .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
             org.eclipse.jgit.transport.ReceivePack receivePack = config.buildReceivePack(req, repo, skillRepo);
             receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of());
-            verify(publicationGrantService).consume(
-                    "pgr_test", 1L, 5L, "SKILL_REPOSITORY", 42L, null);
+            org.mockito.Mockito.verifyNoInteractions(publicationGrantService);
         }
     }
 
     @Test
-    void privatePushHook_shouldConsumeRepositoryScopedUploadGrant() throws Exception {
+    void privatePushHook_shouldNotRequireUploadGrant() throws Exception {
         Path repoPath = tempDir.resolve("agent_5/private.git");
         createBareRepo(repoPath);
         SkillRepository skillRepo = new SkillRepository();
@@ -282,30 +271,25 @@ class GitServletConfigTest {
         skillRepo.setAgentId(5L);
         skillRepo.setSkillName("private-skill");
         skillRepo.setIsPublic(false);
+        when(skillRepositoryMapper.selectById(42L)).thenReturn(skillRepo);
         org.springframework.mock.web.MockHttpServletRequest req =
                 new org.springframework.mock.web.MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer api-key-5");
-        req.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
-        req.addHeader("X-Logicoma-Upload-Grant", "pgr_upload");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-26");
         Agent authenticated = new Agent();
         authenticated.setId(5L);
         when(agentService.findByApiKey("api-key-5")).thenReturn(authenticated);
-        Agent owner = new Agent();
-        owner.setId(5L);
-        owner.setUserId(1L);
-        when(agentService.findById(5L)).thenReturn(owner);
 
         try (Repository repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
                 .setGitDir(repoPath.toFile()).setMustExist(true).build()) {
             org.eclipse.jgit.transport.ReceivePack receivePack = config.buildReceivePack(req, repo, skillRepo);
             receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of());
-            verify(publicationGrantService).consume(
-                    "pgr_upload", 1L, 5L, "SKILL_REPOSITORY_UPLOAD", 42L, null);
+            org.mockito.Mockito.verifyNoInteractions(publicationGrantService);
         }
     }
 
     @Test
-    void approvedFirstPushMustMatchRequestAndCompletesAfterGitAccepts() throws Exception {
+    void privateFirstPushNeedsNoApprovalButPublicPushIsRejected() throws Exception {
         Path checkout = tempDir.resolve("private-first-upload");
         Files.createDirectories(checkout);
         Files.writeString(checkout.resolve("SKILL.md"),
@@ -315,18 +299,14 @@ class GitServletConfigTest {
         skillRepo.setAgentId(5L);
         skillRepo.setSkillName("private-skill");
         skillRepo.setIsPublic(false);
+        when(skillRepositoryMapper.selectById(42L)).thenReturn(skillRepo);
         org.springframework.mock.web.MockHttpServletRequest req =
                 new org.springframework.mock.web.MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer api-key-5");
-        req.addHeader("X-Logicoma-Policy-Version", "2026-09-17");
-        req.addHeader("X-Logicoma-Upload-Request", "sur_approved");
+        req.addHeader("X-Logicoma-Policy-Version", "2026-09-26");
         Agent authenticated = new Agent();
         authenticated.setId(5L);
         when(agentService.findByApiKey("api-key-5")).thenReturn(authenticated);
-        Agent owner = new Agent();
-        owner.setId(5L);
-        owner.setUserId(1L);
-        when(agentService.findById(5L)).thenReturn(owner);
 
         try (Git git = Git.init().setDirectory(checkout.toFile()).call()) {
             git.add().addFilepattern("SKILL.md").call();
@@ -338,12 +318,13 @@ class GitServletConfigTest {
             org.eclipse.jgit.transport.ReceivePack receivePack =
                     config.buildReceivePack(req, git.getRepository(), skillRepo);
             receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of(command));
-            verify(skillUploadRequestService).verifyFirstPush(
-                    "sur_approved", 1L, 5L, 42L, git.getRepository(),
-                    org.eclipse.jgit.lib.ObjectId.zeroId(), commit);
-            command.setResult(org.eclipse.jgit.transport.ReceiveCommand.Result.OK);
-            receivePack.getPostReceiveHook().onPostReceive(receivePack, List.of(command));
-            verify(skillUploadRequestService).completeFirstPush("sur_approved", 5L, 42L);
+            assertEquals(org.eclipse.jgit.transport.ReceiveCommand.Result.NOT_ATTEMPTED, command.getResult());
+            org.mockito.Mockito.verifyNoInteractions(skillUploadRequestService, publicationGrantService);
+            skillRepo.setIsPublic(true);
+        when(skillRepositoryMapper.selectById(42L)).thenReturn(skillRepo);
+            receivePack = config.buildReceivePack(req, git.getRepository(), skillRepo);
+            receivePack.getPreReceiveHook().onPreReceive(receivePack, List.of(command));
+            assertEquals(org.eclipse.jgit.transport.ReceiveCommand.Result.REJECTED_OTHER_REASON, command.getResult());
         }
     }
 

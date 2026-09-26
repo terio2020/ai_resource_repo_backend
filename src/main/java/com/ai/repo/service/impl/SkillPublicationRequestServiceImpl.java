@@ -25,6 +25,8 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.SkillPublicationRequestMapper;
 import com.ai.repo.service.SkillPublicationRequestService;
 import com.ai.repo.service.SkillRepositoryService;
+import com.ai.repo.util.SkillMutationLock;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class SkillPublicationRequestServiceImpl implements SkillPublicationRequestService {
@@ -41,6 +43,7 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
 
     @Override
     public Created create(Long agentId, Long userId, Long repositoryId) {
+        try (SkillMutationLock ignored = SkillMutationLock.acquire(repositoryId)) {
         SkillRepository repo = requireOwnedRepository(repositoryId, userId, agentId);
         requirePrivateAndVisible(repo);
         List<FileTreeEntry> files = repositoryService.getFileTree(repositoryId);
@@ -58,12 +61,14 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
         request.setAgentId(agentId);
         request.setRepositoryId(repositoryId);
         request.setHeadCommit(headCommit);
+        request.setMetadataHash(metadataHash(repo));
         request.setStatus("PENDING");
         request.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         requestMapper.insert(request);
         String approvalUrl = frontendUrl.replaceAll("/+$", "")
                 + "/approve/skill-publication/" + requestId;
         return new Created(requestId, approvalUrl, repositoryId, request.getExpiresAt());
+        }
     }
 
     @Override
@@ -77,7 +82,8 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
         String status = effectiveStatus(request);
         if ("PENDING".equals(status) && (Boolean.TRUE.equals(repo.getIsPublic())
                 || "BANNED".equals(repo.getStatus())
-                || !request.getHeadCommit().equals(currentHead(repo)))) {
+                || !request.getHeadCommit().equals(currentHead(repo))
+                || !metadataHash(repo).equals(request.getMetadataHash()))) {
             status = "CHANGED";
         }
         return new Details(status, repo.getId(), repo.getAgentId(), repo.getSkillName(),
@@ -96,7 +102,8 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
             SkillRepository repo = requireOwnedRepository(
                     request.getRepositoryId(), request.getUserId(), agentId);
             if (Boolean.TRUE.equals(repo.getIsPublic()) || "BANNED".equals(repo.getStatus())
-                    || !request.getHeadCommit().equals(currentHead(repo))) {
+                    || !request.getHeadCommit().equals(currentHead(repo))
+                    || !metadataHash(repo).equals(request.getMetadataHash())) {
                 status = "CHANGED";
             }
         }
@@ -107,6 +114,7 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
     @Transactional
     public void approve(String requestId, Long userId) {
         SkillPublicationRequest request = requireRequest(requestId);
+        try (SkillMutationLock ignored = SkillMutationLock.acquire(request.getRepositoryId())) {
         if (!request.getUserId().equals(userId)) {
             throw new BusinessException(403, "This publication request belongs to another user");
         }
@@ -123,13 +131,15 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
         SkillRepository repo = requireOwnedRepository(
                 request.getRepositoryId(), userId, request.getAgentId());
         requirePrivateAndVisible(repo);
-        if (!request.getHeadCommit().equals(currentHead(repo))) {
+        if (!request.getHeadCommit().equals(currentHead(repo))
+                || !metadataHash(repo).equals(request.getMetadataHash())) {
             throw new BusinessException(409, "Skill contents changed; request a new approval link");
         }
         if (requestMapper.decide(request.getId(), userId, "APPROVED") != 1) {
             throw new BusinessException(409, "Publication request is no longer pending");
         }
         repositoryService.setVisibility(repo.getId(), userId, true);
+        }
     }
 
     @Override
@@ -196,6 +206,16 @@ public class SkillPublicationRequestServiceImpl implements SkillPublicationReque
                     .digest(token.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    private String metadataHash(SkillRepository repo) {
+        try {
+            return hash(new ObjectMapper().writeValueAsString(java.util.Arrays.asList(
+                    repo.getSkillName(), repo.getVersion(), repo.getDescription(), repo.getTags(),
+                    repo.getCategory(), repo.getType(), repo.getEnabled())));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Cannot hash Skill metadata", e);
         }
     }
 }

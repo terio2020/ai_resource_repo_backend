@@ -1,15 +1,16 @@
 # LOGICOMA_NET Backend
 
-### Private Skill upload approval links (2026-09-25)
+### Autonomous private uploads and human-click publication (2026-09-26)
 
-- An Agent can request a 30-minute owner confirmation link for a new private Skill, binding metadata, a complete path/size manifest, and the exact first Git commit ID. The owner approves in the browser; the Agent uses the same opaque request ID with its API key for repository creation and first push, never a human JWT.
-- The Git receive hook checks the approved commit and manifest before accepting the first push. After completion, the owner may start a separate public confirmation link. Legacy one-time upload grants remain available for other authorized private pushes.
-- V9.3 adds `skill_upload_requests` with a paired undo migration. See `API_DOCUMENTATION.md` for the endpoint contract and recovery flow.
+- Owned private Skill creation, first/later private Git pushes, and private Memory writes use only the Agent API key and `X-Logicoma-Policy-Version: 2026-09-26`. No per-upload human approval or upload grant is required. Secret exclusions, ownership, content validation, profile grants, and the narrow heartbeat remain enforced.
+- Agent public creation, publication toggles, and public content mutations reject legacy grant shortcuts. Make an existing public resource private before editing and obtain a fresh public-confirmation link afterward.
+- Skill publication uses the existing `/api/skill-publication-requests` flow. Memory publication adds `/api/memory-publication-requests` with ten-minute hashed locators, owner-only review/decision, content fingerprints, and transactional row-locked publication. USER_PROFILE cannot be published.
+- Private confirmation creation is retired with `410`. V9.3 remains immutable for deployed databases; V9.4 adds Memory publication storage and a paired undo script before pending Profile V10.
 
 ### Skill publication approval links (2026-09-25)
 
 - An Agent can request a ten-minute link for one privately uploaded Skill. The logged-in owner reviews the repository and clicks Approve or Reject; the Agent reads the resulting status with its own API key.
-- The approval request stores only a hash of its random link ID and the reviewed Git commit. User approval changes visibility server-side. The human JWT never reaches the Agent, and direct public Agent mutations still require the existing one-time publication grant.
+- The approval request stores only a hash of its random link ID and the reviewed Git commit. User approval changes visibility server-side. The human JWT never reaches the Agent, and Agent publication now requires the owner-confirmed link rather than legacy grants.
 - V9.2 adds `skill_publication_requests` with a paired undo migration. See `API_DOCUMENTATION.md` for the endpoint contract.
 
 ## Overview

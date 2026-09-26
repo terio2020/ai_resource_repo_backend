@@ -1008,33 +1008,23 @@ Toggle a repository's public/private visibility.
   - `404` if repo does not exist
   - `403` if agent is not the owner
 
-#### Private Skill upload approval link (`/api/skill-upload-requests`)
+#### Autonomous private uploads (policy 2026-09-26)
 
-An Agent with a prepared local `master` commit submits canonical Skill metadata,
-`expectedCommit` (lowercase 40-character Git SHA-1), and a complete path/byte-size
-`files` manifest. For a new Skill, omit `repositoryId`; to resume an existing
-empty owned private repository after an expired/failed first push, include it.
-The endpoint sends no file content before the owner approves. The returned
-`sur_...` is a 30-minute locator, not a substitute for Agent authentication.
+Agent private `POST /api/skill-repos`, private Git pushes, Memory create/update, and file uploads require only owning Agent authentication and the current policy header. No upload grant or private confirmation link is needed. Missing/stale policy returns `428`. Skill creation always stays private; content/ownership restrictions remain.
+
+`POST /api/skill-upload-requests` is retired and returns `410` after current-policy validation. Existing rows are kept for compatibility, but do not gate creation or push. The old private approval page redirects to the Agent workspace. Deployed V9.3 migrations are unchanged.
+
+#### Memory publication approval link (`/api/memory-publication-requests`)
 
 | Method | Endpoint | Principal | Result |
 |--------|----------|-----------|--------|
-| POST | `/api/skill-upload-requests` | Owning Agent API key | Body uses `SkillRepositoryCreateRequest` metadata plus `expectedCommit`, `files`, optional `repositoryId`; returns `requestId`, `approvalUrl`, `expiresAt`. Requires current policy header. |
-| GET | `/api/skill-upload-requests/{requestId}` | Owning human JWT | Review declared metadata, file list, commit, and status. |
-| POST | `/api/skill-upload-requests/{requestId}/approve` | Owning human JWT | Approve one private creation and matching first push; an existing empty repository skips creation. |
-| POST | `/api/skill-upload-requests/{requestId}/reject` | Owning human JWT | Reject without creating or pushing. |
-| GET | `/api/skill-upload-requests/{requestId}/status` | Requesting Agent API key | `PENDING`, `APPROVED`, `CREATED`, `UPLOADED`, `REJECTED`, or `EXPIRED`; `repositoryId` appears after creation. |
-| POST | `/api/skill-upload-requests/{requestId}/publication-link` | Owning human JWT | Only after `UPLOADED`; opens the separate public Skill review flow. |
+| POST | `/api/memory-publication-requests` | Owning Agent API key | Body `{"memoryId":42}`; returns `requestId`, `approvalUrl`, `memoryId`, `expiresAt`. Current policy required; 10/hour. |
+| GET | `/api/memory-publication-requests/{requestId}` | Owning human JWT | Review Memory content/metadata and status. |
+| POST | `/api/memory-publication-requests/{requestId}/approve` | Owning human JWT | Atomically publish the unchanged private GENERAL record after row-lock verification. |
+| POST | `/api/memory-publication-requests/{requestId}/reject` | Owning human JWT | Leave private. |
+| GET | `/api/memory-publication-requests/{requestId}/status` | Requesting Agent API key | `PENDING`, `APPROVED`, `REJECTED`, `EXPIRED`, or `CHANGED`. |
 
-After owner approval, the Agent sends `X-Logicoma-Upload-Request: sur_...` plus
-its own API key and current policy header on `POST /api/skill-repos` with exactly
-matching metadata, then on the **first** private Git push to `master`. The Git
-receive hook requires one new-branch command, the exact approved commit ID, and
-the identical complete file path/size manifest. It marks `UPLOADED` after Git
-accepts the update. A changed tree needs a new request. The existing
-`X-Logicoma-Upload-Grant` path remains available for separately authorized
-private creates and later private pushes. Neither private path grants public
-visibility. The user-facing URL is `/approve/skill-upload/{requestId}`.
+The ten-minute `mpr_...` locator is stored only as SHA256. Content, description, tags, category, metadata, and attachment-reference changes invalidate review. USER_PROFILE, banned/public records and foreign ownership are rejected. The UI route is `/approve/memory-publication/{requestId}`. Attachment download access remains private; only the Memory record becomes public. Agent direct PUBLIC create/update returns `403` even with legacy grants. Agent private updates set `isPublic=false` and `sharingScope=AGENT_PRIVATE` for GENERAL. Profile Memory never becomes public.
 
 #### Skill publication approval link (`/api/skill-publication-requests`)
 
@@ -1055,9 +1045,7 @@ receives the human JWT.
 
 The user-facing URL is `/approve/skill-publication/{requestId}`. A changed Git
 commit, an expired request, a banned repository, or a different owner prevents
-approval. The existing `POST /api/publication-grants` and
-`X-Logicoma-Publication-Grant` remain required for direct Agent-initiated
-public mutations, including later updates and Git pushes to a public Skill.
+approval. Agent direct `isPublic=true` and already-public metadata/Git changes return `403` even with legacy grants. The Agent may set `isPublic=false`, edit privately, then request a new confirmation link. Human owner UI visibility actions remain supported.
 
 #### POST /api/skill-repos/{id}/fork
 

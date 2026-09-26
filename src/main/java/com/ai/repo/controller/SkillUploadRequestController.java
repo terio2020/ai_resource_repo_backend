@@ -34,8 +34,7 @@ public class SkillUploadRequestController {
     public ResponseEntity<Result<SkillUploadRequestService.Created>> create(
             @Valid @RequestBody SkillUploadRequestCreateRequest body, HttpServletRequest request) {
         AgentMutationPolicy.requireCurrent(request);
-        return Result.ok(uploadService.create((Long) request.getAttribute("agentId"),
-                (Long) request.getAttribute("userId"), body));
+        throw new BusinessException(410, "Private uploads no longer need approval; create a private Skill and push with the Agent key");
     }
 
     @GetMapping("/{requestId}")

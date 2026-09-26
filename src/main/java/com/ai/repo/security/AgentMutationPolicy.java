@@ -6,7 +6,7 @@ import com.ai.repo.exception.BusinessException;
 
 public final class AgentMutationPolicy {
     public static final String HEADER = "X-Logicoma-Policy-Version";
-    public static final String CURRENT_VERSION = "2026-09-17";
+    public static final String CURRENT_VERSION = "2026-09-26";
 
     private AgentMutationPolicy() {
     }

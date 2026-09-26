@@ -119,6 +119,18 @@ class SkillPublicationRequestServiceImplTest {
         verify(repositoryService, never()).setVisibility(any(), any(), anyBoolean());
     }
 
+    @Test
+    void metadataChangeInvalidatesReviewWithoutChangingCommit() {
+        SkillPublicationRequest request = pendingRequest();
+        when(requestMapper.selectByTokenHash(any())).thenReturn(request);
+        when(repositoryService.findById(42L)).thenReturn(repo);
+        repo.setDescription("Not reviewed by the owner");
+        assertEquals("CHANGED", service.status(requestId(), 5L).status());
+        assertEquals(409, assertThrows(BusinessException.class,
+                () -> service.approve(requestId(), 1L)).getCode());
+        verify(repositoryService, never()).setVisibility(any(), any(), anyBoolean());
+    }
+
     private SkillPublicationRequest pendingRequest() {
         SkillPublicationRequest request = new SkillPublicationRequest();
         request.setId(7L);
@@ -127,6 +139,7 @@ class SkillPublicationRequestServiceImplTest {
         request.setAgentId(5L);
         request.setRepositoryId(42L);
         request.setHeadCommit("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        request.setMetadataHash(ReflectionTestUtils.invokeMethod(service, "metadataHash", repo));
         request.setStatus("PENDING");
         request.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         return request;

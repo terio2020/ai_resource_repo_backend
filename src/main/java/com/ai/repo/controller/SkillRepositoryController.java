@@ -8,6 +8,7 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.AgentMutationPolicy;
+import com.ai.repo.util.SkillMutationLock;
 import com.ai.repo.service.AgentService;
 import com.ai.repo.service.RepoRatingService;
 import com.ai.repo.dto.FileTreeEntry;
@@ -16,8 +17,6 @@ import com.ai.repo.dto.RepoRatingRequest;
 import com.ai.repo.dto.RepoRatingResponse;
 import com.ai.repo.dto.SkillRepositoryCreateRequest;
 import com.ai.repo.dto.SkillRepositoryUpdateRequest;
-import com.ai.repo.service.PublicationGrantService;
-import com.ai.repo.service.SkillUploadRequestService;
 import com.ai.repo.service.SkillRepositoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -55,12 +54,6 @@ public class SkillRepositoryController {
 
     @Resource
     private AgentService agentService;
-
-    @Resource
-    private PublicationGrantService publicationGrantService;
-
-    @Resource
-    private SkillUploadRequestService skillUploadRequestService;
 
     @GetMapping("/{id}")
     @RequireAuth
@@ -177,14 +170,6 @@ public class SkillRepositoryController {
             throw new BusinessException(403, "Only agents can create skill repositories");
         }
         AgentMutationPolicy.requireCurrent(httpRequest);
-        String uploadRequestId = httpRequest.getHeader("X-Logicoma-Upload-Request");
-        if (uploadRequestId != null && !uploadRequestId.isBlank()) {
-            skillUploadRequestService.claimCreate(uploadRequestId, userId, agentId, request);
-        } else {
-            publicationGrantService.consume(
-                    httpRequest.getHeader("X-Logicoma-Upload-Grant"),
-                    userId, agentId, "SKILL_REPOSITORY_CREATE", null, request.getSkillName());
-        }
         SkillRepository repo = new SkillRepository();
         repo.setAgentId(agentId);
         repo.setUserId(userId);
@@ -197,9 +182,6 @@ public class SkillRepositoryController {
         repo.setIsPublic(false);
         repo.setEnabled(true);
         SkillRepository created = skillRepositoryService.create(repo);
-        if (uploadRequestId != null && !uploadRequestId.isBlank()) {
-            skillUploadRequestService.finishCreate(uploadRequestId, created.getId());
-        }
         return Result.ok(created);
     }
 
@@ -241,6 +223,7 @@ public class SkillRepositoryController {
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
             @Parameter(description = "New visibility status") @RequestParam boolean isPublic,
             HttpServletRequest httpRequest) {
+        try (SkillMutationLock ignored = SkillMutationLock.acquire(id)) {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         SkillRepository repo = skillRepositoryService.findById(id);
@@ -250,13 +233,12 @@ public class SkillRepositoryController {
                 throw new BusinessException(403, "Only the owning Agent can change visibility");
             }
             if (isPublic) {
-                publicationGrantService.consume(
-                        httpRequest.getHeader("X-Logicoma-Publication-Grant"),
-                        userId, agentId, "SKILL_REPOSITORY", id, null);
+                throw new BusinessException(403, "Use a Skill publication approval link; only the owner can confirm publication");
             }
         }
         skillRepositoryService.setVisibility(id, userId, isPublic);
         return Result.okMessage(isPublic ? "Repository set to public" : "Repository set to private");
+        }
     }
 
     @GetMapping("/public")
@@ -287,6 +269,7 @@ public class SkillRepositoryController {
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
             @Valid @RequestBody SkillRepositoryUpdateRequest request,
             HttpServletRequest httpRequest) {
+        try (SkillMutationLock ignored = SkillMutationLock.acquire(id)) {
         Long agentId = (Long) httpRequest.getAttribute("agentId");
         AgentMutationPolicy.requireCurrent(httpRequest);
         SkillRepository existing = skillRepositoryService.findById(id);
@@ -294,10 +277,7 @@ public class SkillRepositoryController {
             throw new BusinessException(403, "Only the owning Agent can update this repository");
         }
         if (Boolean.TRUE.equals(existing.getIsPublic())) {
-            publicationGrantService.consume(
-                    httpRequest.getHeader("X-Logicoma-Publication-Grant"),
-                    (Long) httpRequest.getAttribute("userId"), agentId,
-                    "SKILL_REPOSITORY", id, null);
+            throw new BusinessException(403, "Make the Skill private before editing, then request a new publication approval link");
         }
         SkillRepository updates = new SkillRepository();
         updates.setId(id);
@@ -310,6 +290,7 @@ public class SkillRepositoryController {
         updates.setEnabled(request.getEnabled());
         SkillRepository updated = skillRepositoryService.updateMetadata(updates);
         return Result.ok(updated);
+        }
     }
 
     @DeleteMapping("/{id}")
