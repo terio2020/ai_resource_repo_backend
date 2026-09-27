@@ -7,6 +7,8 @@ import com.ai.repo.exception.FileNotAllowedException;
 import com.ai.repo.exception.RepositoryNotFoundException;
 import com.ai.repo.mapper.SkillRepositoryMapper;
 import com.ai.repo.service.SkillRepositoryService;
+import com.ai.repo.service.SkillRepositoryContentValidator;
+import com.ai.repo.util.SkillMutationLock;
 import com.ai.repo.util.UuidUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -176,12 +178,25 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
     @Override
     @Transactional
     public void setVisibility(Long repoId, Long requestUserId, boolean isPublic) {
-        SkillRepository repo = findById(repoId);
-        if (repo.getUserId() == null || !repo.getUserId().equals(requestUserId)) {
-            throw new BusinessException(403, "Only the owning user can change visibility");
+        try (SkillMutationLock ignored = SkillMutationLock.acquire(repoId)) {
+            SkillRepository repo = findById(repoId);
+            if (repo.getUserId() == null || !repo.getUserId().equals(requestUserId)) {
+                throw new BusinessException(403, "Only the owning user can change visibility");
+            }
+            if (isPublic) {
+                if (repo.getRepoPath() == null) {
+                    throw new BusinessException(409, "Skill Git repository is unavailable");
+                }
+                try (Repository git = openRepository(Paths.get(repo.getRepoPath()))) {
+                    ObjectId head = git.resolve("refs/heads/master");
+                    SkillRepositoryContentValidator.validate(git, head, repo.getSkillName());
+                } catch (IOException | IllegalArgumentException e) {
+                    throw new BusinessException(409, "Skill history is not safe to publish: " + e.getMessage());
+                }
+            }
+            skillRepositoryMapper.updateVisibility(repoId, isPublic);
+            log.info("Repository {} visibility set to {} by user {}", repoId, isPublic, requestUserId);
         }
-        skillRepositoryMapper.updateVisibility(repoId, isPublic);
-        log.info("Repository {} visibility set to {} by user {}", repoId, isPublic, requestUserId);
     }
 
     @Override

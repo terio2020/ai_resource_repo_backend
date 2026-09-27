@@ -321,13 +321,52 @@ class SkillRepositoryServiceImplTest {
     // ==================== setVisibility ====================
 
     @Test
-    void setVisibility_shouldUpdate_whenOwner() {
+    void setVisibility_shouldUpdate_whenOwner() throws Exception {
         SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        preparePublicationHistory(repo, false);
         when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
 
         service.setVisibility(1L, 1L, true);
 
         verify(skillRepositoryMapper).updateVisibility(1L, true);
+    }
+
+    @Test
+    void setVisibility_shouldRejectForbiddenHistoryBeforePublishing() throws Exception {
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        preparePublicationHistory(repo, true);
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.setVisibility(1L, 1L, true));
+        assertEquals(409, error.getCode());
+        verify(skillRepositoryMapper, never()).updateVisibility(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void setVisibility_shouldAllowMakingUnsafeRepositoryPrivate() {
+        SkillRepository repo = createSampleRepo(1L, 10L, "weather");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(repo);
+        assertDoesNotThrow(() -> service.setVisibility(1L, 1L, false));
+        verify(skillRepositoryMapper).updateVisibility(1L, false);
+    }
+
+    private void preparePublicationHistory(SkillRepository repo, boolean forbidden) throws Exception {
+        Path dir = java.nio.file.Files.createTempDirectory(tempDir, "publication-");
+        try (org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.init().setDirectory(dir.toFile())
+                .setInitialBranch("master").call()) {
+            java.nio.file.Files.writeString(dir.resolve("SKILL.md"),
+                    "---\nname: weather\ndescription: Synthetic test\n---\n");
+            if (forbidden) java.nio.file.Files.writeString(dir.resolve(".env"), "SYNTHETIC=not-a-secret\n");
+            git.add().addFilepattern(".").call();
+            git.commit().setAuthor("test", "test@example.com").setCommitter("test", "test@example.com")
+                    .setMessage("synthetic fixture").call();
+            if (forbidden) {
+                git.rm().addFilepattern(".env").call();
+                git.commit().setAuthor("test", "test@example.com").setCommitter("test", "test@example.com")
+                        .setMessage("delete synthetic config").call();
+            }
+            repo.setRepoPath(git.getRepository().getDirectory().getAbsolutePath());
+        }
     }
 
     @Test

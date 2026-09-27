@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -58,10 +59,16 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     @Override
     public void requestPasswordReset(String email) {
         // Rate limiting - check if request was made recently
+        email = email.trim().toLowerCase(Locale.ROOT);
         String rateLimitKey = "password_reset_rate:" + email;
-        Boolean exists = redisTemplate.hasKey(rateLimitKey);
-        if (Boolean.TRUE.equals(exists)) {
-            throw new BusinessException(429, "Please wait before requesting another password reset email");
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
+                rateLimitKey, "1", RATE_LIMIT_SECONDS, TimeUnit.SECONDS);
+        if (acquired == null) {
+            throw new BusinessException(503, "Password reset is temporarily unavailable");
+        }
+        if (!acquired) {
+            // Same successful response for known/unknown and throttled emails.
+            return;
         }
 
         User user = userMapper.selectByEmail(email);
@@ -80,9 +87,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         // Store token in Redis with user ID
         redisTemplate.opsForValue().set(redisKey, user.getId().toString(), TOKEN_EXPIRE_MINUTES, TimeUnit.MINUTES);
         
-        // Set rate limit
-        redisTemplate.opsForValue().set(rateLimitKey, "1", RATE_LIMIT_SECONDS, TimeUnit.SECONDS);
-
         // Send email
         try {
             sendResetEmail(user.getEmail(), token, user.getUsername());

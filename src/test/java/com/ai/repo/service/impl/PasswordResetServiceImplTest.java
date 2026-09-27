@@ -88,7 +88,7 @@ class PasswordResetServiceImplTest {
         user.setEmail(VALID_EMAIL);
         user.setUsername("testuser");
 
-        when(redisTemplate.hasKey("password_reset_rate:" + VALID_EMAIL)).thenReturn(false);
+        when(valueOperations.setIfAbsent("password_reset_rate:" + VALID_EMAIL, "1", 60L, TimeUnit.SECONDS)).thenReturn(true);
         when(userMapper.selectByEmail(VALID_EMAIL)).thenReturn(user);
         lenient().doNothing().when(valueOperations).set(anyString(), any(Object.class), anyLong(), any(TimeUnit.class));
         doNothing().when(javaMailSender).send(any(SimpleMailMessage.class));
@@ -105,13 +105,83 @@ class PasswordResetServiceImplTest {
     @Test
     void requestPasswordReset_shouldNotThrow_whenEmailNotFound() {
         // Given
-        when(redisTemplate.hasKey("password_reset_rate:" + NONEXISTENT_EMAIL)).thenReturn(false);
+        when(valueOperations.setIfAbsent("password_reset_rate:" + NONEXISTENT_EMAIL, "1", 60L, TimeUnit.SECONDS)).thenReturn(true);
         when(userMapper.selectByEmail(NONEXISTENT_EMAIL)).thenReturn(null);
 
         // When / Then — should NOT throw despite no user found (account enumeration prevention)
         assertDoesNotThrow(() -> passwordResetService.requestPasswordReset(NONEXISTENT_EMAIL));
         verify(userMapper).selectByEmail(NONEXISTENT_EMAIL);
         verify(javaMailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void requestPasswordReset_shouldKeepRepeatedRequestsIndistinguishable() {
+        User user = new User();
+        user.setId(USER_ID);
+        user.setEmail(VALID_EMAIL);
+        user.setUsername("testuser");
+        lenient().when(userMapper.selectByEmail(VALID_EMAIL)).thenReturn(user);
+        lenient().when(redisTemplate.hasKey("password_reset_rate:" + VALID_EMAIL))
+                .thenReturn(false, true);
+        lenient().when(valueOperations.setIfAbsent(eq("password_reset_rate:" + VALID_EMAIL),
+                eq("1"), eq(60L), eq(TimeUnit.SECONDS))).thenReturn(true, false);
+        assertDoesNotThrow(() -> passwordResetService.requestPasswordReset(VALID_EMAIL));
+        assertDoesNotThrow(() -> passwordResetService.requestPasswordReset(VALID_EMAIL));
+        verify(javaMailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void requestPasswordReset_shouldThrottleUnknownEmailsBeforeLookup() {
+        when(valueOperations.setIfAbsent("password_reset_rate:" + NONEXISTENT_EMAIL,
+                "1", 60L, TimeUnit.SECONDS)).thenReturn(true, false);
+        when(userMapper.selectByEmail(NONEXISTENT_EMAIL)).thenReturn(null);
+        assertDoesNotThrow(() -> passwordResetService.requestPasswordReset(NONEXISTENT_EMAIL));
+        assertDoesNotThrow(() -> passwordResetService.requestPasswordReset(NONEXISTENT_EMAIL));
+        verify(userMapper, times(1)).selectByEmail(NONEXISTENT_EMAIL);
+        verifyNoInteractions(javaMailSender);
+    }
+
+    @Test
+    void requestPasswordReset_shouldNormalizeRateLimitIdentity() {
+        when(valueOperations.setIfAbsent("password_reset_rate:" + VALID_EMAIL,
+                "1", 60L, TimeUnit.SECONDS)).thenReturn(false);
+        assertDoesNotThrow(() -> passwordResetService.requestPasswordReset(" " + VALID_EMAIL.toUpperCase(java.util.Locale.ROOT) + " "));
+        verifyNoInteractions(userMapper, javaMailSender);
+    }
+
+    @Test
+    void requestPasswordReset_shouldFailClosedWhenRedisDoesNotReturnAResult() {
+        when(valueOperations.setIfAbsent("password_reset_rate:" + VALID_EMAIL,
+                "1", 60L, TimeUnit.SECONDS)).thenReturn(null);
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> passwordResetService.requestPasswordReset(VALID_EMAIL));
+        assertEquals(503, error.getCode());
+        verifyNoInteractions(userMapper, javaMailSender);
+    }
+
+    @Test
+    void requestPasswordReset_shouldSendAtMostOneMailForConcurrentRequests() throws Exception {
+        var claimed = new java.util.concurrent.atomic.AtomicBoolean();
+        when(valueOperations.setIfAbsent("password_reset_rate:" + VALID_EMAIL,
+                "1", 60L, TimeUnit.SECONDS)).thenAnswer(invocation -> claimed.compareAndSet(false, true));
+        User user = new User();
+        user.setId(USER_ID);
+        user.setEmail(VALID_EMAIL);
+        user.setUsername("testuser");
+        when(userMapper.selectByEmail(VALID_EMAIL)).thenReturn(user);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(4);
+        try {
+            var tasks = new java.util.ArrayList<java.util.concurrent.Callable<Void>>();
+            for (int i = 0; i < 12; i++) tasks.add(() -> {
+                passwordResetService.requestPasswordReset(VALID_EMAIL);
+                return null;
+            });
+            for (var result : executor.invokeAll(tasks)) result.get();
+        } finally {
+            executor.shutdownNow();
+        }
+        verify(userMapper, times(1)).selectByEmail(VALID_EMAIL);
+        verify(javaMailSender, times(1)).send(any(SimpleMailMessage.class));
     }
 
     @Test

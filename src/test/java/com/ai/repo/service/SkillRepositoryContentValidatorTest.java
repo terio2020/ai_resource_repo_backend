@@ -83,6 +83,74 @@ class SkillRepositoryContentValidatorTest {
         return new CommittedRepository(git, git.getRepository(), commitId);
     }
 
+    @Test
+    void validate_shouldRejectDeletedPrivateFileInHistory() throws Exception {
+        try (CommittedRepository committed = commit(Map.of(
+                "SKILL.md", "---\nname: test-skill\ndescription: Test\n---\n",
+                ".env", "SYNTHETIC_TEST_ONLY=not-a-secret\n"))) {
+            committed.git().rm().addFilepattern(".env").call();
+            ObjectId cleanHead = committed.git().commit().setAuthor("test", "test@example.com")
+                    .setCommitter("test", "test@example.com").setMessage("remove synthetic config").call().getId();
+            assertThrows(IllegalArgumentException.class, () ->
+                    SkillRepositoryContentValidator.validate(committed.repository(), cleanHead, "test-skill"));
+        }
+    }
+
+    @Test
+    void validate_shouldAllowSafeHistoryBeforeEntrypointWasAdded() throws Exception {
+        try (CommittedRepository committed = commit(Map.of("README.md", "Initial draft\n"))) {
+            Files.writeString(committed.repository().getWorkTree().toPath().resolve("SKILL.md"),
+                    "---\nname: test-skill\ndescription: Test\n---\n");
+            committed.git().add().addFilepattern("SKILL.md").call();
+            ObjectId head = committed.git().commit().setAuthor("test", "test@example.com")
+                    .setCommitter("test", "test@example.com").setMessage("add entrypoint").call().getId();
+            assertDoesNotThrow(() -> SkillRepositoryContentValidator.validate(
+                    committed.repository(), head, "test-skill"));
+        }
+    }
+
+    @Test
+    void validate_shouldInspectNonFirstMergeParentHistory() throws Exception {
+        try (CommittedRepository committed = commit(Map.of(
+                "SKILL.md", "---\nname: test-skill\ndescription: Test\n---\n"))) {
+            Git git = committed.git();
+            String original = committed.repository().getBranch();
+            git.checkout().setCreateBranch(true).setName("side-history").call();
+            Files.writeString(committed.repository().getWorkTree().toPath().resolve(".env"), "SYNTHETIC=not-a-secret\n");
+            git.add().addFilepattern(".env").call();
+            git.commit().setAuthor("test", "test@example.com").setCommitter("test", "test@example.com")
+                    .setMessage("synthetic private file").call();
+            git.rm().addFilepattern(".env").call();
+            ObjectId side = git.commit().setAuthor("test", "test@example.com").setCommitter("test", "test@example.com")
+                    .setMessage("clean side tip").call().getId();
+            git.checkout().setName(original).call();
+            var config = committed.repository().getConfig();
+            config.setString("user", null, "name", "test");
+            config.setString("user", null, "email", "test@example.com");
+            config.save();
+            ObjectId merged = git.merge().include(side)
+                    .setFastForward(org.eclipse.jgit.api.MergeCommand.FastForwardMode.NO_FF)
+                    .setStrategy(org.eclipse.jgit.merge.MergeStrategy.OURS).call().getNewHead();
+            assertThrows(IllegalArgumentException.class, () -> SkillRepositoryContentValidator.validate(
+                    committed.repository(), merged, "test-skill"));
+        }
+    }
+
+    @Test
+    void validate_shouldRejectExcessiveHistoryEvenWithIdenticalTrees() throws Exception {
+        try (CommittedRepository committed = commit(Map.of(
+                "SKILL.md", "---\nname: test-skill\ndescription: Test\n---\n"))) {
+            ObjectId head = committed.commitId();
+            for (int i = 0; i < SkillRepositoryContentValidator.MAX_HISTORY_COMMITS; i++) {
+                head = committed.git().commit().setAllowEmpty(true).setAuthor("test", "test@example.com")
+                        .setCommitter("test", "test@example.com").setMessage("version " + i).call().getId();
+            }
+            ObjectId finalHead = head;
+            assertThrows(IllegalArgumentException.class, () -> SkillRepositoryContentValidator.validate(
+                    committed.repository(), finalHead, "test-skill"));
+        }
+    }
+
     private record CommittedRepository(Git git, Repository repository, ObjectId commitId)
             implements AutoCloseable {
         @Override

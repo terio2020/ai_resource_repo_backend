@@ -6,6 +6,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,6 +27,8 @@ public final class SkillRepositoryContentValidator {
     public static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
     public static final long MAX_TREE_SIZE_BYTES = 20L * 1024 * 1024;
     public static final long MAX_SKILL_FILE_SIZE_BYTES = 1024L * 1024;
+    public static final int MAX_HISTORY_COMMITS = 1000;
+    public static final long MAX_HISTORY_SIZE_BYTES = 100L * 1024 * 1024;
 
     private static final Set<String> FORBIDDEN_FILE_NAMES = Set.of(
             ".env", "credential", "credentials", "heartbeat-state.json", "agent-profile.md",
@@ -91,6 +94,57 @@ public final class SkillRepositoryContentValidator {
             throw new IllegalArgumentException("root SKILL.md is required");
         }
         validateSkillFile(skillContents, expectedSkillName);
+        validateHistorySafety(repository, commitId);
+    }
+
+    // Git transfers reachable ancestors too. Deleting a forbidden path at HEAD
+    // must not make its historical contents safe to upload or publish.
+    private static void validateHistorySafety(Repository repository, ObjectId commitId) throws IOException {
+        Set<ObjectId> trees = new HashSet<>();
+        Set<ObjectId> blobs = new HashSet<>();
+        long historySize = 0;
+        int commits = 0;
+        try (RevWalk walk = new RevWalk(repository)) {
+            walk.markStart(walk.parseCommit(commitId));
+            for (RevCommit commit : walk) {
+                if (++commits > MAX_HISTORY_COMMITS) {
+                    throw new IllegalArgumentException("repository history exceeds 1000 commits");
+                }
+                if (!trees.add(commit.getTree().getId())) {
+                    continue;
+                }
+                int files = 0;
+                long treeSize = 0;
+                try (TreeWalk tree = new TreeWalk(repository)) {
+                    tree.addTree(commit.getTree());
+                    tree.setRecursive(true);
+                    while (tree.next()) {
+                        String path = tree.getPathString();
+                        FileMode mode = tree.getFileMode(0);
+                        if (FileMode.SYMLINK.equals(mode) || FileMode.GITLINK.equals(mode)) {
+                            throw new IllegalArgumentException("unsafe symbolic link or submodule in history: " + path);
+                        }
+                        rejectForbiddenPath(path);
+                        ObjectId blob = tree.getObjectId(0);
+                        long size = repository.open(blob, Constants.OBJ_BLOB).getSize();
+                        if (size > MAX_FILE_SIZE_BYTES || ("SKILL.md".equals(path)
+                                && size > MAX_SKILL_FILE_SIZE_BYTES)) {
+                            throw new IllegalArgumentException("oversized file in repository history: " + path);
+                        }
+                        treeSize += size;
+                        if (++files > MAX_FILES || treeSize > MAX_TREE_SIZE_BYTES) {
+                            throw new IllegalArgumentException("historical tree exceeds repository limits");
+                        }
+                        if (blobs.add(blob)) {
+                            historySize += size;
+                            if (historySize > MAX_HISTORY_SIZE_BYTES) {
+                                throw new IllegalArgumentException("repository history exceeds 100 MiB of unique file content");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static void rejectForbiddenPath(String path) {

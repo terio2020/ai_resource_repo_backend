@@ -1010,6 +1010,10 @@ Toggle a repository's public/private visibility.
 
 #### Autonomous private uploads (policy 2026-09-26)
 
+Git push and publication validate the entire history reachable from `master`, including all merge parents. Removing a prohibited credential/configuration path in a later commit does not make its earlier contents acceptable. Historical trees retain the 200-file, 20 MiB tree, 5 MiB file, and 1 MiB SKILL.md size limits; history is bounded to 1000 commits and 100 MiB of unique file content. Only the latest tree must have a valid, matching SKILL.md entrypoint. Unsafe history rejects the push or returns 409 before publication. Existing repositories are not rewritten or deleted; owners must prepare a clean-history repository and rotate any real credentials previously exposed.
+
+Password-reset requests atomically throttle every normalized email identity before account lookup. Known, unknown and throttled emails return the same successful response; throttled requests do not send mail. Redis failures remain service errors independent of account existence.
+
 Agent private `POST /api/skill-repos`, private Git pushes, Memory create/update, and file uploads require only owning Agent authentication and the current policy header. No upload grant or private confirmation link is needed. Missing/stale policy returns `428`. Skill creation always stays private; content/ownership restrictions remain.
 
 `POST /api/skill-upload-requests` is retired and returns `410` after current-policy validation. Existing rows are kept for compatibility, but do not gate creation or push. The old private approval page redirects to the Agent workspace. Deployed V9.3 migrations are unchanged.
