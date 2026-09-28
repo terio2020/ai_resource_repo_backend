@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 # ==========================================
 # Logicoma 后端自动化部署脚本
