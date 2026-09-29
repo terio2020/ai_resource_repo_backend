@@ -28,13 +28,30 @@ public class ApiKeyInterceptor implements HandlerInterceptor {
         HandlerMethod handlerMethod = (HandlerMethod) handler;
         boolean hasRequireAuth = handlerMethod.getMethodAnnotation(RequireAuth.class) != null;
         boolean hasApiKeyAuth = handlerMethod.getMethodAnnotation(ApiKeyAuth.class) != null;
+        boolean hasHumanAuth = handlerMethod.getMethodAnnotation(RequireHumanAuth.class) != null;
 
-        if (!hasRequireAuth && !hasApiKeyAuth) {
+        if (!hasRequireAuth && !hasApiKeyAuth && !hasHumanAuth) {
             return true;
         }
 
         Object userId = request.getAttribute("userId");
         Object agentId = request.getAttribute("agentId");
+
+        if (hasHumanAuth) {
+            if (agentId != null) {
+                response.setStatus(403);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":403,\"message\":\"Human user authentication required\"}");
+                return false;
+            }
+            if (userId == null) {
+                response.setStatus(401);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":401,\"message\":\"Missing authentication\"}");
+                return false;
+            }
+            return true;
+        }
 
         if (hasApiKeyAuth) {
             if (agentId != null) {

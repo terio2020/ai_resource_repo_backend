@@ -64,6 +64,44 @@ class ApiKeyInterceptorTest {
     }
 
     @Test
+    void preHandle_humanOnlyRouteRejectsVerifiedAgentEvenWithOwnerUserId() throws Exception {
+        stubHumanOnlyRoute();
+        when(request.getAttribute("userId")).thenReturn(1L);
+        when(request.getAttribute("agentId")).thenReturn(5L);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+
+        assertFalse(interceptor.preHandle(request, response, handlerMethod));
+        verify(response).setStatus(403);
+        assertTrue(body.toString().contains("Human user authentication required"));
+        verifyNoInteractions(agentService);
+    }
+
+    @Test
+    void preHandle_humanOnlyRouteAllowsHumanJwt() throws Exception {
+        stubHumanOnlyRoute();
+        when(request.getAttribute("userId")).thenReturn(1L);
+
+        assertTrue(interceptor.preHandle(request, response, handlerMethod));
+    }
+
+    @Test
+    void preHandle_humanOnlyRouteRejectsAnonymous() throws Exception {
+        stubHumanOnlyRoute();
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+
+        assertFalse(interceptor.preHandle(request, response, handlerMethod));
+        verify(response).setStatus(401);
+    }
+
+    private void stubHumanOnlyRoute() {
+        doReturn(mock(RequireAuth.class)).when(handlerMethod).getMethodAnnotation(RequireAuth.class);
+        doReturn(null).when(handlerMethod).getMethodAnnotation(ApiKeyAuth.class);
+        doReturn(mock(RequireHumanAuth.class)).when(handlerMethod).getMethodAnnotation(RequireHumanAuth.class);
+    }
+
+    @Test
     void preHandle_shouldReturnTrue_whenNoAuthAnnotation() throws Exception {
         when(handlerMethod.getMethodAnnotation(RequireAuth.class)).thenReturn(null);
         when(handlerMethod.getMethodAnnotation(ApiKeyAuth.class)).thenReturn(null);

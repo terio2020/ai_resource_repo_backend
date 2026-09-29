@@ -4,6 +4,11 @@ import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.Comment;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.entity.User;
+import com.ai.repo.controller.AvatarController;
+import com.ai.repo.controller.UserController;
+import com.ai.repo.controller.UserSocialAccountController;
+import com.ai.repo.dto.PasswordChangeRequest;
+import com.ai.repo.dto.UserUpdateRequest;
 import com.ai.repo.exception.AuthenticationException;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.service.AgentService;
@@ -14,6 +19,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.aop.aspectj.annotation.AspectJProxyFactory;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.multipart.MultipartFile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -106,6 +114,81 @@ class PermissionCheckerTest {
             holder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
 
             assertThrows(AuthenticationException.class, () -> permissionChecker.checkAuth(joinPoint));
+        }
+    }
+
+    @Test
+    void checkHumanAuth_shouldPassForHumanAndRejectAgent() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            when(request.getAttribute("userId")).thenReturn(1L);
+            when(request.getAttribute("agentId")).thenReturn(null, 5L);
+
+            assertDoesNotThrow(() -> permissionChecker.checkHumanAuth(joinPoint));
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> permissionChecker.checkHumanAuth(joinPoint));
+            assertEquals(403, ex.getCode());
+        }
+    }
+
+    @Test
+    void checkHumanAuth_shouldRejectAnonymous() {
+        try (MockedStatic<RequestContextHolder> holder = mockStatic(RequestContextHolder.class)) {
+            holder.when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(new ServletRequestAttributes(request));
+            assertThrows(AuthenticationException.class,
+                    () -> permissionChecker.checkHumanAuth(joinPoint));
+        }
+    }
+
+    @Test
+    void humanAccountRoutesRequireHumanAuthentication() throws Exception {
+        assertHumanOnly(UserController.class, "updateUser", HttpServletRequest.class, UserUpdateRequest.class);
+        assertHumanOnly(UserController.class, "deleteUser", Long.class);
+        assertHumanOnly(UserController.class, "logout", HttpServletRequest.class);
+        assertHumanOnly(UserController.class, "changePassword", HttpServletRequest.class, PasswordChangeRequest.class);
+        assertHumanOnly(AvatarController.class, "uploadAvatar", Long.class, MultipartFile.class, HttpServletRequest.class);
+        assertHumanOnly(UserSocialAccountController.class, "getLinkedAccounts", HttpServletRequest.class);
+        assertHumanOnly(UserSocialAccountController.class, "unlinkSocialAccount", HttpServletRequest.class, String.class);
+    }
+
+    private void assertHumanOnly(Class<?> controller, String methodName, Class<?>... parameterTypes)
+            throws NoSuchMethodException {
+        Method method = controller.getDeclaredMethod(methodName, parameterTypes);
+        assertNotNull(method.getAnnotation(RequireAuth.class));
+        assertNotNull(method.getAnnotation(RequireHumanAuth.class));
+    }
+
+    @Test
+    void humanAuthAspectRejectsAgentBeforeControllerMethod() {
+        HumanAccountAction action = new HumanAccountAction();
+        AspectJProxyFactory factory = new AspectJProxyFactory(action);
+        factory.addAspect(permissionChecker);
+        HumanAccountAction securedAction = factory.getProxy();
+        MockHttpServletRequest agentRequest = new MockHttpServletRequest();
+        agentRequest.setAttribute("userId", 1L);
+        agentRequest.setAttribute("agentId", 5L);
+
+        try {
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(agentRequest));
+            BusinessException ex = assertThrows(BusinessException.class, securedAction::run);
+            assertEquals(403, ex.getCode());
+            assertEquals(0, action.invocations);
+            agentRequest.removeAttribute("agentId");
+            securedAction.run();
+            assertEquals(1, action.invocations);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    static class HumanAccountAction {
+        int invocations;
+
+        @RequireHumanAuth
+        public void run() {
+            invocations++;
         }
     }
 

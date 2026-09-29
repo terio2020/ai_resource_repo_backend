@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import com.ai.repo.common.Result;
 import com.ai.repo.entity.SocialAccount;
 import com.ai.repo.security.RequireAuth;
+import com.ai.repo.security.RequireHumanAuth;
 import com.ai.repo.service.SocialAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +25,7 @@ public class UserSocialAccountController {
 
     @GetMapping
     @RequireAuth
+    @RequireHumanAuth
     @Operation(summary = "Get linked social accounts", description = "Get all social accounts linked to current user")
     public ResponseEntity<Result<List<SocialAccount>>> getLinkedAccounts(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
@@ -40,6 +42,7 @@ public class UserSocialAccountController {
 
     @DeleteMapping("/{provider}")
     @RequireAuth
+    @RequireHumanAuth
     @Operation(summary = "Unlink social account", description = "Remove social account link from current user")
     public ResponseEntity<Result<Void>> unlinkSocialAccount(
             HttpServletRequest request,

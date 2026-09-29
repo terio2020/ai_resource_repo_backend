@@ -46,6 +46,17 @@ public class PermissionChecker {
         log.debug("Authentication check passed for user: {}", userId);
     }
 
+    @Before("@annotation(com.ai.repo.security.RequireHumanAuth)")
+    public void checkHumanAuth(JoinPoint joinPoint) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            throw new AuthenticationException("Authentication required");
+        }
+        if (getCurrentAgentId() != null) {
+            throw new BusinessException(403, "Human user authentication required");
+        }
+    }
+
     @Around("@annotation(com.ai.repo.security.RequireAdmin)")
     public Object checkAdmin(ProceedingJoinPoint joinPoint) throws Throwable {
         Long userId = getCurrentUserId();

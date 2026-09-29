@@ -4,6 +4,7 @@ import com.ai.repo.common.Result;
 import com.ai.repo.entity.User;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.security.RequireAuth;
+import com.ai.repo.security.RequireHumanAuth;
 import com.ai.repo.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,6 +48,7 @@ public class AvatarController {
 
     @PostMapping("/{userId}/avatar")
     @RequireAuth
+    @RequireHumanAuth
     @Operation(summary = "Upload avatar image")
     public ResponseEntity<Result<Map<String, String>>> uploadAvatar(
             @Parameter(description = "User ID") @PathVariable @Min(1) Long userId,

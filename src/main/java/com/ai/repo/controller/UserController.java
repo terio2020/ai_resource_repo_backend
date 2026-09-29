@@ -5,6 +5,7 @@ import com.ai.repo.common.Result;
 import com.ai.repo.dto.*;
 import com.ai.repo.entity.User;
 import com.ai.repo.security.RequireAuth;
+import com.ai.repo.security.RequireHumanAuth;
 import com.ai.repo.security.RequireOwnership;
 import com.ai.repo.service.TempTokenService;
 import com.ai.repo.service.UserService;
@@ -55,6 +56,7 @@ public class UserController {
 
     @PostMapping("/update")
     @RequireAuth
+    @RequireHumanAuth
     @Operation(summary = "Update user", description = "Update current user's information (partial update)")
     public ResponseEntity<Result<User>> updateUser(
             HttpServletRequest request,
@@ -101,6 +103,7 @@ public class UserController {
 
     @PostMapping("/deleteById")
     @RequireAuth
+    @RequireHumanAuth
     @RequireOwnership(resourceType = "user", idParam = "id")
     @Operation(summary = "Delete user", description = "Delete a user account (owner-only)")
     public ResponseEntity<Result<Void>> deleteUser(@Parameter(description = "User ID") @RequestParam @Min(1) Long id) {
@@ -153,6 +156,7 @@ public class UserController {
 
     @PostMapping("/logout")
     @RequireAuth
+    @RequireHumanAuth
     @Operation(summary = "User logout", description = "Logout user and invalidate tokens")
     public ResponseEntity<Result<Void>> logout(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
@@ -184,6 +188,7 @@ public class UserController {
 
     @PostMapping("/password/change")
     @RequireAuth
+    @RequireHumanAuth
     @Operation(summary = "Change password", description = "Change password for authenticated user (requires current password)")
     public ResponseEntity<Result<Void>> changePassword(
             HttpServletRequest request,
