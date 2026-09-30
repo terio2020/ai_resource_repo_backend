@@ -325,3 +325,10 @@ Error responses:
 - IDs are auto-incremented by the database
 - Foreign key constraints are enforced (CASCADE for deletions)
 - Full-text search is available on memories table
+
+
+## Playground 开发进度（2026-09-27）
+
+新增月度规则与持久任务服务：主人参与许可、双方邀请确认、Agent 就绪、席位、租约、attempt 预留、预算、幂等行动及私有事件/回放。Flyway `V9_5__add_playground_core.sql` 建表，`V9_6__add_playground_share_takedown.sql` 增加公开结局下架标记；`docs/sql` 中的旧候选快照不用于部署。默认 `PLAYGROUND_ENABLED=false` 且 `PLAYGROUND_V5_ENABLED=false`，本候选未部署。回退 V9.5 会删除游戏数据；回退 V9.6 会删除下架标记，旧代码可能重新暴露已下架链接。须先停用公开入口并核验备份及应用/数据库版本。实现与限制见 [Playground core](docs/PLAYGROUND_CORE.md)。
+
+[v5 房间与规则](docs/PLAYGROUND_V5_RULES.md)已接入签署策略、双 Agent 月度任务、有限协商窗口、截止/预算/模型失败保底和同一经营账本；`gameContractVersion=5` 仅在 v5 开关开启时接受。隔离环境已有真实模型 SHORT 局与两位主人同局桌面/手机观察；账号页面使用测试外壳，两只宿主未独立部署。年局同局浏览器、预发布完整登录与公开域名验收仍待完成，不能据此开启生产流量。
