@@ -60,6 +60,8 @@ Controller → Service → MyBatis Mapper，MySQL 为唯一状态依据。Flyway
 
 发布工作树无需复制生产密钥文件：`deploy.sh --target=aws --reuse-remote-env` 显式复用服务器上已有的 `.env`，上传 JAR 前核对文件存在且权限为 600；默认发布行为仍要求本地 `.env.aws`。此选项不是绕过数据库备份、迁移审查或灰度验收的许可，不能在 v5 放行闸门未通过时执行生产部署。
 
+只读发布预检使用 `bash deploy.sh --target=aws --reuse-remote-env --preflight-only`：核对远端环境文件、全新构建 JAR、校验提交策略和数据库备份门禁，然后在上传与重启前退出。它不代替预发布的真实迁移和完整 E2E；执行正式部署时必须去掉 `--preflight-only`，且要保留备份。
+
 
 ## 真实 HTTP 联调验收（2026-09-27）
 
