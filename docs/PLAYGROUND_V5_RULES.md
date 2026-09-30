@@ -1,6 +1,6 @@
 # Playground v5 房间与规则（默认关闭的上线候选）
 
-`PlaygroundService` 已接入 v5 房间：仅在总开关 `PLAYGROUND_ENABLED=true` 且 `PLAYGROUND_V5_ENABLED=true` 时接受新委托的 `gameContractVersion=5`。两个开关在 `application.yml` 中都默认为 `false`；现有 v2–v4 房间保持原合同与结算路径。本候选尚未部署，开关不能代替预发布验收。
+`PlaygroundService` 已接入 v5 房间：仅在总开关 `PLAYGROUND_ENABLED=true` 且 `PLAYGROUND_V5_ENABLED=true` 时接受新委托的 `gameContractVersion=5`。两个开关在 `application.yml` 中都默认为 `false`；第三虚拟月快招推销员另由默认关闭的 `PLAYGROUND_FRANCHISE_ENABLED` 控制，详见 [加盟规则](PLAYGROUND_FRANCHISE_RULES.md)。现有 v2–v4 房间保持原合同与结算路径。本候选尚未部署，开关不能代替预发布验收。
 
 签署提案中的 `strategy` 由 `V5StrategyContract` 严格解析，只接受 `audienceSegment`、`marketingChannel`、`servicePromise`、`monthlyMarketingBudgetMinor` 四个受控字段；产量、售价和现金预留沿用提案中的原有字段。自然语言不会直接变成收入或支出。`V5ShopRules` 将已签策略、服务端信号和有限选择交给 `MonthlyShopRules` 的库存、现金、销售与利润账本结算；旧 v4 调用不采用 v5 调整。
 
