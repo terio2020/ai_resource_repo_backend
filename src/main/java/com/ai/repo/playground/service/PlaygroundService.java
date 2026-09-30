@@ -26,6 +26,8 @@ import com.ai.repo.playground.rules.MonthlyShopRules;
 import com.ai.repo.playground.rules.ProposalAgreement;
 import com.ai.repo.playground.rules.PartnerDisclosure;
 import com.ai.repo.playground.rules.V5MonthlyWindow;
+import com.ai.repo.playground.rules.V5FranchiseOffer;
+import com.ai.repo.playground.rules.V5FranchiseWindow;
 import com.ai.repo.playground.rules.V5ShopRules;
 import com.ai.repo.playground.rules.V5StrategyContract;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -41,6 +43,7 @@ public class PlaygroundService {
     private final ObjectMapper json;
     private final boolean enabled;
     private final boolean v5Enabled;
+    private final boolean franchiseEnabled;
     private final Clock clock;
     private final MonthlyShopRules rules = new MonthlyShopRules();
     private final V5ShopRules v5Rules = new V5ShopRules();
@@ -49,8 +52,9 @@ public class PlaygroundService {
     @Autowired
     public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
                              ObjectMapper json, @Value("${playground.enabled:false}") boolean enabled,
-                             @Value("${playground.v5-enabled:false}") boolean v5Enabled) {
-        this(store, agents, users, json, enabled, v5Enabled, Clock.systemUTC());
+                             @Value("${playground.v5-enabled:false}") boolean v5Enabled,
+                             @Value("${playground.franchise-enabled:false}") boolean franchiseEnabled) {
+        this(store, agents, users, json, enabled, v5Enabled, franchiseEnabled, Clock.systemUTC());
     }
     public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
                              ObjectMapper json, boolean enabled, Clock clock) {
@@ -58,8 +62,14 @@ public class PlaygroundService {
     }
     public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
                              ObjectMapper json, boolean enabled, boolean v5Enabled, Clock clock) {
+        this(store,agents,users,json,enabled,v5Enabled,false,clock);
+    }
+    public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
+                             ObjectMapper json, boolean enabled, boolean v5Enabled,
+                             boolean franchiseEnabled, Clock clock) {
         this.store=store; this.agents=agents; this.users=users; this.json=json;
-        this.enabled=enabled; this.v5Enabled=v5Enabled; this.clock=clock;
+        this.enabled=enabled; this.v5Enabled=v5Enabled;
+        this.franchiseEnabled=franchiseEnabled; this.clock=clock;
     }
     public Participation participation(long userId, long agentId) {
         available(); owner(userId, agentId);
@@ -259,10 +269,11 @@ public class PlaygroundService {
         boolean skipOpportunity=!retry && state.getContractVersion()==4 && state.isNpcWindowOpen();
         boolean skipClosing=!retry && state.getContractVersion()>=4 && state.isClosingReplyPending();
         boolean settleV5=!retry && openV5Window(state);
+        boolean skipFranchise=!retry && openFranchiseWindow(state);
         Map<String,Object> failureFacts=new LinkedHashMap<>();
         failureFacts.put("reasonCode",request.reasonCode()); failureFacts.put("retryScheduled",retry);
         if (request.formatHint()!=null) failureFacts.put("formatHint",request.formatHint());
-        event(activity,"AGENT_FAILURE","ADAPTER",agentId,retry?"RETRYABLE":skipOpportunity || settleV5?"EXECUTED":"INTERRUPTED",failureFacts);
+        event(activity,"AGENT_FAILURE","ADAPTER",agentId,retry?"RETRYABLE":skipOpportunity || settleV5 || skipFranchise?"EXECUTED":"INTERRUPTED",failureFacts);
         if (retry) issueTask(activity,state,agentId);
         else {
             if (skipOpportunity) {
@@ -271,6 +282,7 @@ public class PlaygroundService {
                         Map.of("offerId",state.getNpcOrder().id(),"reason","MODEL_FAILURE"),1);
                 finishMonths(activity,state,null);
             } else if (skipClosing) closeWithoutReply(activity,state,"MODEL_FAILURE");
+            else if (skipFranchise) fallbackFranchise(activity,state,V5FranchiseWindow.Resolution.MODEL_FAILURE_FALLBACK);
             else if (settleV5) fallbackV5Month(activity,state,V5MonthlyWindow.Resolution.MODEL_FAILURE_FALLBACK);
             else interrupt(activity,"AGENT_DECISION_FAILED");
             store.cancelTasks(activity.getId());
@@ -306,7 +318,14 @@ public class PlaygroundService {
         seat.setDecisionsUsed(seat.getDecisionsUsed()+1); store.saveSeat(seat);
         state.getWindowDecisions().merge(agentId,1,Integer::sum);
         task.setStatus("DONE"); store.saveTask(task); attempt.setStatus("SUBMITTED"); store.saveAttempt(attempt);
-        if (activity.getStatus().equals("PLANNING") && openV5Window(state)) {
+        if (activity.getStatus().equals("PLANNING") && openFranchiseWindow(state)) {
+            long next=franchiseWindowActor(state.getFranchiseWindow());
+            if (canOfferTask(activity,state,next)) issueTask(activity,state,next);
+            else {
+                fallbackFranchise(activity,state,V5FranchiseWindow.Resolution.BUDGET_FALLBACK);
+                resumeV5AfterFallback(activity,state,V5MonthlyWindow.Resolution.BUDGET_FALLBACK);
+            }
+        } else if (activity.getStatus().equals("PLANNING") && openV5Window(state)) {
             long next=v5WindowActor(state.getV5Window());
             if (canOfferTask(activity,state,next)) issueTask(activity,state,next);
             else fallbackV5Month(activity,state,V5MonthlyWindow.Resolution.BUDGET_FALLBACK);
@@ -382,6 +401,8 @@ public class PlaygroundService {
             finishMonths(activity,state,null);
         } else if (state.getContractVersion()>=4 && state.isClosingReplyPending()) {
             closeWithoutReply(activity,state,"DEADLINE_EXPIRED");
+        } else if (openFranchiseWindow(state)) {
+            fallbackFranchise(activity,state,V5FranchiseWindow.Resolution.DEADLINE_FALLBACK);
         } else if (openV5Window(state)) {
             fallbackV5Month(activity,state,V5MonthlyWindow.Resolution.DEADLINE_FALLBACK);
         } else interrupt(activity,"DEADLINE_EXPIRED");
@@ -396,6 +417,10 @@ public class PlaygroundService {
         require(allowed(state).contains(type),400,"ACTION_NOT_ALLOWED"); JsonNode payload=action.get("payload");
         if (state.isNpcWindowOpen()) {
             reduceNpcOrder(activity,state,actor,type,payload,action);
+            return;
+        }
+        if (openFranchiseWindow(state)) {
+            reduceFranchise(activity,state,actor,type,payload,action);
             return;
         }
         if (openV5Window(state)) {
@@ -498,9 +523,74 @@ public class PlaygroundService {
             finishMonths(activity,state,approved?state.getNpcOrder():null);
         }
     }
+    private void reduceFranchise(Activity activity,PlaygroundRoomState state,long actor,
+                                 String type,JsonNode payload,JsonNode action) {
+        V5FranchiseWindow window=state.getFranchiseWindow();
+        if (type.equals("LEAVE")) {
+            fields(payload,Set.of("reason"));text(payload,"reason",300);
+            eventAtMonth(activity,"FRANCHISE_DECISION","USER_AGENT",actor,"INTERRUPTED",
+                    Map.of("action",action),state.getFranchiseOffer().appearsMonth());
+            interrupt(activity,"AGENT_LEFT");return;
+        }
+        boolean proposal=type.equals("PROPOSE_FRANCHISE") || type.equals("COUNTER_FRANCHISE");
+        fields(payload,proposal?Set.of("offerId","offerVersion","decision")
+                :Set.of("offerId","offerVersion"));
+        JsonNode versionNode=payload.get("offerVersion");
+        require(versionNode!=null && versionNode.isIntegralNumber() && versionNode.asInt()==1,
+                400,"INVALID_FRANCHISE_VERSION");
+        String offerId=identifier(payload,"offerId");
+        try {
+            java.time.Instant instant=now().toInstant(ZoneOffset.UTC);
+            V5FranchiseWindow next=switch (type) {
+                case "CHECK_FRANCHISE_TERMS" -> window.investigate(actor,offerId,1,V5FranchiseOffer.Investigation.TERMS,instant);
+                case "CHECK_FRANCHISE_STORES" -> window.investigate(actor,offerId,1,V5FranchiseOffer.Investigation.STORES,instant);
+                case "CHECK_FRANCHISE_SUPPLY" -> window.investigate(actor,offerId,1,V5FranchiseOffer.Investigation.SUPPLY,instant);
+                case "PROPOSE_FRANCHISE" -> window.propose(actor,offerId,1,
+                        V5FranchiseWindow.Decision.valueOf(text(payload,"decision",10)),instant);
+                case "COUNTER_FRANCHISE" -> window.counter(actor,offerId,1,
+                        V5FranchiseWindow.Decision.valueOf(text(payload,"decision",10)),instant);
+                case "ACCEPT_FRANCHISE" -> window.accept(actor,offerId,1,instant);
+                case "DECLINE_FRANCHISE" -> window.decline(actor,offerId,1,instant);
+                default -> throw new IllegalArgumentException("FRANCHISE_ACTION_NOT_ALLOWED");
+            };
+            state.setFranchiseWindow(next);
+            if (type.startsWith("CHECK_"))
+                eventAtMonth(activity,"FRANCHISE_INVESTIGATION","USER_AGENT",actor,"EXECUTED",
+                        Map.of("action",action),
+                        state.getFranchiseOffer().appearsMonth());
+            else eventAtMonth(activity,"FRANCHISE_DECISION","USER_AGENT",actor,
+                    next.phase()==V5FranchiseWindow.Phase.CLOSED?"EXECUTED":"PROPOSED",
+                    Map.of("action",action),state.getFranchiseOffer().appearsMonth());
+            if (next.phase()==V5FranchiseWindow.Phase.CLOSED) {
+                eventAtMonth(activity,"FRANCHISE_RESOLUTION","SYSTEM",null,"EXECUTED",
+                        Map.of("offerId",offerId,"resolution",next.resolution().name()),
+                        state.getFranchiseOffer().appearsMonth());
+                continueV5(activity,state,actor);
+            }
+        } catch (IllegalArgumentException error) {
+            throw new BusinessException(400,error.getMessage());
+        }
+    }
+    private void fallbackFranchise(Activity activity,PlaygroundRoomState state,
+                                   V5FranchiseWindow.Resolution why) {
+        V5FranchiseWindow window=state.getFranchiseWindow();
+        state.setFranchiseWindow(window.miss(why));
+        eventAtMonth(activity,"FRANCHISE_RESOLUTION","SYSTEM",null,"EXECUTED",
+                Map.of("offerId",window.offerId(),"resolution",why.name()),
+                state.getFranchiseOffer().appearsMonth());
+        continueV5(activity,state,window.proposerAgentId());
+    }
     private boolean openV5Window(PlaygroundRoomState state) {
         return state.getContractVersion()==5 && state.getV5Window()!=null
                 && state.getV5Window().phase()!=V5MonthlyWindow.Phase.CLOSED;
+    }
+    private boolean openFranchiseWindow(PlaygroundRoomState state) {
+        return state.getContractVersion()==5 && state.getFranchiseWindow()!=null
+                && state.getFranchiseWindow().phase()!=V5FranchiseWindow.Phase.CLOSED;
+    }
+    private long franchiseWindowActor(V5FranchiseWindow window) {
+        return window.phase()==V5FranchiseWindow.Phase.AWAIT_REPLY
+                ?window.partnerAgentId():window.proposerAgentId();
     }
     private long v5WindowActor(V5MonthlyWindow window) {
         return window.phase()==V5MonthlyWindow.Phase.AWAIT_REPLY
@@ -541,6 +631,19 @@ public class PlaygroundService {
         while (state.getGame().ending()==MonthlyShopRules.Ending.RUNNING
                 && state.getGame().operatedMonths()<activity.getHorizonMonths()) {
             int month=state.getGame().operatedMonths()+1;
+            if (franchiseEnabled && activity.getHorizonMonths()==12 && month==3
+                    && state.getFranchiseOffer()==null) {
+                V5FranchiseOffer offer=V5FranchiseOffer.draw("franchise:"+activity.getId(),month,random);
+                state.setFranchiseOffer(offer);
+                long proposer=previousActor==activity.getHostAgentId()
+                        ?activity.getGuestAgentId():activity.getHostAgentId();
+                state.setFranchiseWindow(V5FranchiseWindow.open(offer,proposer,previousActor,
+                        min(now().plusMinutes(15),activity.getExpiresAt()).toInstant(ZoneOffset.UTC)));
+                state.getWindowDecisions().clear();
+                eventAtMonth(activity,"FRANCHISE_PITCH","NPC",null,"PROPOSED",
+                        Map.of("offer",offer.publicTerms(),"claimCode","GUARANTEED_CUSTOMERS_UNVERIFIED"),month);
+                return;
+            }
             V5ShopRules.Signal signal=v5Signal(state.getGame(),month);
             if (!v5DecisionMonth(state.getGame(),month)) {
                 advanceV5AndRecord(activity,state,signal,V5ShopRules.Response.KEEP_IDENTITY);
@@ -624,7 +727,11 @@ public class PlaygroundService {
     private V5ShopRules.MonthResult advanceV5AndRecord(Activity activity,PlaygroundRoomState state,
                                                         V5ShopRules.Signal signal,V5ShopRules.Response response) {
         MonthlyShopRules.State before=state.getGame();
-        V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response);
+        V5FranchiseWindow franchise=state.getFranchiseWindow();
+        V5FranchiseOffer signed=franchise!=null && franchise.resolution()==V5FranchiseWindow.Resolution.SIGNED
+                && before.operatedMonths()+1>=state.getFranchiseOffer().appearsMonth()
+                ?state.getFranchiseOffer():null;
+        V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response,signed);
         state.setGame(result.game());
         MonthlyShopRules.MonthlyReport report=state.getGame().reports().get(state.getGame().reports().size()-1);
         if (state.getGame().reports().size()>before.reports().size())
@@ -804,6 +911,20 @@ public class PlaygroundService {
                 monthly.set("counterProposal",json.valueToTree(window.counterProposal()));
                 visible.set("monthlyWindow",monthly);
             } else visible.putNull("monthlyWindow");
+            if (openFranchiseWindow(state)) {
+                V5FranchiseWindow window=state.getFranchiseWindow();
+                ObjectNode pitch=json.createObjectNode().put("offerId",window.offerId())
+                        .put("offerVersion",window.offerVersion())
+                        .put("phase",window.phase().name()).put("deadline",window.deadline().toString());
+                pitch.set("terms",json.valueToTree(state.getFranchiseOffer().publicTerms()));
+                pitch.set("proposal",json.valueToTree(window.proposal()));
+                pitch.set("counterProposal",json.valueToTree(window.counterProposal()));
+                V5FranchiseOffer.Investigation own=window.investigations().get(task.getAgentId());
+                if (own==null) pitch.putNull("ownInvestigation");
+                else pitch.putObject("ownInvestigation").put("kind",own.name())
+                        .put("clueCode",state.getFranchiseOffer().clue(own));
+                visible.set("franchiseWindow",pitch);
+            } else if (franchiseEnabled) visible.putNull("franchiseWindow");
         }
         visible.putNull("orderProposal"); visible.putNull("npcBudgetMinor"); result.set("visibleState",visible);
         ObjectNode limits=json.createObjectNode().put("remainingDecisions",remainingDecisions(activity,task.getAgentId()))
@@ -814,6 +935,20 @@ public class PlaygroundService {
     private List<String> allowed(PlaygroundRoomState state) {
         if (state.isClosingReplyPending()) return List.of("FINAL_NOTE");
         if (state.isNpcWindowOpen()) return List.of("ACCEPT_ORDER","DECLINE_ORDER","LEAVE");
+        if (openFranchiseWindow(state)) {
+            V5FranchiseWindow window=state.getFranchiseWindow();
+            long actor=franchiseWindowActor(window);
+            List<String> actions=new ArrayList<>();
+            if (!window.investigations().containsKey(actor)) actions.addAll(List.of(
+                    "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY"));
+            actions.addAll(switch (window.phase()) {
+                case AWAIT_PROPOSAL -> List.of("PROPOSE_FRANCHISE","LEAVE");
+                case AWAIT_REPLY -> List.of("ACCEPT_FRANCHISE","COUNTER_FRANCHISE","DECLINE_FRANCHISE","LEAVE");
+                case AWAIT_COUNTER_REPLY -> List.of("ACCEPT_FRANCHISE","DECLINE_FRANCHISE","LEAVE");
+                case CLOSED -> List.of();
+            });
+            return actions;
+        }
         if (openV5Window(state)) return switch (state.getV5Window().phase()) {
             case AWAIT_PROPOSAL -> List.of("PROPOSE_MONTHLY","LEAVE");
             case AWAIT_REPLY -> List.of("ACCEPT_MONTHLY","COUNTER_MONTHLY","DECLINE_MONTHLY","LEAVE");
@@ -826,6 +961,7 @@ public class PlaygroundService {
         Task task=new Task(); task.setActivityId(activity.getId()); task.setAgentId(actor);
         task.setPermissionVersion(permit(actor).getVersion()); task.setStatus("PENDING");
         task.setPhase(state.isClosingReplyPending()?"CLOSING":state.isNpcWindowOpen()?"OFFER_NEGOTIATION":
+                openFranchiseWindow(state)?"FRANCHISE_DECISION":
                 openV5Window(state)?"MONTHLY_DECISION":"PLANNING");
         task.setExpiresAt(min(now().plusMinutes(15),activity.getExpiresAt())); task.setCreatedAt(now()); store.insertTask(task);
     }
@@ -849,6 +985,7 @@ public class PlaygroundService {
     private int attemptLimit(Activity activity,Participation permission) { return Math.min(activity.getHorizonMonths()==2?4:6,permission.getMaxAttempts()); }
     private int windowRemaining(PlaygroundRoomState state,long actor) {
         if (state.isClosingReplyPending()) return Objects.equals(actor,state.getClosingInitiator())?0:1;
+        if (openFranchiseWindow(state)) return Math.max(0,3-state.getWindowDecisions().getOrDefault(actor,0));
         return Math.max(0,2-state.getWindowDecisions().getOrDefault(actor,0));
     }
     private Seat seat(Activity activity,long actor) {

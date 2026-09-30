@@ -142,11 +142,22 @@ public class PlaygroundShareService {
         for (JsonNode move:moves) if (!move.isObject() || !onlyFields(move,Set.of("role","move")) ||
                 !Set.of("HOST","GUEST").contains(move.path("role").asText()) ||
                 !Set.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
-                        "PROPOSE_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY").contains(move.path("move").asText())) return false;
+                        "PROPOSE_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
+                        "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY",
+                        "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move.path("move").asText())) return false;
         if (outcome.equals("UNOPENED")) return !payload.has("business");
         JsonNode business=payload.path("business");
-        if (!business.isObject() || !onlyFields(business,Set.of("ending","operatedMonths","netProfitMinor","months")) ||
+        if (!business.isObject() || !onlyFields(business,Set.of("ending","operatedMonths","netProfitMinor","months","franchise")) ||
                 !business.path("months").isArray()) return false;
+        if (business.has("franchise")) {
+            JsonNode franchise=business.path("franchise");
+            if (!franchise.isObject() || !onlyFields(franchise,Set.of("month","resolution","supportOutcome"))
+                    || franchise.path("month").asInt()!=3
+                    || !Set.of("SIGNED","REJECTED","DEADLINE_FALLBACK","BUDGET_FALLBACK",
+                    "MODEL_FAILURE_FALLBACK").contains(franchise.path("resolution").asText())
+                    || !Set.of("PENDING","DELIVERED","WEAK","ABSENT","NOT_SIGNED")
+                    .contains(franchise.path("supportOutcome").asText())) return false;
+        }
         for (JsonNode month:business.path("months")) {
             if (!month.isObject() || !onlyFields(month,Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
@@ -233,9 +244,12 @@ public class PlaygroundShareService {
             String move=kind.equals("PROPOSAL")?action.path("actionType").asText():
                     kind.equals("DECISION")?action.path("actionType").asText():
                     kind.equals("FINAL_NOTE")?"FINAL_NOTE":
-                    kind.equals("MONTHLY_DECISION")?action.path("actionType").asText():"";
+                    kind.equals("MONTHLY_DECISION") || kind.equals("FRANCHISE_DECISION")
+                            || kind.equals("FRANCHISE_INVESTIGATION")?action.path("actionType").asText():"";
             if (!List.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
-                    "PROPOSE_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY").contains(move)) continue;
+                    "PROPOSE_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
+                    "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY",
+                    "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move)) continue;
             String actor=event.path("facts").path("actorId").asText().replace("agent:","");
             moves.addObject().put("role",actor.equals(view.path("hostAgentId").asText())?"HOST":"GUEST")
                     .put("move",move);
@@ -247,6 +261,23 @@ public class PlaygroundShareService {
             business.put("ending",summary.path("ending").asText());
             business.put("operatedMonths",summary.path("operatedMonths").asInt());
             business.put("netProfitMinor",summary.path("netProfitMinor").asLong());
+            JsonNode franchiseResolution=events.stream().filter(event ->
+                    event.path("kind").asText().equals("FRANCHISE_RESOLUTION")).findFirst().orElse(null);
+            if (franchiseResolution!=null) {
+                String resolution=franchiseResolution.path("facts").path("resolution").asText();
+                String support="NOT_SIGNED";
+                if (resolution.equals("SIGNED")) {
+                    support="PENDING";
+                    for (JsonNode report:summary.path("reports")) for (JsonNode marker:report.path("events")) {
+                        String code=marker.asText();
+                        if (code.equals("FRANCHISE_SUPPORT_DELIVERED")) support="DELIVERED";
+                        if (code.equals("FRANCHISE_SUPPORT_WEAK")) support="WEAK";
+                        if (code.equals("FRANCHISE_SUPPORT_ABSENT")) support="ABSENT";
+                    }
+                }
+                business.putObject("franchise").put("month",3).put("resolution",resolution)
+                        .put("supportOutcome",support);
+            }
             ArrayNode months=business.putArray("months");
             for (JsonNode report:summary.path("reports")) {
                 ObjectNode month=months.addObject().put("month",report.path("month").asInt())

@@ -8,6 +8,8 @@ import com.ai.repo.playground.dto.PlaygroundRequests.OwnerBrief;
 import com.ai.repo.playground.rules.MonthlyShopRules;
 import com.ai.repo.playground.rules.ProposalAgreement;
 import com.ai.repo.playground.rules.V5MonthlyWindow;
+import com.ai.repo.playground.rules.V5FranchiseOffer;
+import com.ai.repo.playground.rules.V5FranchiseWindow;
 import com.ai.repo.playground.rules.V5ShopRules;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
@@ -32,5 +34,7 @@ public class PlaygroundRoomState {
     private Long closingInitiator;
     private V5MonthlyWindow v5Window;
     private V5ShopRules.Signal v5Signal;
+    private V5FranchiseOffer franchiseOffer;
+    private V5FranchiseWindow franchiseWindow;
     private MonthlyShopRules.State game;
 }

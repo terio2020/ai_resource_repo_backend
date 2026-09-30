@@ -67,7 +67,8 @@ class PlaygroundPersistenceTest {
         @Bean UserMapper userMapper(SqlSessionTemplate session) { return session.getMapper(UserMapper.class); }
         @Bean PlaygroundMatchingService matchingService(PlaygroundMapper mapper,AgentMapper agents,PlaygroundService games) { return new PlaygroundMatchingService(mapper,agents,games,json,clock); }
         @Bean PlaygroundService playgroundService(PlaygroundMapper mapper,AgentMapper agents,UserMapper users) {
-            return new PlaygroundService(mapper,agents,users,json,true,true,clock);
+            return new PlaygroundService(mapper,agents,users,json,true,true,
+                    Boolean.parseBoolean(System.getenv("PLAYGROUND_FRANCHISE_TEST")),clock);
         }
         @Bean PlaygroundShareService playgroundShareService(PlaygroundMapper mapper,PlaygroundService games) {
             return new PlaygroundShareService(mapper,games,json,true,clock);
@@ -319,6 +320,115 @@ class PlaygroundPersistenceTest {
                 "MONTHLY_RESOLUTION".equals(event.path("kind").asText())
                         && "DEADLINE_FALLBACK".equals(event.path("facts").path("resolution").asText())).count());
         assertEquals(0,count("playground_seats"));
+    }
+    @Test void v5FranchisePitchRequiresBothAgentsAndPersistsTheSameOffer() throws Exception {
+        service=new PlaygroundService(store,context.getBean(AgentMapper.class),
+                context.getBean(UserMapper.class),json,true,true,true,clock);
+        long id=openedV5Room("FULL");
+        ObjectNode monthTwo=ready(2);
+        JsonNode monthly=monthTwo.path("visibleState").path("monthlyWindow");
+        service.submit(2,monthTwo.path("taskId").asLong(),submission(monthTwo,
+                v5Decision("PROPOSE_MONTHLY",monthly,"KEEP_IDENTITY"),UUID.randomUUID().toString()));
+        ObjectNode monthTwoReply=ready(1);
+        service.submit(1,monthTwoReply.path("taskId").asLong(),submission(monthTwoReply,
+                v5Decision("ACCEPT_MONTHLY",monthly,null),UUID.randomUUID().toString()));
+
+        ObjectNode pitch=ready(1);
+        Files.writeString(Path.of("target/playground-franchise-task-contract.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(pitch));
+        assertEquals("FRANCHISE_DECISION",pitch.path("phase").asText());
+        JsonNode offer=pitch.path("visibleState").path("franchiseWindow");
+        String offerId=offer.path("offerId").asText();
+        assertEquals(3,pitch.path("visibleState").path("virtualMonth").asInt()+1);
+        assertFalse(offer.path("terms").has("support"));
+        assertTrue(offer.path("ownInvestigation").isNull());
+        ObjectNode check=franchiseAction("CHECK_FRANCHISE_STORES",offerId,null);
+        service.submit(1,pitch.path("taskId").asLong(),submission(pitch,check,UUID.randomUUID().toString()));
+        ObjectNode proposal=ready(1);
+        assertEquals(offerId,proposal.path("visibleState").path("franchiseWindow").path("offerId").asText());
+        assertFalse(proposal.path("visibleState").path("franchiseWindow")
+                .path("ownInvestigation").path("clueCode").asText().isBlank());
+        businessError("STALE_FRANCHISE_OFFER",()->service.submit(1,proposal.path("taskId").asLong(),
+                submission(proposal,franchiseAction("PROPOSE_FRANCHISE","wrong-offer","SIGN"),UUID.randomUUID().toString())));
+        service.submit(1,proposal.path("taskId").asLong(),submission(proposal,
+                franchiseAction("PROPOSE_FRANCHISE",offerId,"SIGN"),UUID.randomUUID().toString()));
+        ObjectNode partner=ready(2);
+        assertTrue(partner.path("visibleState").path("franchiseWindow").path("ownInvestigation").isNull());
+        assertFalse(partner.toString().contains(proposal.path("visibleState").path("franchiseWindow")
+                .path("ownInvestigation").path("clueCode").asText()));
+        service.submit(2,partner.path("taskId").asLong(),submission(partner,
+                franchiseAction("ACCEPT_FRANCHISE",offerId,null),UUID.randomUUID().toString()));
+        JsonNode events=json.valueToTree(service.ownerEvents(1,id,0));
+        assertEquals(1,java.util.stream.StreamSupport.stream(events.spliterator(),false)
+                .filter(event->"FRANCHISE_PITCH".equals(event.path("kind").asText())).count());
+        assertTrue(events.toString().contains("SIGNED"));
+        assertTrue(service.ownerActivity(1,id).path("game").path("operatedMonths").asInt()>=3);
+        assertFalse(service.ownerActivity(1,id).toString().contains("private:dogs"));
+        if (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
+            clock.advance(901); service.expire(id);
+        }
+        JsonNode published=context.getBean(PlaygroundShareService.class).ownerResultLink(1,id).path("result");
+        assertEquals("SIGNED",published.path("business").path("franchise").path("resolution").asText());
+        assertTrue(published.path("agentMoves").toString().contains("PROPOSE_FRANCHISE"));
+        assertFalse(published.toString().contains("private:cats"));
+        assertFalse(published.toString().contains("private:dogs"));
+    }
+    ObjectNode franchiseAction(String type,String offerId,String decision) {
+        ObjectNode action=json.createObjectNode().put("actionType",type)
+                .put("publicRationale","We checked the promised support against the cost.");
+        ObjectNode payload=json.createObjectNode().put("offerId",offerId).put("offerVersion",1);
+        if (decision!=null) payload.put("decision",decision);
+        action.set("payload",payload); return action;
+    }
+    @Test void v5FranchiseDeadlineKeepsOriginalShopAndContinuesTheYear() {
+        service=new PlaygroundService(store,context.getBean(AgentMapper.class),
+                context.getBean(UserMapper.class),json,true,true,true,clock);
+        long id=openedV5Room("FULL");
+        ObjectNode first=ready(2);
+        JsonNode monthly=first.path("visibleState").path("monthlyWindow");
+        service.submit(2,first.path("taskId").asLong(),submission(first,
+                v5Decision("PROPOSE_MONTHLY",monthly,"KEEP_IDENTITY"),UUID.randomUUID().toString()));
+        ObjectNode second=ready(1);
+        service.submit(1,second.path("taskId").asLong(),submission(second,
+                v5Decision("ACCEPT_MONTHLY",monthly,null),UUID.randomUUID().toString()));
+        assertEquals("FRANCHISE_DECISION",service.tasks(1).get(0).get("phase"));
+        clock.advance(901); service.expire(id);
+        assertEquals("PLANNING",service.ownerActivity(1,id).path("status").asText());
+        assertEquals(1,service.tasks(1).size()+service.tasks(2).size());
+        clock.advance(901); service.expire(id);
+        JsonNode owner=service.ownerActivity(1,id);
+        assertEquals("SETTLED",owner.path("status").asText());
+        assertEquals(12,owner.path("summary").path("operatedMonths").asInt());
+        assertFalse(owner.path("summary").toString().contains("FRANCHISE_SIGNED"));
+        assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
+                "FRANCHISE_RESOLUTION".equals(event.path("kind").asText())
+                        && "DEADLINE_FALLBACK".equals(event.path("facts").path("resolution").asText())));
+    }
+    @Test void v5FranchiseRepeatedModelFailureSkipsSigningAndContinuesTheYear() {
+        service=new PlaygroundService(store,context.getBean(AgentMapper.class),
+                context.getBean(UserMapper.class),json,true,true,true,clock);
+        long id=openedV5Room("FULL");
+        ObjectNode first=ready(2);
+        JsonNode monthly=first.path("visibleState").path("monthlyWindow");
+        service.submit(2,first.path("taskId").asLong(),submission(first,
+                v5Decision("PROPOSE_MONTHLY",monthly,"KEEP_IDENTITY"),UUID.randomUUID().toString()));
+        ObjectNode second=ready(1);
+        service.submit(1,second.path("taskId").asLong(),submission(second,
+                v5Decision("ACCEPT_MONTHLY",monthly,null),UUID.randomUUID().toString()));
+        ObjectNode pitch=ready(1);
+        AttemptFailure failure=new AttemptFailure(pitch.path("leaseToken").asText(),
+                pitch.path("permissionVersion").asLong(),pitch.path("attemptId").asText(),"MODEL_OUTPUT_INVALID");
+        assertEquals("RETRY_PENDING",service.reportAttemptFailure(1,pitch.path("taskId").asLong(),failure).path("status").asText());
+        ObjectNode retry=ready(1);
+        AttemptFailure secondFailure=new AttemptFailure(retry.path("leaseToken").asText(),
+                retry.path("permissionVersion").asLong(),retry.path("attemptId").asText(),"MODEL_OUTPUT_INVALID");
+        assertEquals("PLANNING",service.reportAttemptFailure(1,retry.path("taskId").asLong(),secondFailure).path("status").asText());
+        assertEquals("PLANNING",service.ownerActivity(1,id).path("status").asText());
+        assertEquals(1,service.tasks(1).size()+service.tasks(2).size());
+        assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
+                "FRANCHISE_RESOLUTION".equals(event.path("kind").asText())
+                        && "MODEL_FAILURE_FALLBACK".equals(event.path("facts").path("resolution").asText())));
+        assertFalse(service.ownerActivity(1,id).path("game").toString().contains("FRANCHISE_SIGNED"));
     }
     @Test void v5RequiresExplicitFlagAndAcceptsFullModeInMatchingQueue() {
         PlaygroundService gated=new PlaygroundService(store,context.getBean(AgentMapper.class),
