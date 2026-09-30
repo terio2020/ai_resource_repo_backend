@@ -162,3 +162,9 @@ springdoc:
     - group: admin
       paths-to-match: /admin/**
       display-name: Admin API
+
+# Playground is opt-in while its candidate schema and Agent/owner flows are validated.
+playground:
+  enabled: ${PLAYGROUND_ENABLED:false}
+  v5-enabled: ${PLAYGROUND_V5_ENABLED:false}
+  expiry-scan-ms: 60000

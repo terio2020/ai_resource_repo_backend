@@ -50,6 +50,9 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/avatars/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                    "/api/playground/shares/{token}",
+                    "/api/playground/shares/{token}/landing").permitAll()
                 .requestMatchers(
                     "/api/users/login", "/api/users/login/email",
                     "/api/users", "/api/users/refresh-token", "/api/users/auth-login",

@@ -1,0 +1,154 @@
+{
+  "fixtureVersion": 1,
+  "ruleVersion": "0.3",
+  "currency": {
+    "name": "VIRTUAL_COIN",
+    "minorUnitsPerCoin": 100
+  },
+  "evidence": "DETERMINISTIC_FIXTURE_NOT_AGENT_PLAY",
+  "cases": [
+    {
+      "id": "BASELINE",
+      "environment": "NONE",
+      "incomeMinor": 19200,
+      "expenseMinor": 17200,
+      "recoveryMinor": 0,
+      "returnedMinor": 22000,
+      "netMinor": 2000,
+      "soldUnits": 12,
+      "mode": "FULL"
+    },
+    {
+      "id": "MATERIAL_SURGE",
+      "environment": "MATERIAL_SURGE",
+      "incomeMinor": 19200,
+      "expenseMinor": 19600,
+      "recoveryMinor": 0,
+      "returnedMinor": 19600,
+      "netMinor": -400,
+      "soldUnits": 12,
+      "mode": "FULL"
+    },
+    {
+      "id": "RENT_RENEWAL",
+      "environment": "RENT_RENEWAL",
+      "incomeMinor": 19200,
+      "expenseMinor": 18000,
+      "recoveryMinor": 0,
+      "returnedMinor": 21200,
+      "netMinor": 1200,
+      "soldUnits": 12,
+      "mode": "FULL"
+    },
+    {
+      "id": "RENT_MOVE",
+      "environment": "RENT_RENEWAL",
+      "incomeMinor": 17600,
+      "expenseMinor": 16400,
+      "recoveryMinor": 0,
+      "returnedMinor": 21200,
+      "netMinor": 1200,
+      "soldUnits": 11,
+      "mode": "FULL"
+    },
+    {
+      "id": "PACKAGING_RULE",
+      "environment": "PACKAGING_RULE",
+      "incomeMinor": 19200,
+      "expenseMinor": 18000,
+      "recoveryMinor": 0,
+      "returnedMinor": 21200,
+      "netMinor": 1200,
+      "soldUnits": 12,
+      "mode": "FULL"
+    },
+    {
+      "id": "MARKET_SLOWDOWN",
+      "environment": "MARKET_SLOWDOWN",
+      "incomeMinor": 12800,
+      "expenseMinor": 14800,
+      "recoveryMinor": 0,
+      "returnedMinor": 18000,
+      "netMinor": -2000,
+      "soldUnits": 8,
+      "mode": "FULL"
+    },
+    {
+      "id": "ORDER_NORMAL",
+      "environment": "NONE",
+      "incomeMinor": 21200,
+      "expenseMinor": 18400,
+      "recoveryMinor": 0,
+      "returnedMinor": 22800,
+      "netMinor": 2800,
+      "soldUnits": 14,
+      "mode": "FULL"
+    },
+    {
+      "id": "ORDER_RESTORE",
+      "environment": "POWER_OUTAGE",
+      "incomeMinor": 21200,
+      "expenseMinor": 24400,
+      "recoveryMinor": 0,
+      "returnedMinor": 16800,
+      "netMinor": -3200,
+      "soldUnits": 14,
+      "mode": "FULL"
+    },
+    {
+      "id": "ORDER_SHRINK",
+      "environment": "POWER_OUTAGE",
+      "incomeMinor": 15600,
+      "expenseMinor": 16000,
+      "recoveryMinor": 0,
+      "returnedMinor": 19600,
+      "netMinor": -400,
+      "soldUnits": 10,
+      "mode": "FULL"
+    },
+    {
+      "id": "ORDER_CANCEL",
+      "environment": "POWER_OUTAGE",
+      "incomeMinor": 16000,
+      "expenseMinor": 16000,
+      "recoveryMinor": 0,
+      "returnedMinor": 20000,
+      "netMinor": 0,
+      "soldUnits": 10,
+      "mode": "FULL"
+    },
+    {
+      "id": "ORDER_EXTEND",
+      "environment": "POWER_OUTAGE",
+      "incomeMinor": 18000,
+      "expenseMinor": 17200,
+      "recoveryMinor": 0,
+      "returnedMinor": 20800,
+      "netMinor": 800,
+      "soldUnits": 12,
+      "mode": "FULL"
+    },
+    {
+      "id": "SHORT_BASELINE",
+      "mode": "SHORT",
+      "environment": "NONE",
+      "incomeMinor": 12800,
+      "expenseMinor": 12800,
+      "recoveryMinor": 0,
+      "returnedMinor": 20000,
+      "netMinor": 0,
+      "soldUnits": 8
+    },
+    {
+      "id": "SHORT_ORDER",
+      "mode": "SHORT",
+      "environment": "NONE",
+      "incomeMinor": 14800,
+      "expenseMinor": 14000,
+      "recoveryMinor": 0,
+      "returnedMinor": 20800,
+      "netMinor": 800,
+      "soldUnits": 10
+    }
+  ]
+}
