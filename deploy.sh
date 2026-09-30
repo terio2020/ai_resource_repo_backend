@@ -4,7 +4,7 @@ set -eo pipefail
 # ==========================================
 # Logicoma 后端自动化部署脚本
 # ==========================================
-# Usage: ./deploy.sh [--target=aws|aliyun] [--skip-build] [--no-backup]
+# Usage: ./deploy.sh [--target=aws|aliyun] [--skip-build] [--no-backup] [--reuse-remote-env] [--preflight-only]
 # ==========================================
 
 # Options
@@ -14,6 +14,8 @@ NO_BACKUP=false
 SELF_AUDIT=false
 BACKUP_DB=false
 ROLLBACK=""
+REUSE_REMOTE_ENV=false
+PREFLIGHT_ONLY=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -23,6 +25,8 @@ while [[ $# -gt 0 ]]; do
     --self-audit) SELF_AUDIT=true; shift ;;
     --backup-db) BACKUP_DB=true; shift ;;
     --rollback=*) ROLLBACK="${1#*=}"; shift ;;
+    --reuse-remote-env) REUSE_REMOTE_ENV=true; shift ;;
+    --preflight-only) PREFLIGHT_ONLY=true; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -54,6 +58,10 @@ select_server() {
   esac
 }
 select_server
+if [ "$PREFLIGHT_ONLY" = true ]; then
+  [ "$SKIP_BUILD" = false ] || { echo "Preflight requires a fresh build" >&2; exit 1; }
+  [ "$NO_BACKUP" = false ] || { echo "Preflight cannot waive database backup" >&2; exit 1; }
+fi
 
 # =============================================================================
 # --self-audit: 部署前自检 (设计 §3.9, v2-5/v3-8)
@@ -173,7 +181,11 @@ echo "  Container: ${CONTAINER_NAME}"
 echo "=========================================="
 echo ""
 
-load_env_file
+if [ "$REUSE_REMOTE_ENV" = true ]; then
+  step "Using the existing remote environment file; no secret file will be copied from this checkout"
+else
+  load_env_file
+fi
 
 # Default env values
 MAIL_HOST="${MAIL_HOST:-smtp.example.com}"
@@ -190,6 +202,14 @@ ADMIN_BOOTSTRAP_EMAILS="${ADMIN_BOOTSTRAP_EMAILS:-}"
 [ -n "$ROLLBACK" ] && { rollback "$ROLLBACK"; exit $?; }
 [ "$BACKUP_DB" = true ] && { backup_db; exit $?; }
 
+if [ "$REUSE_REMOTE_ENV" = true ]; then
+  step "Checking existing remote environment file and permissions..."
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" \
+    "test -f '${REMOTE_DIR}/.env' && test \"\$(stat -c %a '${REMOTE_DIR}/.env')\" = 600" \
+    || err "Remote .env is missing or is not mode 600"
+  ok "Remote environment file ready"
+fi
+
 # --- Build ---
 if [ "$SKIP_BUILD" = false ]; then
   step "Building project..."
@@ -205,6 +225,14 @@ if [ "$SKIP_BUILD" = false ]; then
   fi
 else
   step "Skipping build (--skip-build)"
+fi
+
+if [ "$PREFLIGHT_ONLY" = true ]; then
+  [ -f "$LOCAL_JAR" ] || err "JAR not found: $LOCAL_JAR"
+  bash scripts/validate-git-policy.sh range origin/main HEAD || err "Git policy failed"
+  bash scripts/test-deploy-backup-gate.sh || err "Backup gate failed"
+  ok "Backend preflight complete; no server changes made"
+  exit 0
 fi
 
 # --- Remote dir ---
@@ -230,7 +258,9 @@ scp_cmd "$LOCAL_JAR" "${SSH_USER}@${SERVER_IP}:${REMOTE_DIR}/logicoma-net-2.0.0.
 ok "JAR uploaded"
 
 # Upload .env
-if [ -f "$ENV_FILE" ]; then
+if [ "$REUSE_REMOTE_ENV" = true ]; then
+  step "Keeping the existing remote .env file"
+elif [ -f "$ENV_FILE" ]; then
   step "Uploading $ENV_FILE..."
   scp_cmd "$ENV_FILE" "${SSH_USER}@${SERVER_IP}:${REMOTE_DIR}/.env"
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "chmod 600 '${REMOTE_DIR}/.env'"
