@@ -40,6 +40,12 @@ public final class V5ShopRules {
      */
     public MonthResult advance(MonthlyShopRules.State game, Strategy strategy,
                                Signal signal, Response response) {
+        return advance(game,strategy,signal,response,null);
+    }
+
+    /** The signed NPC contract is a server-owned obligation, never a model amount. */
+    public MonthResult advance(MonthlyShopRules.State game, Strategy strategy,
+                               Signal signal, Response response,V5FranchiseOffer franchise) {
         require(game != null && strategy != null && signal != null && response != null,
                 "INVALID_V5_MONTH");
         int month = game.operatedMonths() + 1;
@@ -63,15 +69,16 @@ public final class V5ShopRules {
 
         long essential = (active == MonthlyShopRules.Shock.RENT_RENEWAL ? 2_800 : 2_000)
                 + (month == 1 ? 4_000 : 0);
+        long franchiseExpense=franchise==null?0:franchise.entryCost(month)+franchise.monthlyCost(month);
         long standingCost = strategy.monthlyMarketingBudgetMinor();
-        boolean guard = game.cashMinor() - essential - standingCost < strategy.minimumReserveMinor();
+        boolean guard = game.cashMinor() - essential - franchiseExpense - standingCost < strategy.minimumReserveMinor();
         if (guard) standingCost = 0;
         long decisionCost = switch (response) {
             case KEEP_IDENTITY -> 0;
             case PROMOTE -> 600;
             case TEMPORARY_PIVOT -> 300;
         };
-        require(game.cashMinor() - essential - standingCost - decisionCost >= strategy.minimumReserveMinor()
+        require(game.cashMinor() - essential - franchiseExpense - standingCost - decisionCost >= strategy.minimumReserveMinor()
                 || response == Response.KEEP_IDENTITY, "V5_CHOICE_UNAFFORDABLE");
 
         List<Integer> extraBuyers = new ArrayList<>();
@@ -84,14 +91,19 @@ public final class V5ShopRules {
             if (extraBuyers.size() < 3) extraBuyers.add(strategy.unitPriceCoins());
         }
         if (response == Response.TEMPORARY_PIVOT && extraBuyers.size() < 3) extraBuyers.add(12);
+        if (franchise!=null && franchise.supportBuyers(month)>0 && extraBuyers.size()<3)
+            extraBuyers.add(strategy.unitPriceCoins());
         if (extraBuyers.size() > 3) extraBuyers = new ArrayList<>(extraBuyers.subList(0, 3));
         int price = response == Response.TEMPORARY_PIVOT ? 12 : strategy.unitPriceCoins();
         int production = signal == Signal.MARKET_SHIFT && response == Response.KEEP_IDENTITY
                 ? Math.max(0, strategy.produceUnits() - 1) : strategy.produceUnits();
         MonthlyShopRules.Plan plan = new MonthlyShopRules.Plan(production, price, strategy.minimumReserveMinor());
         MonthlyShopRules.TradingAdjustment adjustment = new MonthlyShopRules.TradingAdjustment(
-                standingCost + decisionCost, 0, extraBuyers, signal == Signal.COMPETITOR ? 2 : 0,
-                "V5_" + response.name());
+                standingCost + decisionCost + franchiseExpense,
+                franchise==null?0:franchise.unitPremium(month),extraBuyers,
+                Math.min(2,(signal == Signal.COMPETITOR ? 2 : 0)
+                        + (franchise==null?0:franchise.lostBuyers(month))),
+                franchise==null?"V5_" + response.name():franchise.resultEvent(month));
         MonthlyShopRules.State next = ledger.advanceMonth(game, plan, null, adjustment);
         boolean failedToOpen = next.failedOpeningMonth() != null;
         return new MonthResult(next, response, failedToOpen ? 0 : standingCost + decisionCost,
