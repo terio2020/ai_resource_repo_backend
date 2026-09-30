@@ -32,16 +32,22 @@ public class PlaygroundShareService {
     private final ObjectMapper json;
     private final boolean enabled;
     private final Clock clock;
+    private final PlaygroundPublicRateLimiter publicRateLimiter;
     private final SecureRandom random=new SecureRandom();
 
     @Autowired
     public PlaygroundShareService(PlaygroundMapper store,PlaygroundService games,ObjectMapper json,
-            @Value("${playground.enabled:false}") boolean enabled) {
-        this(store,games,json,enabled,Clock.systemUTC());
+            @Value("${playground.enabled:false}") boolean enabled, PlaygroundPublicRateLimiter publicRateLimiter) {
+        this(store,games,json,enabled,Clock.systemUTC(),publicRateLimiter);
     }
     public PlaygroundShareService(PlaygroundMapper store,PlaygroundService games,ObjectMapper json,
             boolean enabled,Clock clock) {
+        this(store,games,json,enabled,clock,null);
+    }
+    public PlaygroundShareService(PlaygroundMapper store,PlaygroundService games,ObjectMapper json,
+            boolean enabled,Clock clock,PlaygroundPublicRateLimiter publicRateLimiter) {
         this.store=store;this.games=games;this.json=json;this.enabled=enabled;this.clock=clock;
+        this.publicRateLimiter=publicRateLimiter;
     }
 
     @Transactional
@@ -69,6 +75,7 @@ public class PlaygroundShareService {
 
     public JsonNode publicResult(String token) {
         available();require(token!=null && token.matches("[A-Za-z0-9_-]{43}"),404,"SHARE_NOT_FOUND");
+        if (publicRateLimiter!=null) publicRateLimiter.check(token);
         Share row=store.publishedShare(token);
         require(row!=null,404,"SHARE_NOT_FOUND");
         try {
