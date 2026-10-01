@@ -112,7 +112,7 @@ public class PlaygroundService {
         activity.setUpdatedAt(now()); activity.setExpiresAt(now().plusHours(24));
         PlaygroundRoomState state = new PlaygroundRoomState(); state.setContractVersion(contractVersionFor(request.ownerBrief()));
         if (state.getContractVersion()==4) state.setRuleVersion("0.5");
-        if (state.getContractVersion()==5) state.setRuleVersion("0.6");
+        if (state.getContractVersion()==5) state.setRuleVersion("0.7");
         state.getOwnerBriefs().put(request.agentId(),request.ownerBrief());
         state.setGame(rules.initialize(activity.getHorizonMonths(),new MonthlyShopRules.Environment(MonthlyShopRules.Shock.NONE,1,12)));
         activity.setStateJson(write(state)); store.insertActivity(activity);
@@ -603,10 +603,12 @@ public class PlaygroundService {
     }
     private MonthlyShopRules.Environment drawV5Environment(int horizonMonths) {
         MonthlyShopRules.Environment drawn=rules.drawEnvironment(horizonMonths,random);
-        if (horizonMonths!=12) return drawn;
+        int demandSeed=random.nextInt(Integer.MAX_VALUE);
+        if (horizonMonths!=12) return new MonthlyShopRules.Environment(
+                drawn.shock(),drawn.fromMonth(),drawn.throughMonth(),demandSeed);
         // Persist the late shock at signing. Older rooms retain their already drawn months.
         int month=7+random.nextInt(3);
-        return new MonthlyShopRules.Environment(drawn.shock(),month,month+1);
+        return new MonthlyShopRules.Environment(drawn.shock(),month,month+1,demandSeed);
     }
     private V5ShopRules.Signal v5Signal(MonthlyShopRules.State game,int month) {
         MonthlyShopRules.Environment environment=game.environment();
@@ -731,7 +733,8 @@ public class PlaygroundService {
         V5FranchiseOffer signed=franchise!=null && franchise.resolution()==V5FranchiseWindow.Resolution.SIGNED
                 && before.operatedMonths()+1>=state.getFranchiseOffer().appearsMonth()
                 ?state.getFranchiseOffer():null;
-        V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response,signed);
+        V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response,signed,
+                state.getRuleVersion().equals("0.7"));
         state.setGame(result.game());
         MonthlyShopRules.MonthlyReport report=state.getGame().reports().get(state.getGame().reports().size()-1);
         if (state.getGame().reports().size()>before.reports().size())
@@ -1028,7 +1031,7 @@ public class PlaygroundService {
         PlaygroundRoomState state=read(activity.getStateJson(),PlaygroundRoomState.class);
         require((Set.of(2,3).contains(state.getContractVersion()) && state.getRuleVersion().equals("0.4"))
                 || (state.getContractVersion()==4 && state.getRuleVersion().equals("0.5"))
-                || (state.getContractVersion()==5 && state.getRuleVersion().equals("0.6")),409,"UNSUPPORTED_RULE_VERSION");
+                || (state.getContractVersion()==5 && Set.of("0.6","0.7").contains(state.getRuleVersion())),409,"UNSUPPORTED_RULE_VERSION");
         if (state.getProposal()!=null && state.getProposal().isNull()) state.setProposal(null);
         return state;
     }

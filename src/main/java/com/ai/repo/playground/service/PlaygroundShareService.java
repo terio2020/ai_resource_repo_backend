@@ -135,7 +135,8 @@ public class PlaygroundShareService {
         if (shop.has("strategy")) {
             JsonNode strategy=shop.path("strategy");
             if (!strategy.isObject() || !onlyFields(strategy,Set.of("audienceSegment","marketingChannel","servicePromise"))
-                    || !Set.of("NIGHT_READERS","COMMUTERS","STUDENTS").contains(strategy.path("audienceSegment").asText())
+                    || !Set.of("NIGHT_READERS","COMMUTERS","STUDENTS","NEIGHBORS","FAMILIES",
+                            "PET_OWNERS","HOBBYISTS").contains(strategy.path("audienceSegment").asText())
                     || !Set.of("NONE","FLYERS","LOCAL_EVENT").contains(strategy.path("marketingChannel").asText())
                     || !Set.of("QUIET","FAST","COMMUNITY").contains(strategy.path("servicePromise").asText())) return false;
         }

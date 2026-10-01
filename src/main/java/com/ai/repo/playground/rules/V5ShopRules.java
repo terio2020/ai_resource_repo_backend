@@ -7,7 +7,7 @@ import java.util.List;
  * signal and both Agents' decisions before invoking this reducer.
  */
 public final class V5ShopRules {
-    public enum Audience { NIGHT_READERS, COMMUTERS, STUDENTS }
+    public enum Audience { NIGHT_READERS, COMMUTERS, STUDENTS, NEIGHBORS, FAMILIES, PET_OWNERS, HOBBYISTS }
     public enum Channel { NONE, FLYERS, LOCAL_EVENT }
     public enum ServicePromise { QUIET, FAST, COMMUNITY }
     public enum Signal { NORMAL, MARKET_SHIFT, MATERIAL_SURGE, RENT_RISE, PACKAGING_CHANGE, POWER_OUTAGE, COMPETITOR }
@@ -46,6 +46,13 @@ public final class V5ShopRules {
     /** The signed NPC contract is a server-owned obligation, never a model amount. */
     public MonthResult advance(MonthlyShopRules.State game, Strategy strategy,
                                Signal signal, Response response,V5FranchiseOffer franchise) {
+        return advance(game,strategy,signal,response,franchise,false);
+    }
+
+    /** Rule 0.7 adds a room-seeded footfall pulse. Old rooms retain their fixed demand curve. */
+    public MonthResult advance(MonthlyShopRules.State game, Strategy strategy,
+                               Signal signal, Response response,V5FranchiseOffer franchise,
+                               boolean variableDemand) {
         require(game != null && strategy != null && signal != null && response != null,
                 "INVALID_V5_MONTH");
         int month = game.operatedMonths() + 1;
@@ -84,8 +91,10 @@ public final class V5ShopRules {
         List<Integer> extraBuyers = new ArrayList<>();
         if (!guard && standingCost > 0) extraBuyers.add(strategy.unitPriceCoins());
         // A signed audience-service fit retains one bounded customer during a market shift.
-        if (signal == Signal.MARKET_SHIFT && strategy.audience() == Audience.NIGHT_READERS
-                && strategy.servicePromise() == ServicePromise.QUIET) extraBuyers.add(20);
+        if (signal == Signal.MARKET_SHIFT && (
+                (strategy.audience() == Audience.NIGHT_READERS
+                        && strategy.servicePromise() == ServicePromise.QUIET)
+                || (variableDemand && audiencePromiseFit(strategy)))) extraBuyers.add(20);
         if (response == Response.PROMOTE) {
             extraBuyers.add(strategy.unitPriceCoins());
             if (extraBuyers.size() < 3) extraBuyers.add(strategy.unitPriceCoins());
@@ -93,6 +102,18 @@ public final class V5ShopRules {
         if (response == Response.TEMPORARY_PIVOT && extraBuyers.size() < 3) extraBuyers.add(12);
         if (franchise!=null && franchise.supportBuyers(month)>0 && extraBuyers.size()<3)
             extraBuyers.add(strategy.unitPriceCoins());
+        int lostBuyers = signal == Signal.COMPETITOR ? 2 : 0;
+        List<String> marketEvents = new ArrayList<>();
+        if (variableDemand) {
+            int pulse = footfallPulse(game.environment().demandSeed(),month);
+            if (pulse < 0) lostBuyers += -pulse;
+            else for (int i=0;i<pulse && extraBuyers.size()<3;i++)
+                extraBuyers.add(strategy.unitPriceCoins());
+            if (pulse <= -2) marketEvents.add("QUIET_STREET");
+            else if (pulse == -1) marketEvents.add("SLOW_WEEK");
+            else if (pulse == 1) marketEvents.add("NEIGHBORHOOD_BUZZ");
+            else if (pulse >= 2) marketEvents.add("LOCAL_RUSH");
+        }
         if (extraBuyers.size() > 3) extraBuyers = new ArrayList<>(extraBuyers.subList(0, 3));
         int price = response == Response.TEMPORARY_PIVOT ? 12 : strategy.unitPriceCoins();
         int production = signal == Signal.MARKET_SHIFT && response == Response.KEEP_IDENTITY
@@ -101,13 +122,41 @@ public final class V5ShopRules {
         MonthlyShopRules.TradingAdjustment adjustment = new MonthlyShopRules.TradingAdjustment(
                 standingCost + decisionCost + franchiseExpense,
                 franchise==null?0:franchise.unitPremium(month),extraBuyers,
-                Math.min(2,(signal == Signal.COMPETITOR ? 2 : 0)
-                        + (franchise==null?0:franchise.lostBuyers(month))),
-                franchise==null?"V5_" + response.name():franchise.resultEvent(month));
+                Math.min(variableDemand?4:2,lostBuyers+(franchise==null?0:franchise.lostBuyers(month))),
+                franchise==null?"V5_" + response.name():franchise.resultEvent(month),marketEvents);
         MonthlyShopRules.State next = ledger.advanceMonth(game, plan, null, adjustment);
         boolean failedToOpen = next.failedOpeningMonth() != null;
         return new MonthResult(next, response, failedToOpen ? 0 : standingCost + decisionCost,
                 failedToOpen ? 0 : extraBuyers.size(), guard);
+    }
+
+    private static int footfallPulse(int seed,int month) {
+        // A midyear high and a late-year low make every full room confront both
+        // inventory pressure and fixed costs; the room seed varies their timing.
+        if (month==4+seed%3) return 2;
+        if (month==9+(seed/3)%3) return -2;
+        int mixed=seed ^ (month * 0x9e3779b9);
+        mixed ^= mixed >>> 16;
+        mixed *= 0x7feb352d;
+        mixed ^= mixed >>> 15;
+        mixed *= 0x846ca68b;
+        mixed ^= mixed >>> 16;
+        return switch (Math.floorMod(mixed,7)) {
+            case 0 -> -2;
+            case 1,2 -> -1;
+            case 3,4 -> 1;
+            case 5 -> 2;
+            default -> 0;
+        };
+    }
+
+    private static boolean audiencePromiseFit(Strategy strategy) {
+        return switch (strategy.audience()) {
+            case COMMUTERS, FAMILIES -> strategy.servicePromise()==ServicePromise.FAST;
+            case STUDENTS, NEIGHBORS, PET_OWNERS, HOBBYISTS ->
+                    strategy.servicePromise()==ServicePromise.COMMUNITY;
+            case NIGHT_READERS -> false;
+        };
     }
 
     private static void require(boolean condition, String error) {

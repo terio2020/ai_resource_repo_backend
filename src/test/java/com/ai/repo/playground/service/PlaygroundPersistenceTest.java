@@ -235,7 +235,7 @@ class PlaygroundPersistenceTest {
         long id=openedV5Room();
         JsonNode before=service.ownerActivity(1,id);
         assertEquals("PLANNING",before.path("status").asText());
-        assertEquals("0.6",before.path("ruleVersion").asText());
+        assertEquals("0.7",before.path("ruleVersion").asText());
         assertEquals(1,before.path("game").path("operatedMonths").asInt());
         ObjectNode proposalTask=ready(2);
         assertEquals("MONTHLY_DECISION",proposalTask.path("phase").asText());
