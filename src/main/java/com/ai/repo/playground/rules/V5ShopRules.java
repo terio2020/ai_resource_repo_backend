@@ -123,7 +123,11 @@ public final class V5ShopRules {
                 standingCost + decisionCost + franchiseExpense,
                 franchise==null?0:franchise.unitPremium(month),extraBuyers,
                 Math.min(variableDemand?4:2,lostBuyers+(franchise==null?0:franchise.lostBuyers(month))),
-                franchise==null?"V5_" + response.name():franchise.resultEvent(month),marketEvents);
+                franchise==null?"V5_" + response.name():franchise.resultEvent(month),marketEvents,
+                variableDemand
+                        ? (signal==Signal.MARKET_SHIFT
+                            ? List.of(10,10,12,12,14,26) : List.of(10,12,14,15,28,34))
+                        : List.of());
         MonthlyShopRules.State next = ledger.advanceMonth(game, plan, null, adjustment);
         boolean failedToOpen = next.failedOpeningMonth() != null;
         return new MonthResult(next, response, failedToOpen ? 0 : standingCost + decisionCost,

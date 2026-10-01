@@ -136,6 +136,16 @@ class V5ShopRulesTest {
         assertTrue(good.addedBuyers()>bad.addedBuyers());
     }
 
+    @Test void signedMarketingDoesNotFlattenNewRoomSales() {
+        State game=ledger.initialize(12,new Environment(Shock.NONE,1,12,18742));
+        for (int month=1;month<=12;month++)
+            game=v5.advance(game,strategy,Signal.NORMAL,Response.KEEP_IDENTITY,null,true).game();
+        long minimum=game.reports().stream().mapToLong(MonthlyReport::salesMinor).min().orElseThrow();
+        long maximum=game.reports().stream().mapToLong(MonthlyReport::salesMinor).max().orElseThrow();
+        assertTrue(maximum-minimum>=3_200);
+        reconciles(game);
+    }
+
     @Test void competitorRemovesRealDemandAndTheYearStillEndsAtTwelveMonths() {
         Strategy noCampaign = new Strategy(4, 16, 0, Audience.COMMUTERS,
                 Channel.NONE, ServicePromise.FAST, 0);
