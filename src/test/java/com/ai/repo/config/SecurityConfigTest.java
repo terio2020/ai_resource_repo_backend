@@ -39,11 +39,31 @@ class SecurityConfigTest {
                 .andExpect(header().doesNotExist("Set-Cookie"));
     }
 
+    @Test
+    void onlyTheTwoPublishedShareRoutesAreAnonymous() throws Exception {
+        mockMvc.perform(get("/api/playground/shares/example"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/playground/shares/example/landing"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/playground/shares/example/private"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/playground/activities/23/share"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/admin/playground/shares/23/remove"))
+                .andExpect(status().isUnauthorized());
+    }
+
     @RestController
     static class ProbeController {
         @GetMapping("/security-probe")
         String probe() {
             return "ok";
+        }
+
+        @GetMapping({"/api/playground/shares/example", "/api/playground/shares/example/landing"})
+        String publicShare() {
+            return "public";
         }
     }
 }
