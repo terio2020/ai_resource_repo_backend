@@ -12,9 +12,13 @@ public final class MonthlyShopRules {
     public static final long CAPITAL = 20_000;
     public enum Ending { RUNNING, YEAR_COMPLETE, SHORT_COMPLETE, ACTIVE_CLOSURE, BUSINESS_FAILURE }
     public enum Shock { NONE, MARKET_SLOWDOWN, MATERIAL_SURGE, RENT_RENEWAL, PACKAGING_RULE, POWER_OUTAGE }
-    public record Environment(Shock shock, int fromMonth, int throughMonth) {
+    public record Environment(Shock shock, int fromMonth, int throughMonth, int demandSeed) {
+        public Environment(Shock shock, int fromMonth, int throughMonth) {
+            this(shock, fromMonth, throughMonth, 0);
+        }
         public Environment {
-            require(shock != null && fromMonth >= 1 && throughMonth >= fromMonth && throughMonth <= 12,
+            require(shock != null && fromMonth >= 1 && throughMonth >= fromMonth && throughMonth <= 12
+                    && demandSeed >= 0,
                     "INVALID_ENVIRONMENT");
         }
         boolean active(int month, Shock kind) {
@@ -40,16 +44,35 @@ public final class MonthlyShopRules {
     /** Server-selected v5 effects. Never deserialize model-supplied amounts into this record. */
     public record TradingAdjustment(long extraExpenseMinor, long extraUnitCostMinor,
                                     List<Integer> extraBuyerWillingnessCoins, int lostBuyers,
-                                    String eventCode) {
+                                    String eventCode, List<String> marketEvents,
+                                    List<Integer> baseBuyerWillingnessCoins) {
+        public TradingAdjustment(long extraExpenseMinor, long extraUnitCostMinor,
+                                 List<Integer> extraBuyerWillingnessCoins, int lostBuyers,
+                                 String eventCode) {
+            this(extraExpenseMinor,extraUnitCostMinor,extraBuyerWillingnessCoins,lostBuyers,eventCode,List.of(),List.of());
+        }
+        public TradingAdjustment(long extraExpenseMinor, long extraUnitCostMinor,
+                                 List<Integer> extraBuyerWillingnessCoins, int lostBuyers,
+                                 String eventCode, List<String> marketEvents) {
+            this(extraExpenseMinor,extraUnitCostMinor,extraBuyerWillingnessCoins,lostBuyers,eventCode,marketEvents,List.of());
+        }
         public static final TradingAdjustment NONE = new TradingAdjustment(0, 0, List.of(), 0, null);
         public TradingAdjustment {
             require(extraExpenseMinor >= 0 && extraExpenseMinor <= 10_000
                     && extraUnitCostMinor >= 0 && extraUnitCostMinor <= 600
                     && extraBuyerWillingnessCoins != null && extraBuyerWillingnessCoins.size() <= 3
                     && extraBuyerWillingnessCoins.stream().allMatch(price -> price != null && price >= 12 && price <= 34)
-                    && lostBuyers >= 0 && lostBuyers <= 2
-                    && (eventCode == null || eventCode.matches("[A-Z0-9_]{1,40}")), "INVALID_TRADING_ADJUSTMENT");
+                    && lostBuyers >= 0 && lostBuyers <= 4
+                    && (eventCode == null || eventCode.matches("[A-Z0-9_]{1,40}"))
+                    && marketEvents != null && marketEvents.size() <= 2
+                    && marketEvents.stream().allMatch(code -> code != null && code.matches("[A-Z0-9_]{1,40}"))
+                    && baseBuyerWillingnessCoins != null
+                    && (baseBuyerWillingnessCoins.isEmpty() || baseBuyerWillingnessCoins.size()==6)
+                    && baseBuyerWillingnessCoins.stream().allMatch(price -> price != null && price >= 10 && price <= 34),
+                    "INVALID_TRADING_ADJUSTMENT");
             extraBuyerWillingnessCoins = List.copyOf(extraBuyerWillingnessCoins);
+            marketEvents = List.copyOf(marketEvents);
+            baseBuyerWillingnessCoins = List.copyOf(baseBuyerWillingnessCoins);
         }
     }
     public record Batch(int units, long unitCostMinor) {}
@@ -127,6 +150,7 @@ public final class MonthlyShopRules {
         if (env.shock() != Shock.NONE && month >= env.fromMonth() && month <= env.throughMonth())
             events.add(env.shock().name());
         if (adjustment.eventCode() != null) events.add(adjustment.eventCode());
+        events.addAll(adjustment.marketEvents());
         int requested = Math.min(plan.produceUnits(), capacity);
         int produced = (int) Math.min(requested, Math.max(0, cash - plan.reserveMinor()) / unitCost);
         if (produced > 0) {
@@ -151,10 +175,12 @@ public final class MonthlyShopRules {
                 events.add("NPC_ORDER_FULFILLED");
             } else events.add("NPC_ORDER_UNFILLED");
         }
-        int[] pool = env.active(month, Shock.MARKET_SLOWDOWN)
-                ? new int[]{10, 10, 12, 12, 20, 26} : new int[]{12, 12, 16, 16, 28, 34};
+        List<Integer> pool = !adjustment.baseBuyerWillingnessCoins().isEmpty()
+                ? adjustment.baseBuyerWillingnessCoins()
+                : env.active(month, Shock.MARKET_SLOWDOWN)
+                ? List.of(10, 10, 12, 12, 20, 26) : List.of(12, 12, 16, 16, 28, 34);
         List<Integer> buyers = new ArrayList<>();
-        for (int i = 0; i < pool.length - adjustment.lostBuyers(); i++) buyers.add(pool[i]);
+        for (int i = 0; i < pool.size() - adjustment.lostBuyers(); i++) buyers.add(pool.get(i));
         buyers.addAll(adjustment.extraBuyerWillingnessCoins());
         for (int willingness : buyers) {
             long packaging = env.active(month, Shock.PACKAGING_RULE) ? 200 : 0;

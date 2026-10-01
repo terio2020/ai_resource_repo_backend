@@ -107,6 +107,45 @@ class V5ShopRulesTest {
                 ledger.advanceMonth(before, old, null, TradingAdjustment.NONE));
     }
 
+    @Test void newRoomsHaveRepeatableButUnevenFootfallAndBalancedAccounts() {
+        Strategy local = new Strategy(4,16,0,Audience.NEIGHBORS,
+                Channel.NONE,ServicePromise.COMMUNITY,0);
+        State game = ledger.initialize(12,new Environment(Shock.NONE,1,12,18742));
+        State replay = game;
+        for (int month=1;month<=12;month++) {
+            game=v5.advance(game,local,Signal.NORMAL,Response.KEEP_IDENTITY,null,true).game();
+            replay=v5.advance(replay,local,Signal.NORMAL,Response.KEEP_IDENTITY,null,true).game();
+        }
+        assertEquals(game,replay);
+        assertEquals(Ending.YEAR_COMPLETE,game.ending());
+        assertTrue(game.reports().stream().map(MonthlyReport::salesMinor).distinct().count()>2);
+        assertTrue(game.reports().stream().anyMatch(r->r.events().contains("QUIET_STREET")));
+        assertTrue(game.reports().stream().anyMatch(r->r.events().contains("LOCAL_RUSH")));
+        reconciles(game);
+    }
+
+    @Test void newServiceAudienceCanRetainDemandInMarketShift() {
+        State first=ledger.initialize(12,new Environment(Shock.MARKET_SLOWDOWN,2,2,919));
+        Strategy fitted=new Strategy(4,16,0,Audience.PET_OWNERS,
+                Channel.NONE,ServicePromise.COMMUNITY,0);
+        Strategy mismatched=new Strategy(4,16,0,Audience.PET_OWNERS,
+                Channel.NONE,ServicePromise.QUIET,0);
+        State before=v5.advance(first,fitted,Signal.NORMAL,Response.KEEP_IDENTITY,null,true).game();
+        MonthResult good=v5.advance(before,fitted,Signal.MARKET_SHIFT,Response.KEEP_IDENTITY,null,true);
+        MonthResult bad=v5.advance(before,mismatched,Signal.MARKET_SHIFT,Response.KEEP_IDENTITY,null,true);
+        assertTrue(good.addedBuyers()>bad.addedBuyers());
+    }
+
+    @Test void signedMarketingDoesNotFlattenNewRoomSales() {
+        State game=ledger.initialize(12,new Environment(Shock.NONE,1,12,18742));
+        for (int month=1;month<=12;month++)
+            game=v5.advance(game,strategy,Signal.NORMAL,Response.KEEP_IDENTITY,null,true).game();
+        long minimum=game.reports().stream().mapToLong(MonthlyReport::salesMinor).min().orElseThrow();
+        long maximum=game.reports().stream().mapToLong(MonthlyReport::salesMinor).max().orElseThrow();
+        assertTrue(maximum-minimum>=3_200);
+        reconciles(game);
+    }
+
     @Test void competitorRemovesRealDemandAndTheYearStillEndsAtTwelveMonths() {
         Strategy noCampaign = new Strategy(4, 16, 0, Audience.COMMUTERS,
                 Channel.NONE, ServicePromise.FAST, 0);
