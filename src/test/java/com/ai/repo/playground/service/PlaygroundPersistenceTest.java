@@ -104,6 +104,20 @@ class PlaygroundPersistenceTest {
         }
     }
     void online(long id) { jdbc.update("UPDATE agents SET status='ONLINE',last_heartbeat_at=? WHERE id=?",LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC),id); }
+    @Test void playgroundTablesAndOwnerBriefsSupportUnicode() {
+        Integer nonUnicode=jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema=DATABASE() AND table_name LIKE 'playground_%' "
+                + "AND table_collation NOT LIKE 'utf8mb4%'",Integer.class);
+        assertEquals(0,nonUnicode);
+        enable(1); enable(2);
+        long id=Long.parseLong(service.invite(1,new Invitation(1L,2L,"FULL",v5Brief("雨夜修伞与旧书")))
+                .get("activityId").toString());
+        service.acceptInvitation(2,id,new InvitationAccept(v5Brief("社区早餐与雨具修补")));
+        String state=jdbc.queryForObject("SELECT state_json FROM playground_activities WHERE id=?",String.class,id);
+        assertNotNull(state);
+        assertTrue(state.contains("雨夜修伞与旧书"));
+        assertTrue(state.contains("社区早餐与雨具修补"));
+    }
     @Test void randomQueuePairsWithoutPartnerInputAndReservesSeats() {
         enable(1); enable(2); online(1); online(2);
         assertEquals("WAITING",matching.enqueue(1,new MatchJoin(1L,"FULL",brief("cats"))).get("status"));
