@@ -10,7 +10,7 @@ public final class V5ShopRules {
     public enum Audience { NIGHT_READERS, COMMUTERS, STUDENTS, NEIGHBORS, FAMILIES, PET_OWNERS, HOBBYISTS }
     public enum Channel { NONE, FLYERS, LOCAL_EVENT }
     public enum ServicePromise { QUIET, FAST, COMMUNITY }
-    public enum Signal { NORMAL, MARKET_SHIFT, MATERIAL_SURGE, RENT_RISE, PACKAGING_CHANGE, POWER_OUTAGE, COMPETITOR }
+    public enum Signal { NORMAL, MARKET_SHIFT, MATERIAL_SURGE, RENT_RISE, PACKAGING_CHANGE, POWER_OUTAGE, COMPETITOR, SUPPLY_DELAY }
     public enum Response { KEEP_IDENTITY, PROMOTE, TEMPORARY_PIVOT }
 
     public record Strategy(int produceUnits, int unitPriceCoins, long minimumReserveMinor,
@@ -63,7 +63,7 @@ public final class V5ShopRules {
             case RENT_RISE -> MonthlyShopRules.Shock.RENT_RENEWAL;
             case PACKAGING_CHANGE -> MonthlyShopRules.Shock.PACKAGING_RULE;
             case POWER_OUTAGE -> MonthlyShopRules.Shock.POWER_OUTAGE;
-            case NORMAL, COMPETITOR -> MonthlyShopRules.Shock.NONE;
+            case NORMAL, COMPETITOR, SUPPLY_DELAY -> MonthlyShopRules.Shock.NONE;
         };
         MonthlyShopRules.Environment environment = game.environment();
         MonthlyShopRules.Shock active = month >= environment.fromMonth() && month <= environment.throughMonth()
@@ -102,8 +102,9 @@ public final class V5ShopRules {
         if (response == Response.TEMPORARY_PIVOT && extraBuyers.size() < 3) extraBuyers.add(12);
         if (franchise!=null && franchise.supportBuyers(month)>0 && extraBuyers.size()<3)
             extraBuyers.add(strategy.unitPriceCoins());
-        int lostBuyers = signal == Signal.COMPETITOR ? 2 : 0;
+        int lostBuyers = signal == Signal.COMPETITOR ? 2 : signal == Signal.SUPPLY_DELAY ? 1 : 0;
         List<String> marketEvents = new ArrayList<>();
+        if (signal == Signal.SUPPLY_DELAY) marketEvents.add("SUPPLY_DELAY");
         if (variableDemand) {
             int pulse = footfallPulse(game.environment().demandSeed(),month);
             if (pulse < 0) lostBuyers += -pulse;
@@ -118,10 +119,15 @@ public final class V5ShopRules {
         int price = response == Response.TEMPORARY_PIVOT ? 12 : strategy.unitPriceCoins();
         int production = signal == Signal.MARKET_SHIFT && response == Response.KEEP_IDENTITY
                 ? Math.max(0, strategy.produceUnits() - 1) : strategy.produceUnits();
+        // A missed delivery limits stock. Paying for a temporary pivot secures
+        // one replacement unit, so the two Agents' response changes the ledger.
+        if (signal == Signal.SUPPLY_DELAY) production = Math.max(0,production
+                - (response == Response.TEMPORARY_PIVOT ? 1 : 2));
         MonthlyShopRules.Plan plan = new MonthlyShopRules.Plan(production, price, strategy.minimumReserveMinor());
         MonthlyShopRules.TradingAdjustment adjustment = new MonthlyShopRules.TradingAdjustment(
                 standingCost + decisionCost + franchiseExpense,
-                franchise==null?0:franchise.unitPremium(month),extraBuyers,
+                (franchise==null?0:franchise.unitPremium(month))
+                        + (signal==Signal.SUPPLY_DELAY ? 200 : 0),extraBuyers,
                 Math.min(variableDemand?4:2,lostBuyers+(franchise==null?0:franchise.lostBuyers(month))),
                 franchise==null?"V5_" + response.name():franchise.resultEvent(month),marketEvents,
                 variableDemand

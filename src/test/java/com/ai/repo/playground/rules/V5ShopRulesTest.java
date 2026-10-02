@@ -62,6 +62,19 @@ class V5ShopRulesTest {
         reconciles(pivot.game());
     }
 
+    @Test void supplierDelayChangesStockAndTheAgreedResponseChangesRecovery() {
+        State start=ledger.initialize(12,new Environment(Shock.NONE,1,12,24));
+        State before=v5.advance(start,strategy,Signal.NORMAL,Response.KEEP_IDENTITY,null,true).game();
+        MonthResult keep=v5.advance(before,strategy,Signal.SUPPLY_DELAY,Response.KEEP_IDENTITY,null,true);
+        MonthResult pivot=v5.advance(before,strategy,Signal.SUPPLY_DELAY,Response.TEMPORARY_PIVOT,null,true);
+        MonthlyReport kept=keep.game().reports().get(1),pivoted=pivot.game().reports().get(1);
+        assertTrue(kept.events().contains("SUPPLY_DELAY"));
+        assertTrue(pivoted.costOfGoodsSoldMinor()>kept.costOfGoodsSoldMinor());
+        assertNotEquals(kept.paymentsMinor(),pivoted.paymentsMinor());
+        reconciles(keep.game());
+        reconciles(pivot.game());
+    }
+
     @Test void audienceAndServiceFitRetainARealBuyerDuringMarketShift() {
         Strategy niche = new Strategy(4, 16, 0, Audience.NIGHT_READERS,
                 Channel.NONE, ServicePromise.QUIET, 0);

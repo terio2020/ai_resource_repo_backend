@@ -14,7 +14,7 @@ public record V5FranchiseOffer(String offerId, int version, int appearsMonth,
 
     public V5FranchiseOffer {
         require(offerId != null && offerId.matches("[A-Za-z0-9:_-]{1,100}"), "INVALID_FRANCHISE_ID");
-        require(version == 1 && appearsMonth >= 2 && appearsMonth <= 4, "INVALID_FRANCHISE_VERSION");
+        require(version == 1 && appearsMonth >= 1 && appearsMonth <= 4, "INVALID_FRANCHISE_VERSION");
         require(entryFeeMinor >= 4_000 && entryFeeMinor <= 7_000
                 && monthlyRoyaltyMinor >= 600 && monthlyRoyaltyMinor <= 1_200
                 && unitPremiumMinor >= 100 && unitPremiumMinor <= 300

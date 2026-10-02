@@ -112,7 +112,7 @@ public class PlaygroundService {
         activity.setUpdatedAt(now()); activity.setExpiresAt(now().plusHours(24));
         PlaygroundRoomState state = new PlaygroundRoomState(); state.setContractVersion(contractVersionFor(request.ownerBrief()));
         if (state.getContractVersion()==4) state.setRuleVersion("0.5");
-        if (state.getContractVersion()==5) state.setRuleVersion("0.7");
+        if (state.getContractVersion()==5) state.setRuleVersion("0.8");
         state.getOwnerBriefs().put(request.agentId(),request.ownerBrief());
         state.setGame(rules.initialize(activity.getHorizonMonths(),new MonthlyShopRules.Environment(MonthlyShopRules.Shock.NONE,1,12)));
         activity.setStateJson(write(state)); store.insertActivity(activity);
@@ -152,7 +152,18 @@ public class PlaygroundService {
                 store.incrementDailyGames(actor,now().toLocalDate());
             }
             activity.setExpiresAt(state.isRandomMatched() ? now().plusHours(2) : min(activity.getExpiresAt(),now().plusHours(2)));
-            activity.setStatus("PLANNING"); issueTask(activity,state,activity.getHostAgentId());
+            activity.setStatus("PLANNING");
+            if (franchiseEnabled && state.getContractVersion()==5 && state.getRuleVersion().equals("0.8")
+                    && activity.getHorizonMonths()==12) {
+                V5FranchiseOffer offer=V5FranchiseOffer.draw("franchise:"+activity.getId(),1,random);
+                state.setFranchiseOffer(offer);
+                state.setFranchiseWindow(V5FranchiseWindow.open(offer,activity.getHostAgentId(),
+                        activity.getGuestAgentId(),min(now().plusMinutes(15),activity.getExpiresAt())
+                                .toInstant(ZoneOffset.UTC)));
+                eventAtMonth(activity,"FRANCHISE_PITCH","NPC",null,"PROPOSED",
+                        Map.of("offer",offer.publicTerms(),"claimCode","GUARANTEED_CUSTOMERS_UNVERIFIED"),0);
+            }
+            issueTask(activity,state,activity.getHostAgentId());
         }
         save(activity,state); return Map.of("activityId",activityId+"","status",activity.getStatus());
     }
@@ -286,6 +297,7 @@ public class PlaygroundService {
             else if (settleV5) fallbackV5Month(activity,state,V5MonthlyWindow.Resolution.MODEL_FAILURE_FALLBACK);
             else interrupt(activity,"AGENT_DECISION_FAILED");
             store.cancelTasks(activity.getId());
+            resumePreopenAfterFallback(activity,state);
             resumeV5AfterFallback(activity,state,V5MonthlyWindow.Resolution.MODEL_FAILURE_FALLBACK);
             if (Set.of("SETTLED","INTERRUPTED").contains(activity.getStatus())) store.releaseSeats(activity.getId());
         }
@@ -318,11 +330,14 @@ public class PlaygroundService {
         seat.setDecisionsUsed(seat.getDecisionsUsed()+1); store.saveSeat(seat);
         state.getWindowDecisions().merge(agentId,1,Integer::sum);
         task.setStatus("DONE"); store.saveTask(task); attempt.setStatus("SUBMITTED"); store.saveAttempt(attempt);
+        if (task.getPhase().equals("FRANCHISE_DECISION") && state.getGame().operatedMonths()==0
+                && !openFranchiseWindow(state)) state.getWindowDecisions().clear();
         if (activity.getStatus().equals("PLANNING") && openFranchiseWindow(state)) {
             long next=franchiseWindowActor(state.getFranchiseWindow());
             if (canOfferTask(activity,state,next)) issueTask(activity,state,next);
             else {
                 fallbackFranchise(activity,state,V5FranchiseWindow.Resolution.BUDGET_FALLBACK);
+                resumePreopenAfterFallback(activity,state);
                 resumeV5AfterFallback(activity,state,V5MonthlyWindow.Resolution.BUDGET_FALLBACK);
             }
         } else if (activity.getStatus().equals("PLANNING") && openV5Window(state)) {
@@ -407,6 +422,7 @@ public class PlaygroundService {
             fallbackV5Month(activity,state,V5MonthlyWindow.Resolution.DEADLINE_FALLBACK);
         } else interrupt(activity,"DEADLINE_EXPIRED");
         store.cancelTasks(activityId);
+        resumePreopenAfterFallback(activity,state);
         resumeV5AfterFallback(activity,state,V5MonthlyWindow.Resolution.DEADLINE_FALLBACK);
         if (Set.of("SETTLED","INTERRUPTED").contains(activity.getStatus())) store.releaseSeats(activityId);
         save(activity,state);
@@ -529,7 +545,7 @@ public class PlaygroundService {
         if (type.equals("LEAVE")) {
             fields(payload,Set.of("reason"));text(payload,"reason",300);
             eventAtMonth(activity,"FRANCHISE_DECISION","USER_AGENT",actor,"INTERRUPTED",
-                    Map.of("action",action),state.getFranchiseOffer().appearsMonth());
+                    Map.of("action",action),franchiseEventMonth(state));
             interrupt(activity,"AGENT_LEFT");return;
         }
         boolean proposal=type.equals("PROPOSE_FRANCHISE") || type.equals("COUNTER_FRANCHISE");
@@ -557,15 +573,15 @@ public class PlaygroundService {
             if (type.startsWith("CHECK_"))
                 eventAtMonth(activity,"FRANCHISE_INVESTIGATION","USER_AGENT",actor,"EXECUTED",
                         Map.of("action",action),
-                        state.getFranchiseOffer().appearsMonth());
+                        franchiseEventMonth(state));
             else eventAtMonth(activity,"FRANCHISE_DECISION","USER_AGENT",actor,
                     next.phase()==V5FranchiseWindow.Phase.CLOSED?"EXECUTED":"PROPOSED",
-                    Map.of("action",action),state.getFranchiseOffer().appearsMonth());
+                    Map.of("action",action),franchiseEventMonth(state));
             if (next.phase()==V5FranchiseWindow.Phase.CLOSED) {
                 eventAtMonth(activity,"FRANCHISE_RESOLUTION","SYSTEM",null,"EXECUTED",
                         Map.of("offerId",offerId,"resolution",next.resolution().name()),
-                        state.getFranchiseOffer().appearsMonth());
-                continueV5(activity,state,actor);
+                        franchiseEventMonth(state));
+                if (state.getGame().operatedMonths()>0) continueV5(activity,state,actor);
             }
         } catch (IllegalArgumentException error) {
             throw new BusinessException(400,error.getMessage());
@@ -577,12 +593,25 @@ public class PlaygroundService {
         state.setFranchiseWindow(window.miss(why));
         eventAtMonth(activity,"FRANCHISE_RESOLUTION","SYSTEM",null,"EXECUTED",
                 Map.of("offerId",window.offerId(),"resolution",why.name()),
-                state.getFranchiseOffer().appearsMonth());
-        continueV5(activity,state,window.proposerAgentId());
+                franchiseEventMonth(state));
+        if (state.getGame().operatedMonths()>0) continueV5(activity,state,window.proposerAgentId());
     }
     private boolean openV5Window(PlaygroundRoomState state) {
         return state.getContractVersion()==5 && state.getV5Window()!=null
                 && state.getV5Window().phase()!=V5MonthlyWindow.Phase.CLOSED;
+    }
+    private int franchiseEventMonth(PlaygroundRoomState state) {
+        return state.getGame().operatedMonths()==0 ? 0 : state.getFranchiseOffer().appearsMonth();
+    }
+    private void resumePreopenAfterFallback(Activity activity,PlaygroundRoomState state) {
+        if (!activity.getStatus().equals("PLANNING") || state.getContractVersion()!=5
+                || !state.getRuleVersion().equals("0.8") || state.getGame().operatedMonths()!=0
+                || state.getFranchiseWindow()==null || openFranchiseWindow(state)
+                || state.getProposal()!=null) return;
+        state.getWindowDecisions().clear();
+        long actor=activity.getHostAgentId();
+        if (canOfferTask(activity,state,actor)) issueTask(activity,state,actor);
+        else interrupt(activity,"WINDOW_BUDGET_EXHAUSTED");
     }
     private boolean openFranchiseWindow(PlaygroundRoomState state) {
         return state.getContractVersion()==5 && state.getFranchiseWindow()!=null
@@ -622,9 +651,10 @@ public class PlaygroundService {
             case POWER_OUTAGE -> V5ShopRules.Signal.POWER_OUTAGE;
         };
     }
-    private boolean v5DecisionMonth(MonthlyShopRules.State game,int month) {
+    private boolean v5DecisionMonth(MonthlyShopRules.State game,int month,String ruleVersion) {
         if (month==2) return true;
         if (game.horizonMonths()!=12) return false;
+        if (ruleVersion.equals("0.8") && month==5) return true;
         int shockMonth=game.environment().shock()==MonthlyShopRules.Shock.NONE?8:
                 Math.max(3,game.environment().fromMonth());
         return month==(shockMonth==2?8:shockMonth);
@@ -633,7 +663,7 @@ public class PlaygroundService {
         while (state.getGame().ending()==MonthlyShopRules.Ending.RUNNING
                 && state.getGame().operatedMonths()<activity.getHorizonMonths()) {
             int month=state.getGame().operatedMonths()+1;
-            if (franchiseEnabled && activity.getHorizonMonths()==12 && month==3
+            if (state.getRuleVersion().equals("0.7") && franchiseEnabled && activity.getHorizonMonths()==12 && month==3
                     && state.getFranchiseOffer()==null) {
                 V5FranchiseOffer offer=V5FranchiseOffer.draw("franchise:"+activity.getId(),month,random);
                 state.setFranchiseOffer(offer);
@@ -647,14 +677,16 @@ public class PlaygroundService {
                 return;
             }
             V5ShopRules.Signal signal=v5Signal(state.getGame(),month);
-            if (!v5DecisionMonth(state.getGame(),month)) {
+            if (!v5DecisionMonth(state.getGame(),month,state.getRuleVersion())) {
                 advanceV5AndRecord(activity,state,signal,V5ShopRules.Response.KEEP_IDENTITY);
                 eventAtMonth(activity,"MONTHLY_CONTINUITY","SYSTEM",null,"EXECUTED",
                         Map.of("signal",signal.name(),"effectiveResponse","KEEP_IDENTITY","reason","SIGNED_STRATEGY"),month);
                 continue;
             }
             // A competitor appears in a quiet decision month; environmental shocks stay server drawn.
-            if (signal==V5ShopRules.Signal.NORMAL) signal=V5ShopRules.Signal.COMPETITOR;
+            if (signal==V5ShopRules.Signal.NORMAL)
+                signal=state.getRuleVersion().equals("0.8") && month==5
+                        ?V5ShopRules.Signal.SUPPLY_DELAY:V5ShopRules.Signal.COMPETITOR;
             state.setV5Signal(signal);
             long proposer=previousActor==activity.getHostAgentId()?activity.getGuestAgentId():activity.getHostAgentId();
             String triggerEventId=activity.getId()+":"+activity.getNextSequence();
@@ -734,7 +766,7 @@ public class PlaygroundService {
                 && before.operatedMonths()+1>=state.getFranchiseOffer().appearsMonth()
                 ?state.getFranchiseOffer():null;
         V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response,signed,
-                state.getRuleVersion().equals("0.7"));
+                Set.of("0.7","0.8").contains(state.getRuleVersion()));
         state.setGame(result.game());
         MonthlyShopRules.MonthlyReport report=state.getGame().reports().get(state.getGame().reports().size()-1);
         if (state.getGame().reports().size()>before.reports().size())
@@ -900,6 +932,14 @@ public class PlaygroundService {
         visible.set("events",context);
         if (state.getContractVersion()==5) {
             if (retryHint==null) visible.putNull("retryHint"); else visible.put("retryHint",retryHint);
+            V5FranchiseWindow franchise=state.getFranchiseWindow();
+            if (franchise!=null && franchise.phase()==V5FranchiseWindow.Phase.CLOSED) {
+                V5FranchiseOffer terms=state.getFranchiseOffer();
+                visible.putObject("franchiseOutcome").put("resolution",franchise.resolution().name())
+                        .put("entryFeeMinor",terms.entryFeeMinor())
+                        .put("monthlyRoyaltyMinor",terms.monthlyRoyaltyMinor())
+                        .put("unitPremiumMinor",terms.unitPremiumMinor());
+            } else visible.putNull("franchiseOutcome");
         }
         if (state.isNpcWindowOpen()) visible.set("orderOffer",json.valueToTree(offerView(state.getNpcOrder())));
         else visible.putNull("orderOffer");
@@ -1031,7 +1071,7 @@ public class PlaygroundService {
         PlaygroundRoomState state=read(activity.getStateJson(),PlaygroundRoomState.class);
         require((Set.of(2,3).contains(state.getContractVersion()) && state.getRuleVersion().equals("0.4"))
                 || (state.getContractVersion()==4 && state.getRuleVersion().equals("0.5"))
-                || (state.getContractVersion()==5 && Set.of("0.6","0.7").contains(state.getRuleVersion())),409,"UNSUPPORTED_RULE_VERSION");
+                || (state.getContractVersion()==5 && Set.of("0.6","0.7","0.8").contains(state.getRuleVersion())),409,"UNSUPPORTED_RULE_VERSION");
         if (state.getProposal()!=null && state.getProposal().isNull()) state.setProposal(null);
         return state;
     }
