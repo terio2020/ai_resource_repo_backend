@@ -19,6 +19,14 @@ class V5FranchiseOfferTest {
                 replay.clue(V5FranchiseOffer.Investigation.STORES));
     }
 
+    @Test void preopeningOfferStartsItsCostsWithTheFirstTradingMonth() {
+        var offer=V5FranchiseOffer.draw("preopening",1,new Random(7));
+        assertEquals(1,offer.publicTerms().get("appearsMonth"));
+        assertEquals(6_000,offer.entryCost(1));
+        assertEquals(900,offer.monthlyCost(1));
+        assertEquals(0,offer.supportBuyers(1));
+    }
+
     @Test void investigationDifferentiatesSupportWithoutChangingTheContract() {
         var good=new V5FranchiseOffer("good",1,3,6_000,900,200,3_000,
                 V5FranchiseOffer.Support.DELIVERED);

@@ -196,11 +196,19 @@ class PlaygroundPersistenceTest {
                 .put("monthlyMarketingBudgetMinor",300);
     }
     long openedV5Room() { return openedV5Room("SHORT"); }
-    long openedV5Room(String mode) {
+    long joinedV5Room(String mode) {
         enable(1); enable(2);
         long id=Long.parseLong(service.invite(1,new Invitation(1L,2L,mode,v5Brief("cats"))).get("activityId").toString());
         service.acceptInvitation(2,id,new InvitationAccept(v5Brief("dogs")));
         service.join(1,id); service.join(2,id);
+        return id;
+    }
+    long openedV5Room(String mode) {
+        long id=joinedV5Room(mode);
+        signV5Plan();
+        return id;
+    }
+    void signV5Plan() {
         ObjectNode first=ready(1), opening=proposal(4,16);
         ObjectNode plan=(ObjectNode)opening.path("payload").path("proposal").path("plan");
         plan.set("venture",venture()); plan.set("strategy",v5Strategy());
@@ -222,7 +230,6 @@ class PlaygroundPersistenceTest {
                 .put("publicRationale","Both ideas remain");
         accept.set("payload",json.createObjectNode().put("proposalId","plan-2"));
         service.submit(1,third.path("taskId").asLong(),submission(third,accept,UUID.randomUUID().toString()));
-        return id;
     }
     ObjectNode v5Decision(String type,JsonNode window,String choice) {
         ObjectNode action=json.createObjectNode().put("actionType",type).put("publicRationale","Our shop responds to this month");
@@ -235,7 +242,7 @@ class PlaygroundPersistenceTest {
         long id=openedV5Room();
         JsonNode before=service.ownerActivity(1,id);
         assertEquals("PLANNING",before.path("status").asText());
-        assertEquals("0.7",before.path("ruleVersion").asText());
+        assertEquals("0.8",before.path("ruleVersion").asText());
         assertEquals(1,before.path("game").path("operatedMonths").asInt());
         ObjectNode proposalTask=ready(2);
         assertEquals("MONTHLY_DECISION",proposalTask.path("phase").asText());
@@ -286,10 +293,10 @@ class PlaygroundPersistenceTest {
         String token=link.path("sharePath").asText().split("/")[4];
         assertEquals(result.toString(),shares.publicResult(token).toString());
     }
-    @Test void v5FullYearRunsAtMostTwoAgentDecisionWindowsAndPublishesMonthlyConsequences() {
+    @Test void v5FullYearNegotiatesCompetitorSupplyAndLateShock() {
         long id=openedV5Room("FULL");
-        for (int decisionMonth=0;decisionMonth<2;decisionMonth++) {
-            ObjectNode proposalTask=ready(decisionMonth==0?2:1);
+        for (int decisionMonth=0;decisionMonth<3;decisionMonth++) {
+            ObjectNode proposalTask=ready(decisionMonth%2==0?2:1);
             JsonNode window=proposalTask.path("visibleState").path("monthlyWindow");
             assertTrue(window.path("month").asInt()>=2);
             service.submit(proposalTask.path("actorId").asText().equals("agent:1")?1:2,
@@ -307,16 +314,18 @@ class PlaygroundPersistenceTest {
         List<JsonNode> events=service.ownerEvents(1,id,0);
         assertEquals(12,events.stream().filter(e->"MONTH_REPORT".equals(e.path("kind").asText())).count());
         List<JsonNode> signals=events.stream().filter(e->"MONTHLY_SIGNAL".equals(e.path("kind").asText())).toList();
-        assertEquals(2,signals.size());
+        assertEquals(3,signals.size());
         assertEquals(2,signals.get(0).path("virtualMonth").asInt());
-        assertTrue(signals.get(1).path("virtualMonth").asInt()>=7);
-        assertTrue(signals.get(1).path("virtualMonth").asInt()<=9);
-        assertNotEquals("COMPETITOR",signals.get(1).path("facts").path("signal").asText());
-        assertEquals(9,events.stream().filter(e->"MONTHLY_CONTINUITY".equals(e.path("kind").asText())).count());
+        assertEquals(5,signals.get(1).path("virtualMonth").asInt());
+        assertEquals("SUPPLY_DELAY",signals.get(1).path("facts").path("signal").asText());
+        assertTrue(signals.get(2).path("virtualMonth").asInt()>=7);
+        assertTrue(signals.get(2).path("virtualMonth").asInt()<=9);
+        assertNotEquals("COMPETITOR",signals.get(2).path("facts").path("signal").asText());
+        assertEquals(8,events.stream().filter(e->"MONTHLY_CONTINUITY".equals(e.path("kind").asText())).count());
         JsonNode share=context.getBean(PlaygroundShareService.class).ownerResultLink(1,id).path("result");
         assertEquals(12,share.path("business").path("months").size());
-        int lateMonth=signals.get(1).path("virtualMonth").asInt();
-        assertEquals(signals.get(1).path("facts").path("signal").asText(),
+        int lateMonth=signals.get(2).path("virtualMonth").asInt();
+        assertEquals(signals.get(2).path("facts").path("signal").asText(),
                 share.path("business").path("months").get(lateMonth-1).path("signal").asText());
         assertEquals("PARTNERS_APPROVED",share.path("business").path("months").get(lateMonth-1).path("resolution").asText());
         assertEquals("KEEP_IDENTITY",share.path("business").path("months").get(11).path("response").asText());
@@ -327,10 +336,11 @@ class PlaygroundPersistenceTest {
         assertEquals("PLANNING",service.ownerActivity(1,id).path("status").asText());
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM playground_tasks WHERE status='PENDING'",Integer.class));
         clock.advance(901); service.expire(id);
+        clock.advance(901); service.expire(id);
         JsonNode result=service.ownerActivity(1,id);
         assertEquals("SETTLED",result.path("status").asText());
         assertEquals(12,result.path("summary").path("operatedMonths").asInt());
-        assertEquals(2,service.ownerEvents(1,id,0).stream().filter(event ->
+        assertEquals(3,service.ownerEvents(1,id,0).stream().filter(event ->
                 "MONTHLY_RESOLUTION".equals(event.path("kind").asText())
                         && "DEADLINE_FALLBACK".equals(event.path("facts").path("resolution").asText())).count());
         assertEquals(0,count("playground_seats"));
@@ -338,22 +348,14 @@ class PlaygroundPersistenceTest {
     @Test void v5FranchisePitchRequiresBothAgentsAndPersistsTheSameOffer() throws Exception {
         service=new PlaygroundService(store,context.getBean(AgentMapper.class),
                 context.getBean(UserMapper.class),json,true,true,true,clock);
-        long id=openedV5Room("FULL");
-        ObjectNode monthTwo=ready(2);
-        JsonNode monthly=monthTwo.path("visibleState").path("monthlyWindow");
-        service.submit(2,monthTwo.path("taskId").asLong(),submission(monthTwo,
-                v5Decision("PROPOSE_MONTHLY",monthly,"KEEP_IDENTITY"),UUID.randomUUID().toString()));
-        ObjectNode monthTwoReply=ready(1);
-        service.submit(1,monthTwoReply.path("taskId").asLong(),submission(monthTwoReply,
-                v5Decision("ACCEPT_MONTHLY",monthly,null),UUID.randomUUID().toString()));
-
+        long id=joinedV5Room("FULL");
         ObjectNode pitch=ready(1);
         Files.writeString(Path.of("target/playground-franchise-task-contract.json"),
                 json.writerWithDefaultPrettyPrinter().writeValueAsString(pitch));
         assertEquals("FRANCHISE_DECISION",pitch.path("phase").asText());
         JsonNode offer=pitch.path("visibleState").path("franchiseWindow");
         String offerId=offer.path("offerId").asText();
-        assertEquals(3,pitch.path("visibleState").path("virtualMonth").asInt()+1);
+        assertEquals(0,pitch.path("visibleState").path("virtualMonth").asInt());
         assertFalse(offer.path("terms").has("support"));
         assertTrue(offer.path("ownInvestigation").isNull());
         ObjectNode check=franchiseAction("CHECK_FRANCHISE_STORES",offerId,null);
@@ -372,13 +374,16 @@ class PlaygroundPersistenceTest {
                 .path("ownInvestigation").path("clueCode").asText()));
         service.submit(2,partner.path("taskId").asLong(),submission(partner,
                 franchiseAction("ACCEPT_FRANCHISE",offerId,null),UUID.randomUUID().toString()));
+        assertEquals(0,service.ownerActivity(1,id).path("game").path("operatedMonths").asInt());
+        assertEquals("PLANNING",service.tasks(1).get(0).get("phase"));
+        signV5Plan();
         JsonNode events=json.valueToTree(service.ownerEvents(1,id,0));
         assertEquals(1,java.util.stream.StreamSupport.stream(events.spliterator(),false)
                 .filter(event->"FRANCHISE_PITCH".equals(event.path("kind").asText())).count());
         assertTrue(events.toString().contains("SIGNED"));
-        assertTrue(service.ownerActivity(1,id).path("game").path("operatedMonths").asInt()>=3);
+        assertTrue(service.ownerActivity(1,id).path("game").path("operatedMonths").asInt()>=1);
         assertFalse(service.ownerActivity(1,id).toString().contains("private:dogs"));
-        if (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
+        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
             clock.advance(901); service.expire(id);
         }
         JsonNode published=context.getBean(PlaygroundShareService.class).ownerResultLink(1,id).path("result");
@@ -397,19 +402,15 @@ class PlaygroundPersistenceTest {
     @Test void v5FranchiseDeadlineKeepsOriginalShopAndContinuesTheYear() {
         service=new PlaygroundService(store,context.getBean(AgentMapper.class),
                 context.getBean(UserMapper.class),json,true,true,true,clock);
-        long id=openedV5Room("FULL");
-        ObjectNode first=ready(2);
-        JsonNode monthly=first.path("visibleState").path("monthlyWindow");
-        service.submit(2,first.path("taskId").asLong(),submission(first,
-                v5Decision("PROPOSE_MONTHLY",monthly,"KEEP_IDENTITY"),UUID.randomUUID().toString()));
-        ObjectNode second=ready(1);
-        service.submit(1,second.path("taskId").asLong(),submission(second,
-                v5Decision("ACCEPT_MONTHLY",monthly,null),UUID.randomUUID().toString()));
+        long id=joinedV5Room("FULL");
         assertEquals("FRANCHISE_DECISION",service.tasks(1).get(0).get("phase"));
         clock.advance(901); service.expire(id);
         assertEquals("PLANNING",service.ownerActivity(1,id).path("status").asText());
         assertEquals(1,service.tasks(1).size()+service.tasks(2).size());
-        clock.advance(901); service.expire(id);
+        signV5Plan();
+        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
+            clock.advance(901); service.expire(id);
+        }
         JsonNode owner=service.ownerActivity(1,id);
         assertEquals("SETTLED",owner.path("status").asText());
         assertEquals(12,owner.path("summary").path("operatedMonths").asInt());
@@ -421,14 +422,7 @@ class PlaygroundPersistenceTest {
     @Test void v5FranchiseRepeatedModelFailureSkipsSigningAndContinuesTheYear() {
         service=new PlaygroundService(store,context.getBean(AgentMapper.class),
                 context.getBean(UserMapper.class),json,true,true,true,clock);
-        long id=openedV5Room("FULL");
-        ObjectNode first=ready(2);
-        JsonNode monthly=first.path("visibleState").path("monthlyWindow");
-        service.submit(2,first.path("taskId").asLong(),submission(first,
-                v5Decision("PROPOSE_MONTHLY",monthly,"KEEP_IDENTITY"),UUID.randomUUID().toString()));
-        ObjectNode second=ready(1);
-        service.submit(1,second.path("taskId").asLong(),submission(second,
-                v5Decision("ACCEPT_MONTHLY",monthly,null),UUID.randomUUID().toString()));
+        long id=joinedV5Room("FULL");
         ObjectNode pitch=ready(1);
         AttemptFailure failure=new AttemptFailure(pitch.path("leaseToken").asText(),
                 pitch.path("permissionVersion").asLong(),pitch.path("attemptId").asText(),"MODEL_OUTPUT_INVALID");
