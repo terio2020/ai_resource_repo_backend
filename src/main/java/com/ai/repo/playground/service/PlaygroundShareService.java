@@ -153,7 +153,7 @@ public class PlaygroundShareService {
         if (business.has("franchise")) {
             JsonNode franchise=business.path("franchise");
             if (!franchise.isObject() || !onlyFields(franchise,Set.of("month","resolution","supportOutcome"))
-                    || franchise.path("month").asInt()!=3
+                    || !Set.of(0,3).contains(franchise.path("month").asInt(-1))
                     || !Set.of("SIGNED","REJECTED","DEADLINE_FALLBACK","BUDGET_FALLBACK",
                     "MODEL_FAILURE_FALLBACK").contains(franchise.path("resolution").asText())
                     || !Set.of("PENDING","DELIVERED","WEAK","ABSENT","NOT_SIGNED")
@@ -276,7 +276,9 @@ public class PlaygroundShareService {
                         if (code.equals("FRANCHISE_SUPPORT_ABSENT")) support="ABSENT";
                     }
                 }
-                business.putObject("franchise").put("month",3).put("resolution",resolution)
+                business.putObject("franchise")
+                        .put("month",franchiseResolution.path("virtualMonth").asInt(3))
+                        .put("resolution",resolution)
                         .put("supportOutcome",support);
             }
             ArrayNode months=business.putArray("months");
