@@ -32,6 +32,7 @@ import com.ai.repo.playground.rules.V5ShopRules;
 import com.ai.repo.playground.rules.V5StrategyContract;
 import com.ai.repo.playground.rules.V6FoundingAgreement;
 import com.ai.repo.playground.rules.V6FoundingContract;
+import com.ai.repo.playground.rules.V6ConflictRules;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -50,6 +51,7 @@ public class PlaygroundService {
     private final Clock clock;
     private final MonthlyShopRules rules = new MonthlyShopRules();
     private final V5ShopRules v5Rules = new V5ShopRules();
+    private final V6ConflictRules v6Rules = new V6ConflictRules();
     private final SecureRandom random = new SecureRandom();
 
     @Autowired
@@ -122,6 +124,7 @@ public class PlaygroundService {
         PlaygroundRoomState state = new PlaygroundRoomState(); state.setContractVersion(contractVersionFor(request.ownerBrief()));
         if (state.getContractVersion()==4) state.setRuleVersion("0.5");
         if (state.getContractVersion()==5) state.setRuleVersion(v6Enabled?"0.9":"0.8");
+        if (state.getRuleVersion().equals("0.9")) state.setV6Story(V6ConflictRules.StoryState.initial());
         state.getOwnerBriefs().put(request.agentId(),request.ownerBrief());
         state.setGame(rules.initialize(activity.getHorizonMonths(),new MonthlyShopRules.Environment(MonthlyShopRules.Shock.NONE,1,12)));
         activity.setStateJson(write(state)); store.insertActivity(activity);
@@ -696,12 +699,21 @@ public class PlaygroundService {
                 continue;
             }
             // A competitor appears in a quiet decision month; environmental shocks stay server drawn.
-            if (signal==V5ShopRules.Signal.NORMAL)
+            if (signal==V5ShopRules.Signal.NORMAL && !state.getRuleVersion().equals("0.9"))
                 signal=Set.of("0.8","0.9").contains(state.getRuleVersion()) && month==5
                         ?V5ShopRules.Signal.SUPPLY_DELAY:V5ShopRules.Signal.COMPETITOR;
             state.setV5Signal(signal);
             long proposer=previousActor==activity.getHostAgentId()?activity.getGuestAgentId():activity.getHostAgentId();
             String triggerEventId=activity.getId()+":"+activity.getNextSequence();
+            if (state.getRuleVersion().equals("0.9")) {
+                V6ConflictRules.Kind conflict=v6Rules.draw(state.getGame().environment().demandSeed(),
+                        month,state.getV6Story());
+                state.setV6Conflict(conflict);
+                eventAtMonth(activity,"V6_CONFLICT","SYSTEM",null,"PROPOSED",
+                        Map.of("triggerEventId",triggerEventId,"kind",conflict.name(),
+                                "family",conflict.family().name(),
+                                "options",conflict.options().stream().map(V6ConflictRules.Option::code).toList()),month);
+            }
             state.setV5Window(V5MonthlyWindow.open(triggerEventId,state.getAgreement().proposalId(),month,
                     proposer,previousActor,min(now().plusMinutes(15),activity.getExpiresAt()).toInstant(ZoneOffset.UTC)));
             state.getWindowDecisions().clear();
@@ -733,9 +745,14 @@ public class PlaygroundService {
             V5MonthlyWindow next;
             if (choiceAction) {
                 V5ShopRules.Response choice=V5ShopRules.Response.valueOf(text(payload,"choice",30));
-                require(state.getV5Signal()!=V5ShopRules.Signal.NORMAL
+                require(state.getV5Signal()!=V5ShopRules.Signal.NORMAL || state.getV6Conflict()!=null
                         || choice==V5ShopRules.Response.KEEP_IDENTITY,400,"DECISION_WITHOUT_SIGNAL");
-                v5Rules.advance(state.getGame(),v5Strategy(state),state.getV5Signal(),choice);
+                MonthlyShopRules.TradingAdjustment preview=state.getV6Conflict()==null
+                        ?MonthlyShopRules.TradingAdjustment.NONE
+                        :v6Rules.resolve(state.getV6Conflict(),v6Option(state.getV6Conflict(),choice),
+                                state.getV6Story()).immediate();
+                v5Rules.advance(state.getGame(),v5Strategy(state),state.getV5Signal(),choice,null,
+                        Set.of("0.7","0.8","0.9").contains(state.getRuleVersion()),preview);
                 next=type.equals("PROPOSE_MONTHLY")?window.propose(actor,version,choice,instant)
                         :window.counter(actor,version,choice,instant);
             } else next=type.equals("ACCEPT_MONTHLY")?window.accept(actor,version,instant)
@@ -762,13 +779,28 @@ public class PlaygroundService {
     }
     private void settleV5Month(Activity activity,PlaygroundRoomState state) {
         V5MonthlyWindow window=state.getV5Window();
+        V6ConflictRules.Kind conflict=state.getV6Conflict();
+        boolean approved=window.resolution()==V5MonthlyWindow.Resolution.PARTNERS_APPROVED;
+        String tactic=conflict==null?null:approved?v6Option(conflict,window.effectiveResponse()):"SIGNED_STRATEGY";
         V5ShopRules.MonthResult result=advanceV5AndRecord(activity,state,state.getV5Signal(),window.effectiveResponse());
         eventAtMonth(activity,"MONTHLY_RESOLUTION","SYSTEM",null,"EXECUTED",
                 Map.of("triggerEventId",window.triggerEventId(),"planVersion",window.planVersion(),
                         "resolution",window.resolution().name(),"effectiveResponse",window.effectiveResponse().name(),
                         "marketingSpentMinor",result.marketingSpentMinor(),"addedBuyers",result.addedBuyers(),
                         "budgetGuardTriggered",result.budgetGuardTriggered()),window.month());
+        if (conflict!=null) eventAtMonth(activity,"V6_CONFLICT_RESOLUTION","SYSTEM",null,"EXECUTED",
+                Map.of("triggerEventId",window.triggerEventId(),"kind",conflict.name(),
+                        "selectedOption",tactic,"resolution",window.resolution().name(),
+                        "nextTrust",state.getV6Story().trust(),"nextSupply",state.getV6Story().supply(),
+                        "nextRentSurchargeCoins",state.getV6Story().rentSurchargeCoins()),window.month());
         continueV5(activity,state,window.proposerAgentId());
+    }
+    private String v6Option(V6ConflictRules.Kind conflict,V5ShopRules.Response response) {
+        return conflict.options().get(switch (response) {
+            case KEEP_IDENTITY -> 0;
+            case PROMOTE -> 1;
+            case TEMPORARY_PIVOT -> 2;
+        }).code();
     }
     private V5ShopRules.MonthResult advanceV5AndRecord(Activity activity,PlaygroundRoomState state,
                                                         V5ShopRules.Signal signal,V5ShopRules.Response response) {
@@ -777,8 +809,27 @@ public class PlaygroundService {
         V5FranchiseOffer signed=franchise!=null && franchise.resolution()==V5FranchiseWindow.Resolution.SIGNED
                 && before.operatedMonths()+1>=state.getFranchiseOffer().appearsMonth()
                 ?state.getFranchiseOffer():null;
+        MonthlyShopRules.TradingAdjustment external=MonthlyShopRules.TradingAdjustment.NONE;
+        V6ConflictRules.StoryState nextStory=null;
+        boolean currentConflict=state.getRuleVersion().equals("0.9") && state.getV6Conflict()!=null
+                && state.getV5Window()!=null && state.getV5Window().month()==before.operatedMonths()+1;
+        if (state.getRuleVersion().equals("0.9")) {
+            if (currentConflict && state.getV5Window().resolution()==V5MonthlyWindow.Resolution.PARTNERS_APPROVED) {
+                V6ConflictRules.Resolution resolved=v6Rules.resolve(state.getV6Conflict(),
+                        v6Option(state.getV6Conflict(),response),state.getV6Story());
+                external=resolved.immediate(); nextStory=resolved.next();
+            } else {
+                V6ConflictRules.Echo echo=v6Rules.advanceEcho(state.getV6Story());
+                external=echo.adjustment(); nextStory=echo.next();
+                if (currentConflict) nextStory=new V6ConflictRules.StoryState(nextStory.trust(),
+                        nextStory.supply(),nextStory.rentSurchargeCoins(),nextStory.echoMonths(),
+                        state.getV6Conflict());
+            }
+        }
         V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response,signed,
-                Set.of("0.7","0.8","0.9").contains(state.getRuleVersion()));
+                Set.of("0.7","0.8","0.9").contains(state.getRuleVersion()),external);
+        if (nextStory!=null) state.setV6Story(nextStory);
+        if (currentConflict) state.setV6Conflict(null);
         state.setGame(result.game());
         MonthlyShopRules.MonthlyReport report=state.getGame().reports().get(state.getGame().reports().size()-1);
         if (state.getGame().reports().size()>before.reports().size())
@@ -982,6 +1033,14 @@ public class PlaygroundService {
                         .put("deadline",window.deadline().toString());
                 monthly.set("proposal",json.valueToTree(window.proposal()));
                 monthly.set("counterProposal",json.valueToTree(window.counterProposal()));
+                if (state.getRuleVersion().equals("0.9") && state.getV6Conflict()!=null) {
+                    V6ConflictRules.Kind kind=state.getV6Conflict();
+                    monthly.put("conflictCode",kind.name()).put("conflictFamily",kind.family().name());
+                    monthly.set("choiceMap",json.valueToTree(Map.of(
+                            "KEEP_IDENTITY",v6Option(kind,V5ShopRules.Response.KEEP_IDENTITY),
+                            "PROMOTE",v6Option(kind,V5ShopRules.Response.PROMOTE),
+                            "TEMPORARY_PIVOT",v6Option(kind,V5ShopRules.Response.TEMPORARY_PIVOT))));
+                }
                 visible.set("monthlyWindow",monthly);
             } else visible.putNull("monthlyWindow");
             if (openFranchiseWindow(state)) {

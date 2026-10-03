@@ -59,7 +59,7 @@ public final class MonthlyShopRules {
         public static final TradingAdjustment NONE = new TradingAdjustment(0, 0, List.of(), 0, null);
         public TradingAdjustment {
             require(extraExpenseMinor >= 0 && extraExpenseMinor <= 10_000
-                    && extraUnitCostMinor >= 0 && extraUnitCostMinor <= 600
+                    && extraUnitCostMinor >= 0 && extraUnitCostMinor <= 1_200
                     && extraBuyerWillingnessCoins != null && extraBuyerWillingnessCoins.size() <= 3
                     && extraBuyerWillingnessCoins.stream().allMatch(price -> price != null && price >= 12 && price <= 34)
                     && lostBuyers >= 0 && lostBuyers <= 4

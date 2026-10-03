@@ -267,9 +267,20 @@ class PlaygroundPersistenceTest {
         assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
                 "FOUNDING_AGREEMENT".equals(event.path("kind").asText())
                 && event.path("facts").path("hostCapitalCoins").asInt()==150));
-        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
-            clock.advance(901); service.expire(id);
-        }
+        ObjectNode monthly=ready(2);
+        JsonNode window=monthly.path("visibleState").path("monthlyWindow");
+        assertFalse(window.path("conflictCode").asText().isBlank());
+        String selected=window.path("choiceMap").path("TEMPORARY_PIVOT").asText();
+        service.submit(2,monthly.path("taskId").asLong(),submission(monthly,
+                v5Decision("PROPOSE_MONTHLY",window,"TEMPORARY_PIVOT"),UUID.randomUUID().toString()));
+        ObjectNode reply=ready(1);
+        service.submit(1,reply.path("taskId").asLong(),submission(reply,
+                v5Decision("ACCEPT_MONTHLY",reply.path("visibleState").path("monthlyWindow"),null),
+                UUID.randomUUID().toString()));
+        assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
+                "V6_CONFLICT_RESOLUTION".equals(event.path("kind").asText())
+                && selected.equals(event.path("facts").path("selectedOption").asText())
+                && "PARTNERS_APPROVED".equals(event.path("facts").path("resolution").asText())));
         JsonNode summary=service.ownerActivity(1,id).path("summary");
         assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
         assertEquals(summary.path("returnedCapitalMinor").asLong(),
@@ -279,6 +290,7 @@ class PlaygroundPersistenceTest {
         assertEquals(150,published.path("foundingAgreement").path("hostCapitalCoins").asInt());
         assertEquals(summary.path("ownerOneReturnedMinor").asLong(),
                 published.path("business").path("hostReturnedMinor").asLong());
+        assertEquals(selected,published.path("business").path("months").get(1).path("tactic").asText());
         assertFalse(published.toString().contains("private:cats"));
         assertFalse(published.toString().contains("private:dogs"));
     }

@@ -20,6 +20,7 @@ import com.ai.repo.playground.entity.PlaygroundRows.Activity;
 import com.ai.repo.playground.entity.PlaygroundRows.Share;
 import com.ai.repo.playground.mapper.PlaygroundMapper;
 import com.ai.repo.playground.rules.V6FoundingContract;
+import com.ai.repo.playground.rules.V6ConflictRules;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -176,13 +177,26 @@ public class PlaygroundShareService {
                     .contains(franchise.path("supportOutcome").asText())) return false;
         }
         for (JsonNode month:business.path("months")) {
-            if (!month.isObject() || !onlyFields(month,Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
+            if (!month.isObject() || !onlyFields(month,schema==4
+                    ?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic")
+                    :Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
             if (month.has("signal") && !Set.of("NORMAL","MARKET_SHIFT","MATERIAL_SURGE","RENT_RISE",
                     "PACKAGING_CHANGE","POWER_OUTAGE","COMPETITOR","SUPPLY_DELAY").contains(month.path("signal").asText())) return false;
             if (month.has("response") && !Set.of("KEEP_IDENTITY","PROMOTE","TEMPORARY_PIVOT").contains(month.path("response").asText())) return false;
             if (month.has("resolution") && !Set.of("PARTNERS_APPROVED","DECLINED","DEADLINE_FALLBACK",
                     "BUDGET_FALLBACK","MODEL_FAILURE_FALLBACK").contains(month.path("resolution").asText())) return false;
+            if (month.has("conflict")) {
+                if (schema!=4 || !month.has("tactic")) return false;
+                try {
+                    V6ConflictRules.Kind kind=V6ConflictRules.Kind.valueOf(month.path("conflict").asText());
+                    String tactic=month.path("tactic").asText();
+                    if (!month.has("resolution") || tactic.equals("SIGNED_STRATEGY")
+                            ==month.path("resolution").asText().equals("PARTNERS_APPROVED")) return false;
+                    if (!tactic.equals("SIGNED_STRATEGY") && kind.options().stream().noneMatch(
+                            option->option.code().equals(tactic))) return false;
+                } catch (IllegalArgumentException error) { return false; }
+            } else if (month.has("tactic")) return false;
         }
         return true;
     }
@@ -324,6 +338,9 @@ public class PlaygroundShareService {
                         }
                         if (event.path("kind").asText().equals("MONTHLY_CONTINUITY"))
                             month.put("response","KEEP_IDENTITY");
+                        if (v6 && event.path("kind").asText().equals("V6_CONFLICT_RESOLUTION"))
+                            month.put("conflict",event.path("facts").path("kind").asText())
+                                    .put("tactic",event.path("facts").path("selectedOption").asText());
                     }
                 }
             }
