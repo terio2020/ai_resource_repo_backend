@@ -231,6 +231,63 @@ class PlaygroundPersistenceTest {
         accept.set("payload",json.createObjectNode().put("proposalId","plan-2"));
         service.submit(1,third.path("taskId").asLong(),submission(third,accept,UUID.randomUUID().toString()));
     }
+    @Test void v6FoundingTermsAreNegotiatedAndSurviveSettlement() {
+        service=new PlaygroundService(store,context.getBean(AgentMapper.class),
+                context.getBean(UserMapper.class),json,true,true,false,true,clock);
+        long id=joinedV5Room("SHORT");
+        assertEquals("0.9",service.ownerActivity(1,id).path("ruleVersion").asText());
+        ObjectNode first=ready(1), opening=proposal(4,16);
+        ObjectNode openingPlan=(ObjectNode)opening.path("payload").path("proposal").path("plan");
+        openingPlan.set("venture",venture()); openingPlan.set("strategy",v5Strategy());
+        openingPlan.set("contributions",json.createArrayNode().add(json.createObjectNode()
+                .put("sourceAgentId",1).put("sourceFieldId","theme").put("placement","SPACE")
+                .put("label","Host concept").putNull("sourceEventId")));
+        businessError("INVALID_ACTION",()->service.submit(1,first.path("taskId").asLong(),
+                submission(first,opening,UUID.randomUUID().toString())));
+        openingPlan.set("foundingAgreement",founding(100,100,50));
+        service.submit(1,first.path("taskId").asLong(),submission(first,opening,UUID.randomUUID().toString()));
+
+        ObjectNode second=ready(2), counter=proposal(4,16);
+        counter.put("actionType","COUNTER_PLAN");
+        ObjectNode counterProposal=(ObjectNode)counter.path("payload").path("proposal");
+        counterProposal.put("proposalId","plan-2").put("parentProposalId","plan-1");
+        ObjectNode counterPlan=(ObjectNode)counterProposal.path("plan");
+        counterPlan.set("venture",venture()); counterPlan.set("strategy",v5Strategy());
+        counterPlan.set("foundingAgreement",founding(150,50,60));
+        counterPlan.set("contributions",json.createArrayNode()
+                .add(second.path("visibleState").path("proposal").path("plan").path("contributions").get(0))
+                .add(json.createObjectNode().put("sourceAgentId",2).put("sourceFieldId","theme")
+                        .put("placement","SERVICE").put("label","Guest service").putNull("sourceEventId")));
+        service.submit(2,second.path("taskId").asLong(),submission(second,counter,UUID.randomUUID().toString()));
+        ObjectNode third=ready(1);
+        ObjectNode accept=json.createObjectNode().put("actionType","ACCEPT_PLAN")
+                .put("publicRationale","I accept the revised funding, profit split, and roles.");
+        accept.set("payload",json.createObjectNode().put("proposalId","plan-2"));
+        service.submit(1,third.path("taskId").asLong(),submission(third,accept,UUID.randomUUID().toString()));
+        assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
+                "FOUNDING_AGREEMENT".equals(event.path("kind").asText())
+                && event.path("facts").path("hostCapitalCoins").asInt()==150));
+        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
+            clock.advance(901); service.expire(id);
+        }
+        JsonNode summary=service.ownerActivity(1,id).path("summary");
+        assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
+        assertEquals(summary.path("returnedCapitalMinor").asLong(),
+                summary.path("ownerOneReturnedMinor").asLong()+summary.path("ownerTwoReturnedMinor").asLong());
+        JsonNode published=context.getBean(PlaygroundShareService.class).ownerResultLink(1,id).path("result");
+        assertEquals(4,published.path("shareSchemaVersion").asInt());
+        assertEquals(150,published.path("foundingAgreement").path("hostCapitalCoins").asInt());
+        assertEquals(summary.path("ownerOneReturnedMinor").asLong(),
+                published.path("business").path("hostReturnedMinor").asLong());
+        assertFalse(published.toString().contains("private:cats"));
+        assertFalse(published.toString().contains("private:dogs"));
+    }
+    ObjectNode founding(int hostCapital,int guestCapital,int hostProfitPercent) {
+        return json.createObjectNode().put("hostCapitalCoins",hostCapital)
+                .put("guestCapitalCoins",guestCapital).put("hostProfitPercent",hostProfitPercent)
+                .put("serviceLead","GUEST").put("supplyLead","HOST")
+                .put("communityLead","GUEST");
+    }
     ObjectNode v5Decision(String type,JsonNode window,String choice) {
         ObjectNode action=json.createObjectNode().put("actionType",type).put("publicRationale","Our shop responds to this month");
         ObjectNode payload=json.createObjectNode().put("triggerEventId",window.path("triggerEventId").asText())

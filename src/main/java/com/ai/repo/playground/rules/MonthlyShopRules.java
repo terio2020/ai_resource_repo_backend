@@ -209,6 +209,15 @@ public final class MonthlyShopRules {
         return new Summary(state.ending(), state.operatedMonths(), state.failedOpeningMonth(), state.cashMinor(),
                 state.cashMinor() - CAPITAL, first, state.cashMinor() - first, state.reports());
     }
+    /** V6 signed terms replace the legacy equal payout without changing the shared ledger. */
+    public Summary summary(State state, V6FoundingAgreement agreement) {
+        require(agreement != null, "INVALID_FOUNDING_AGREEMENT");
+        require(state.ending() != Ending.RUNNING, "GAME_NOT_FINISHED");
+        V6FoundingAgreement.Allocation allocation = agreement.allocate(state.cashMinor());
+        return new Summary(state.ending(), state.operatedMonths(), state.failedOpeningMonth(),
+                state.cashMinor(), allocation.netProfitMinor(), allocation.hostReturnedMinor(),
+                allocation.guestReturnedMinor(), state.reports());
+    }
     private State liquidate(State state, Ending ending, Integer failedOpeningMonth) {
         long book = inventoryValue(state.inventory());
         long recovery = state.inventory().stream().mapToLong(b -> b.units() * (b.unitCostMinor() / 200) * 100).sum();

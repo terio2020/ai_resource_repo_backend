@@ -30,6 +30,8 @@ import com.ai.repo.playground.rules.V5FranchiseOffer;
 import com.ai.repo.playground.rules.V5FranchiseWindow;
 import com.ai.repo.playground.rules.V5ShopRules;
 import com.ai.repo.playground.rules.V5StrategyContract;
+import com.ai.repo.playground.rules.V6FoundingAgreement;
+import com.ai.repo.playground.rules.V6FoundingContract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -44,6 +46,7 @@ public class PlaygroundService {
     private final boolean enabled;
     private final boolean v5Enabled;
     private final boolean franchiseEnabled;
+    private final boolean v6Enabled;
     private final Clock clock;
     private final MonthlyShopRules rules = new MonthlyShopRules();
     private final V5ShopRules v5Rules = new V5ShopRules();
@@ -53,8 +56,9 @@ public class PlaygroundService {
     public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
                              ObjectMapper json, @Value("${playground.enabled:false}") boolean enabled,
                              @Value("${playground.v5-enabled:false}") boolean v5Enabled,
-                             @Value("${playground.franchise-enabled:false}") boolean franchiseEnabled) {
-        this(store, agents, users, json, enabled, v5Enabled, franchiseEnabled, Clock.systemUTC());
+                             @Value("${playground.franchise-enabled:false}") boolean franchiseEnabled,
+                             @Value("${playground.v6-enabled:false}") boolean v6Enabled) {
+        this(store, agents, users, json, enabled, v5Enabled, franchiseEnabled, v6Enabled, Clock.systemUTC());
     }
     public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
                              ObjectMapper json, boolean enabled, Clock clock) {
@@ -67,9 +71,14 @@ public class PlaygroundService {
     public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
                              ObjectMapper json, boolean enabled, boolean v5Enabled,
                              boolean franchiseEnabled, Clock clock) {
+        this(store,agents,users,json,enabled,v5Enabled,franchiseEnabled,false,clock);
+    }
+    public PlaygroundService(PlaygroundMapper store, AgentMapper agents, UserMapper users,
+                             ObjectMapper json, boolean enabled, boolean v5Enabled,
+                             boolean franchiseEnabled, boolean v6Enabled, Clock clock) {
         this.store=store; this.agents=agents; this.users=users; this.json=json;
         this.enabled=enabled; this.v5Enabled=v5Enabled;
-        this.franchiseEnabled=franchiseEnabled; this.clock=clock;
+        this.franchiseEnabled=franchiseEnabled; this.v6Enabled=v6Enabled; this.clock=clock;
     }
     public Participation participation(long userId, long agentId) {
         available(); owner(userId, agentId);
@@ -112,7 +121,7 @@ public class PlaygroundService {
         activity.setUpdatedAt(now()); activity.setExpiresAt(now().plusHours(24));
         PlaygroundRoomState state = new PlaygroundRoomState(); state.setContractVersion(contractVersionFor(request.ownerBrief()));
         if (state.getContractVersion()==4) state.setRuleVersion("0.5");
-        if (state.getContractVersion()==5) state.setRuleVersion("0.8");
+        if (state.getContractVersion()==5) state.setRuleVersion(v6Enabled?"0.9":"0.8");
         state.getOwnerBriefs().put(request.agentId(),request.ownerBrief());
         state.setGame(rules.initialize(activity.getHorizonMonths(),new MonthlyShopRules.Environment(MonthlyShopRules.Shock.NONE,1,12)));
         activity.setStateJson(write(state)); store.insertActivity(activity);
@@ -153,7 +162,7 @@ public class PlaygroundService {
             }
             activity.setExpiresAt(state.isRandomMatched() ? now().plusHours(2) : min(activity.getExpiresAt(),now().plusHours(2)));
             activity.setStatus("PLANNING");
-            if (franchiseEnabled && state.getContractVersion()==5 && state.getRuleVersion().equals("0.8")
+            if (franchiseEnabled && state.getContractVersion()==5 && Set.of("0.8","0.9").contains(state.getRuleVersion())
                     && activity.getHorizonMonths()==12) {
                 V5FranchiseOffer offer=V5FranchiseOffer.draw("franchise:"+activity.getId(),1,random);
                 state.setFranchiseOffer(offer);
@@ -386,7 +395,7 @@ public class PlaygroundService {
                 .put("canAcceptInvitation",activity.getStatus().equals("INVITED") && agents.selectById(activity.getGuestAgentId()).getUserId().equals(userId));
         result.set("ownerBrief",json.valueToTree(state.getOwnerBriefs().get(own)));
         result.set("game",json.valueToTree(state.getGame()));
-        if (activity.getStatus().equals("SETTLED")) result.set("summary",json.valueToTree(rules.summary(state.getGame())));
+        if (activity.getStatus().equals("SETTLED")) result.set("summary",json.valueToTree(summaryFor(state)));
         return result;
     }
     public List<JsonNode> ownerEvents(long userId,long activityId,long after) {
@@ -505,6 +514,9 @@ public class PlaygroundService {
             JsonNode plan=state.getProposal().get("plan"); JsonNode product=plan.get("products").get(0);
             MonthlyShopRules.Plan standing=new MonthlyShopRules.Plan(product.get("quantity").intValue(),
                     product.get("priceCoins").intValue(),plan.get("reserveMinor").longValue());
+            if (state.getRuleVersion().equals("0.9"))
+                eventAtMonth(activity,"FOUNDING_AGREEMENT","USER_AGENT",null,"EXECUTED",
+                        plan.get("foundingAgreement"),0);
             event(activity,"OPENED","SYSTEM",null,"EXECUTED",Map.of("proposalId",state.getAgreement().proposalId()));
             if (state.getContractVersion()==5) {
                 advanceV5AndRecord(activity,state,v5Signal(state.getGame(),1),V5ShopRules.Response.KEEP_IDENTITY);
@@ -605,7 +617,7 @@ public class PlaygroundService {
     }
     private void resumePreopenAfterFallback(Activity activity,PlaygroundRoomState state) {
         if (!activity.getStatus().equals("PLANNING") || state.getContractVersion()!=5
-                || !state.getRuleVersion().equals("0.8") || state.getGame().operatedMonths()!=0
+                || !Set.of("0.8","0.9").contains(state.getRuleVersion()) || state.getGame().operatedMonths()!=0
                 || state.getFranchiseWindow()==null || openFranchiseWindow(state)
                 || state.getProposal()!=null) return;
         state.getWindowDecisions().clear();
@@ -654,7 +666,7 @@ public class PlaygroundService {
     private boolean v5DecisionMonth(MonthlyShopRules.State game,int month,String ruleVersion) {
         if (month==2) return true;
         if (game.horizonMonths()!=12) return false;
-        if (ruleVersion.equals("0.8") && month==5) return true;
+        if (Set.of("0.8","0.9").contains(ruleVersion) && month==5) return true;
         int shockMonth=game.environment().shock()==MonthlyShopRules.Shock.NONE?8:
                 Math.max(3,game.environment().fromMonth());
         return month==(shockMonth==2?8:shockMonth);
@@ -685,7 +697,7 @@ public class PlaygroundService {
             }
             // A competitor appears in a quiet decision month; environmental shocks stay server drawn.
             if (signal==V5ShopRules.Signal.NORMAL)
-                signal=state.getRuleVersion().equals("0.8") && month==5
+                signal=Set.of("0.8","0.9").contains(state.getRuleVersion()) && month==5
                         ?V5ShopRules.Signal.SUPPLY_DELAY:V5ShopRules.Signal.COMPETITOR;
             state.setV5Signal(signal);
             long proposer=previousActor==activity.getHostAgentId()?activity.getGuestAgentId():activity.getHostAgentId();
@@ -766,7 +778,7 @@ public class PlaygroundService {
                 && before.operatedMonths()+1>=state.getFranchiseOffer().appearsMonth()
                 ?state.getFranchiseOffer():null;
         V5ShopRules.MonthResult result=v5Rules.advance(before,v5Strategy(state),signal,response,signed,
-                Set.of("0.7","0.8").contains(state.getRuleVersion()));
+                Set.of("0.7","0.8","0.9").contains(state.getRuleVersion()));
         state.setGame(result.game());
         MonthlyShopRules.MonthlyReport report=state.getGame().reports().get(state.getGame().reports().size()-1);
         if (state.getGame().reports().size()>before.reports().size())
@@ -777,7 +789,13 @@ public class PlaygroundService {
     }
     private void settleV5(Activity activity,PlaygroundRoomState state) {
         activity.setStatus("SETTLED");
-        event(activity,"SETTLEMENT","SYSTEM",null,"EXECUTED",rules.summary(state.getGame()));
+        event(activity,"SETTLEMENT","SYSTEM",null,"EXECUTED",summaryFor(state));
+    }
+    private MonthlyShopRules.Summary summaryFor(PlaygroundRoomState state) {
+        if (!state.getRuleVersion().equals("0.9")) return rules.summary(state.getGame());
+        V6FoundingAgreement agreement=V6FoundingContract.parse(
+                state.getProposal().path("plan").path("foundingAgreement"));
+        return rules.summary(state.getGame(),agreement);
     }
     private boolean canOfferTask(Activity activity,PlaygroundRoomState state,long actor) {
         Participation permission=permit(actor); Seat seat=seat(activity,actor);
@@ -812,10 +830,12 @@ public class PlaygroundService {
             int nextMonth=state.getGame().operatedMonths()+1;
             advanceAndRecord(activity,state,plan,nextMonth==2?order:null);
         }
-        activity.setStatus("SETTLED"); event(activity,"SETTLEMENT","SYSTEM",null,"EXECUTED",rules.summary(state.getGame()));
+        activity.setStatus("SETTLED"); event(activity,"SETTLEMENT","SYSTEM",null,"EXECUTED",summaryFor(state));
     }
     private void validatePlan(JsonNode plan,PlaygroundRoomState state,Activity activity,long actor) {
-        fields(plan,state.getContractVersion()==5
+        fields(plan,state.getRuleVersion().equals("0.9")
+                ?Set.of("shopName","venture","strategy","products","reserveMinor","contributions","foundingAgreement")
+                :state.getContractVersion()==5
                 ?Set.of("shopName","venture","strategy","products","reserveMinor","contributions")
                 :state.getContractVersion()==4 && plan.has("venture")
                     ?Set.of("shopName","venture","products","reserveMinor","contributions")
@@ -840,6 +860,9 @@ public class PlaygroundService {
             V5StrategyContract.parse(plan.get("strategy"),product.get("quantity").intValue(),
                     product.get("priceCoins").intValue(),plan.get("reserveMinor").longValue());
         } catch (IllegalArgumentException error) { throw new BusinessException(400,"INVALID_V5_STRATEGY"); }
+        if (state.getRuleVersion().equals("0.9")) try {
+            V6FoundingContract.parse(plan.get("foundingAgreement"));
+        } catch (IllegalArgumentException error) { throw new BusinessException(400,"INVALID_FOUNDING_AGREEMENT"); }
         if (state.getContractVersion()>=3) validateContributions(plan.get("contributions"),state,activity,actor);
     }
     private void validateContributions(JsonNode entries,PlaygroundRoomState state,Activity activity,long actor) {
@@ -885,13 +908,20 @@ public class PlaygroundService {
                 .put("actorId","agent:"+task.getAgentId()).put("activityType","ODD_SHOP")
                 .put("mode",activity.getHorizonMonths()==12?"FULL":"SHORT").put("horizonMonths",activity.getHorizonMonths())
                 .put("contractVersion",state.getContractVersion()).put("ruleVersion",state.getRuleVersion())
-                .put("templateVersion",state.getContractVersion()==5?3:state.getContractVersion()==4?2:1).put("phase",task.getPhase())
+                .put("templateVersion",state.getRuleVersion().equals("0.9")?4:state.getContractVersion()==5?3:state.getContractVersion()==4?2:1).put("phase",task.getPhase())
                 .put("actorSource","USER_AGENT").put("permissionVersion",permission.getVersion())
                 .put("expiresAt",utc(min(task.getExpiresAt(),task.getLeaseExpiresAt()))).put("leaseToken",token);
         if (task.getAttemptId()==null) result.putNull("attemptId"); else result.put("attemptId",task.getAttemptId()+"");
         result.set("allowedActions",json.valueToTree(allowed(state)));
         ObjectNode visible=json.createObjectNode().put("cashMinor",state.getGame().cashMinor()).put("virtualMonth",state.getGame().operatedMonths());
         visible.set("proposal",state.getProposal()==null?json.nullNode():state.getProposal());
+        if (state.getRuleVersion().equals("0.9") && state.getGame().operatedMonths()==0)
+            visible.set("foundingChoices",json.valueToTree(Map.of(
+                    "totalCapitalCoins",V6FoundingAgreement.TOTAL_CAPITAL_COINS,
+                    "capitalChoices",List.of(0,50,80,100,120,150,200),
+                    "hostProfitPercentChoices",List.of(30,40,50,60,70),
+                    "duties",List.of("serviceLead","supplyLead","communityLead"),
+                    "seats",List.of("HOST","GUEST"))));
         OwnerBrief ownBrief=state.getOwnerBriefs().get(task.getAgentId());
         if (state.getContractVersion()>=3) {
             LinkedHashSet<String> ownVisible=new LinkedHashSet<>(ownBrief.disclosableFields());
@@ -1071,7 +1101,7 @@ public class PlaygroundService {
         PlaygroundRoomState state=read(activity.getStateJson(),PlaygroundRoomState.class);
         require((Set.of(2,3).contains(state.getContractVersion()) && state.getRuleVersion().equals("0.4"))
                 || (state.getContractVersion()==4 && state.getRuleVersion().equals("0.5"))
-                || (state.getContractVersion()==5 && Set.of("0.6","0.7","0.8").contains(state.getRuleVersion())),409,"UNSUPPORTED_RULE_VERSION");
+                || (state.getContractVersion()==5 && Set.of("0.6","0.7","0.8","0.9").contains(state.getRuleVersion())),409,"UNSUPPORTED_RULE_VERSION");
         if (state.getProposal()!=null && state.getProposal().isNull()) state.setProposal(null);
         return state;
     }
