@@ -112,7 +112,6 @@ backup_db() {
     return 1
   }
   echo "[deploy.sh --backup-db] 完成: ${backup_file}.gz"
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "ls -t /opt/backups/pre-*.sql.gz 2>/dev/null | tail -n +4 | xargs -r sudo rm" 2>/dev/null
 }
 
 # =============================================================================
@@ -304,14 +303,6 @@ ssh_cmd "${SSH_USER}@${SERVER_IP}" << EOF
   echo "Container started"
 EOF
 ok "Deployment completed"
-
-# --- Cleanup old backups ---
-if [ "$NO_BACKUP" = false ]; then
-  step "Cleaning old backups (keeping last 3)..."
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" \
-    "cd ${REMOTE_DIR} && ls -1t ${APP_JAR}.bak.* 2>/dev/null | tail -n +4 | xargs -I{} rm -f {} 2>/dev/null; echo 'Cleanup done'"
-  ok "Old backups cleaned"
-fi
 
 # --- Verify ---
 step "Verifying deployment..."
