@@ -19,6 +19,8 @@ import com.ai.repo.exception.BusinessException;
 import com.ai.repo.playground.entity.PlaygroundRows.Activity;
 import com.ai.repo.playground.entity.PlaygroundRows.Share;
 import com.ai.repo.playground.mapper.PlaygroundMapper;
+import com.ai.repo.playground.rules.V6FoundingContract;
+import com.ai.repo.playground.rules.V6ConflictRules;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -122,11 +124,19 @@ public class PlaygroundShareService {
     }
 
     private boolean safeSnapshot(JsonNode payload) {
-        if (!payload.isObject() || payload.path("shareSchemaVersion").asInt()!=3 ||
+        int schema=payload.path("shareSchemaVersion").asInt();
+        if (!payload.isObject() || !Set.of(3,4).contains(schema) ||
                 !"ODD_SHOP".equals(payload.path("gameKey").asText())) return false;
         String outcome=payload.path("outcome").asText();
         if (!Set.of("OPERATED","UNOPENED").contains(outcome) ||
-                !onlyFields(payload,Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business"))) return false;
+                !onlyFields(payload,schema==4
+                        ?Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business","foundingAgreement")
+                        :Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business"))) return false;
+        if (schema==4 && outcome.equals("OPERATED")) {
+            try { V6FoundingContract.parse(payload.path("foundingAgreement")); }
+            catch (IllegalArgumentException error) { return false; }
+        }
+        if (schema==4 && outcome.equals("UNOPENED") && payload.has("foundingAgreement")) return false;
         JsonNode shop=payload.path("shop"),moves=payload.path("agentMoves");
         if (!shop.isObject() || !onlyFields(shop,Set.of("name","concept","audience","experience","marketing","strategy")) ||
                 !shop.path("name").isTextual() || shop.path("name").asText().length()>80 || !moves.isArray()) return false;
@@ -148,8 +158,15 @@ public class PlaygroundShareService {
                         "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move.path("move").asText())) return false;
         if (outcome.equals("UNOPENED")) return !payload.has("business");
         JsonNode business=payload.path("business");
-        if (!business.isObject() || !onlyFields(business,Set.of("ending","operatedMonths","netProfitMinor","months","franchise")) ||
+        if (!business.isObject() || !onlyFields(business,schema==4
+                ?Set.of("ending","operatedMonths","netProfitMinor","months","franchise","returnedCapitalMinor","hostReturnedMinor","guestReturnedMinor")
+                :Set.of("ending","operatedMonths","netProfitMinor","months","franchise")) ||
                 !business.path("months").isArray()) return false;
+        if (schema==4 && (business.path("returnedCapitalMinor").asLong(-1)<0
+                || business.path("hostReturnedMinor").asLong(-1)<0
+                || business.path("guestReturnedMinor").asLong(-1)<0
+                || business.path("hostReturnedMinor").asLong()+business.path("guestReturnedMinor").asLong()
+                    !=business.path("returnedCapitalMinor").asLong())) return false;
         if (business.has("franchise")) {
             JsonNode franchise=business.path("franchise");
             if (!franchise.isObject() || !onlyFields(franchise,Set.of("month","resolution","supportOutcome"))
@@ -160,13 +177,26 @@ public class PlaygroundShareService {
                     .contains(franchise.path("supportOutcome").asText())) return false;
         }
         for (JsonNode month:business.path("months")) {
-            if (!month.isObject() || !onlyFields(month,Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
+            if (!month.isObject() || !onlyFields(month,schema==4
+                    ?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic")
+                    :Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
             if (month.has("signal") && !Set.of("NORMAL","MARKET_SHIFT","MATERIAL_SURGE","RENT_RISE",
                     "PACKAGING_CHANGE","POWER_OUTAGE","COMPETITOR","SUPPLY_DELAY").contains(month.path("signal").asText())) return false;
             if (month.has("response") && !Set.of("KEEP_IDENTITY","PROMOTE","TEMPORARY_PIVOT").contains(month.path("response").asText())) return false;
             if (month.has("resolution") && !Set.of("PARTNERS_APPROVED","DECLINED","DEADLINE_FALLBACK",
                     "BUDGET_FALLBACK","MODEL_FAILURE_FALLBACK").contains(month.path("resolution").asText())) return false;
+            if (month.has("conflict")) {
+                if (schema!=4 || !month.has("tactic")) return false;
+                try {
+                    V6ConflictRules.Kind kind=V6ConflictRules.Kind.valueOf(month.path("conflict").asText());
+                    String tactic=month.path("tactic").asText();
+                    if (!month.has("resolution") || tactic.equals("SIGNED_STRATEGY")
+                            ==month.path("resolution").asText().equals("PARTNERS_APPROVED")) return false;
+                    if (!tactic.equals("SIGNED_STRATEGY") && kind.options().stream().noneMatch(
+                            option->option.code().equals(tactic))) return false;
+                } catch (IllegalArgumentException error) { return false; }
+            } else if (month.has("tactic")) return false;
         }
         return true;
     }
@@ -225,9 +255,15 @@ public class PlaygroundShareService {
                 409,"ENDING_NOT_SHAREABLE");
         JsonNode plan=proposal.path("plan");
         List<String> privateText=privateTerms(activity);
-        ObjectNode result=json.createObjectNode().put("shareSchemaVersion",3).put("gameKey","ODD_SHOP")
+        boolean v6=view.path("ruleVersion").asText().equals("0.9");
+        ObjectNode result=json.createObjectNode().put("shareSchemaVersion",v6?4:3).put("gameKey","ODD_SHOP")
                 .put("outcome",status.equals("SETTLED")?"OPERATED":"UNOPENED")
                 .put("horizonMonths",view.path("horizonMonths").asInt());
+        if (v6 && status.equals("SETTLED")) {
+            try { V6FoundingContract.parse(plan.path("foundingAgreement")); }
+            catch (IllegalArgumentException error) { throw new BusinessException(409,"ENDING_NOT_SHAREABLE"); }
+            result.set("foundingAgreement",plan.path("foundingAgreement").deepCopy());
+        }
         ObjectNode shop=result.putObject("shop").put("name",sanitize(plan.path("shopName").asText(""),privateText,80));
         JsonNode venture=plan.path("venture");
         for (String field:List.of("concept","audience","experience","marketing"))
@@ -262,6 +298,9 @@ public class PlaygroundShareService {
             business.put("ending",summary.path("ending").asText());
             business.put("operatedMonths",summary.path("operatedMonths").asInt());
             business.put("netProfitMinor",summary.path("netProfitMinor").asLong());
+            if (v6) business.put("returnedCapitalMinor",summary.path("returnedCapitalMinor").asLong())
+                    .put("hostReturnedMinor",summary.path("ownerOneReturnedMinor").asLong())
+                    .put("guestReturnedMinor",summary.path("ownerTwoReturnedMinor").asLong());
             JsonNode franchiseResolution=events.stream().filter(event ->
                     event.path("kind").asText().equals("FRANCHISE_RESOLUTION")).findFirst().orElse(null);
             if (franchiseResolution!=null) {
@@ -299,6 +338,9 @@ public class PlaygroundShareService {
                         }
                         if (event.path("kind").asText().equals("MONTHLY_CONTINUITY"))
                             month.put("response","KEEP_IDENTITY");
+                        if (v6 && event.path("kind").asText().equals("V6_CONFLICT_RESOLUTION"))
+                            month.put("conflict",event.path("facts").path("kind").asText())
+                                    .put("tactic",event.path("facts").path("selectedOption").asText());
                     }
                 }
             }
