@@ -388,6 +388,7 @@ class PlaygroundPersistenceTest {
         }
         JsonNode published=context.getBean(PlaygroundShareService.class).ownerResultLink(1,id).path("result");
         assertEquals("SIGNED",published.path("business").path("franchise").path("resolution").asText());
+        assertEquals(0,published.path("business").path("franchise").path("month").asInt());
         assertTrue(published.path("agentMoves").toString().contains("PROPOSE_FRANCHISE"));
         assertFalse(published.toString().contains("private:cats"));
         assertFalse(published.toString().contains("private:dogs"));
