@@ -153,7 +153,7 @@ public class PlaygroundShareService {
         for (JsonNode move:moves) if (!move.isObject() || !onlyFields(move,Set.of("role","move")) ||
                 !Set.of("HOST","GUEST").contains(move.path("role").asText()) ||
                 !Set.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
-                        "PROPOSE_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
+                        "PROPOSE_MONTHLY","POSITION_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
                         "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY",
                         "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move.path("move").asText())) return false;
         if (outcome.equals("UNOPENED")) return !payload.has("business");
@@ -178,23 +178,36 @@ public class PlaygroundShareService {
         }
         for (JsonNode month:business.path("months")) {
             if (!month.isObject() || !onlyFields(month,schema==4
-                    ?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic")
+                    ?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic",
+                            "firstPosition","secondPosition","counter")
                     :Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
             if (month.has("signal") && !Set.of("NORMAL","MARKET_SHIFT","MATERIAL_SURGE","RENT_RISE",
                     "PACKAGING_CHANGE","POWER_OUTAGE","COMPETITOR","SUPPLY_DELAY").contains(month.path("signal").asText())) return false;
             if (month.has("response") && !Set.of("KEEP_IDENTITY","PROMOTE","TEMPORARY_PIVOT").contains(month.path("response").asText())) return false;
             if (month.has("resolution") && !Set.of("PARTNERS_APPROVED","DECLINED","DEADLINE_FALLBACK",
-                    "BUDGET_FALLBACK","MODEL_FAILURE_FALLBACK").contains(month.path("resolution").asText())) return false;
+                    "BUDGET_FALLBACK","MODEL_FAILURE_FALLBACK","INDEPENDENT_CONSENSUS",
+                    "COUNTER_ACCEPTED").contains(month.path("resolution").asText())) return false;
             if (month.has("conflict")) {
                 if (schema!=4 || !month.has("tactic")) return false;
                 try {
                     V6ConflictRules.Kind kind=V6ConflictRules.Kind.valueOf(month.path("conflict").asText());
                     String tactic=month.path("tactic").asText();
-                    if (!month.has("resolution") || tactic.equals("SIGNED_STRATEGY")
-                            ==month.path("resolution").asText().equals("PARTNERS_APPROVED")) return false;
+                    boolean approved=Set.of("PARTNERS_APPROVED","INDEPENDENT_CONSENSUS",
+                            "COUNTER_ACCEPTED").contains(month.path("resolution").asText());
+                    if (!month.has("resolution") || tactic.equals("SIGNED_STRATEGY")==approved) return false;
                     if (!tactic.equals("SIGNED_STRATEGY") && kind.options().stream().noneMatch(
                             option->option.code().equals(tactic))) return false;
+                    for (String field:List.of("firstPosition","secondPosition","counter")) {
+                        String position=month.path(field).asText();
+                        if (month.has(field) && !position.equals("NONE") && kind.options().stream()
+                                .noneMatch(option->option.code().equals(position))) return false;
+                    }
+                    if (month.path("resolution").asText().equals("INDEPENDENT_CONSENSUS")
+                            && (!month.path("firstPosition").asText().equals(tactic)
+                                || !month.path("secondPosition").asText().equals(tactic))) return false;
+                    if (month.path("resolution").asText().equals("COUNTER_ACCEPTED")
+                            && !month.path("counter").asText().equals(tactic)) return false;
                 } catch (IllegalArgumentException error) { return false; }
             } else if (month.has("tactic")) return false;
         }
@@ -281,10 +294,11 @@ public class PlaygroundShareService {
             String move=kind.equals("PROPOSAL")?action.path("actionType").asText():
                     kind.equals("DECISION")?action.path("actionType").asText():
                     kind.equals("FINAL_NOTE")?"FINAL_NOTE":
-                    kind.equals("MONTHLY_DECISION") || kind.equals("FRANCHISE_DECISION")
+                    kind.equals("MONTHLY_DECISION") || kind.equals("V6_POSITION")
+                            || kind.equals("V6_MONTHLY_DECISION") || kind.equals("FRANCHISE_DECISION")
                             || kind.equals("FRANCHISE_INVESTIGATION")?action.path("actionType").asText():"";
             if (!List.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
-                    "PROPOSE_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
+                    "PROPOSE_MONTHLY","POSITION_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
                     "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY",
                     "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move)) continue;
             String actor=event.path("facts").path("actorId").asText().replace("agent:","");
@@ -340,7 +354,10 @@ public class PlaygroundShareService {
                             month.put("response","KEEP_IDENTITY");
                         if (v6 && event.path("kind").asText().equals("V6_CONFLICT_RESOLUTION"))
                             month.put("conflict",event.path("facts").path("kind").asText())
-                                    .put("tactic",event.path("facts").path("selectedOption").asText());
+                                    .put("tactic",event.path("facts").path("selectedOption").asText())
+                                    .put("firstPosition",event.path("facts").path("firstPosition").asText("NONE"))
+                                    .put("secondPosition",event.path("facts").path("secondPosition").asText("NONE"))
+                                    .put("counter",event.path("facts").path("counter").asText("NONE"));
                     }
                 }
             }

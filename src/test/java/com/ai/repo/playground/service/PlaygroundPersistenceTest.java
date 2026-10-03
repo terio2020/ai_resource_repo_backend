@@ -270,17 +270,33 @@ class PlaygroundPersistenceTest {
         ObjectNode monthly=ready(2);
         JsonNode window=monthly.path("visibleState").path("monthlyWindow");
         assertFalse(window.path("conflictCode").asText().isBlank());
-        String selected=window.path("choiceMap").path("TEMPORARY_PIVOT").asText();
+        String guestPosition=window.path("optionCodes").get(2).asText();
+        String hostPosition=window.path("optionCodes").get(0).asText();
+        String selected=window.path("optionCodes").get(1).asText();
         service.submit(2,monthly.path("taskId").asLong(),submission(monthly,
-                v5Decision("PROPOSE_MONTHLY",window,"TEMPORARY_PIVOT"),UUID.randomUUID().toString()));
+                v6Position(window,guestPosition,"Guest independent position"),UUID.randomUUID().toString()));
         ObjectNode reply=ready(1);
+        assertTrue(reply.path("visibleState").path("monthlyWindow").path("firstPosition").isNull());
+        assertFalse(reply.path("visibleState").path("events").toString().contains("Guest independent position"));
         service.submit(1,reply.path("taskId").asLong(),submission(reply,
-                v5Decision("ACCEPT_MONTHLY",reply.path("visibleState").path("monthlyWindow"),null),
+                v6Position(reply.path("visibleState").path("monthlyWindow"),hostPosition,"Host independent position"),
+                UUID.randomUUID().toString()));
+        ObjectNode counterTask=ready(2);
+        assertEquals(guestPosition,counterTask.path("visibleState").path("monthlyWindow")
+                .path("firstPosition").asText());
+        assertEquals(hostPosition,counterTask.path("visibleState").path("monthlyWindow")
+                .path("secondPosition").asText());
+        service.submit(2,counterTask.path("taskId").asLong(),submission(counterTask,
+                v6Counter(counterTask.path("visibleState").path("monthlyWindow"),selected,
+                        hostPosition,guestPosition),UUID.randomUUID().toString()));
+        ObjectNode finalTask=ready(1);
+        service.submit(1,finalTask.path("taskId").asLong(),submission(finalTask,
+                v6MonthlyDecision("ACCEPT_MONTHLY",finalTask.path("visibleState").path("monthlyWindow")),
                 UUID.randomUUID().toString()));
         assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
                 "V6_CONFLICT_RESOLUTION".equals(event.path("kind").asText())
                 && selected.equals(event.path("facts").path("selectedOption").asText())
-                && "PARTNERS_APPROVED".equals(event.path("facts").path("resolution").asText())));
+                && "COUNTER_ACCEPTED".equals(event.path("facts").path("resolution").asText())));
         JsonNode summary=service.ownerActivity(1,id).path("summary");
         assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
         assertEquals(summary.path("returnedCapitalMinor").asLong(),
@@ -291,6 +307,9 @@ class PlaygroundPersistenceTest {
         assertEquals(summary.path("ownerOneReturnedMinor").asLong(),
                 published.path("business").path("hostReturnedMinor").asLong());
         assertEquals(selected,published.path("business").path("months").get(1).path("tactic").asText());
+        assertEquals(guestPosition,published.path("business").path("months").get(1).path("firstPosition").asText());
+        assertEquals(hostPosition,published.path("business").path("months").get(1).path("secondPosition").asText());
+        assertEquals(selected,published.path("business").path("months").get(1).path("counter").asText());
         assertFalse(published.toString().contains("private:cats"));
         assertFalse(published.toString().contains("private:dogs"));
     }
@@ -299,6 +318,29 @@ class PlaygroundPersistenceTest {
                 .put("guestCapitalCoins",guestCapital).put("hostProfitPercent",hostProfitPercent)
                 .put("serviceLead","GUEST").put("supplyLead","HOST")
                 .put("communityLead","GUEST");
+    }
+    ObjectNode v6Position(JsonNode window,String choice,String reason) {
+        ObjectNode action=json.createObjectNode().put("actionType","POSITION_MONTHLY")
+                .put("publicRationale",reason);
+        action.set("payload",json.createObjectNode()
+                .put("triggerEventId",window.path("triggerEventId").asText())
+                .put("planVersion",window.path("planVersion").asText())
+                .put("tacticCode",choice));
+        return action;
+    }
+    ObjectNode v6Counter(JsonNode window,String choice,String kept,String conceded) {
+        ObjectNode action=v6Position(window,choice,"I keep your caution and concede my original speed.");
+        action.put("actionType","COUNTER_MONTHLY");
+        ((ObjectNode)action.path("payload")).put("keptFromPartner",kept).put("concededOwnPoint",conceded);
+        return action;
+    }
+    ObjectNode v6MonthlyDecision(String type,JsonNode window) {
+        ObjectNode action=json.createObjectNode().put("actionType",type)
+                .put("publicRationale","I accept the concrete compromise.");
+        action.set("payload",json.createObjectNode()
+                .put("triggerEventId",window.path("triggerEventId").asText())
+                .put("planVersion",window.path("planVersion").asText()));
+        return action;
     }
     ObjectNode v5Decision(String type,JsonNode window,String choice) {
         ObjectNode action=json.createObjectNode().put("actionType",type).put("publicRationale","Our shop responds to this month");
