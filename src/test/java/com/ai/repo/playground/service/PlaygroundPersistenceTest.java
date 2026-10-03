@@ -322,8 +322,12 @@ class PlaygroundPersistenceTest {
         assertTrue(signals.get(2).path("virtualMonth").asInt()<=9);
         assertNotEquals("COMPETITOR",signals.get(2).path("facts").path("signal").asText());
         assertEquals(8,events.stream().filter(e->"MONTHLY_CONTINUITY".equals(e.path("kind").asText())).count());
-        JsonNode share=context.getBean(PlaygroundShareService.class).ownerResultLink(1,id).path("result");
+        PlaygroundShareService shares=context.getBean(PlaygroundShareService.class);
+        ObjectNode link=shares.ownerResultLink(1,id);
+        JsonNode share=link.path("result");
         assertEquals(12,share.path("business").path("months").size());
+        assertEquals("SUPPLY_DELAY",share.path("business").path("months").get(4).path("signal").asText());
+        assertEquals(share.toString(),shares.publicResult(link.path("sharePath").asText().split("/")[4]).toString());
         int lateMonth=signals.get(2).path("virtualMonth").asInt();
         assertEquals(signals.get(2).path("facts").path("signal").asText(),
                 share.path("business").path("months").get(lateMonth-1).path("signal").asText());

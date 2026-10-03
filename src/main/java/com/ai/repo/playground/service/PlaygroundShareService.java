@@ -163,7 +163,7 @@ public class PlaygroundShareService {
             if (!month.isObject() || !onlyFields(month,Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
             if (month.has("signal") && !Set.of("NORMAL","MARKET_SHIFT","MATERIAL_SURGE","RENT_RISE",
-                    "PACKAGING_CHANGE","POWER_OUTAGE","COMPETITOR").contains(month.path("signal").asText())) return false;
+                    "PACKAGING_CHANGE","POWER_OUTAGE","COMPETITOR","SUPPLY_DELAY").contains(month.path("signal").asText())) return false;
             if (month.has("response") && !Set.of("KEEP_IDENTITY","PROMOTE","TEMPORARY_PIVOT").contains(month.path("response").asText())) return false;
             if (month.has("resolution") && !Set.of("PARTNERS_APPROVED","DECLINED","DEADLINE_FALLBACK",
                     "BUDGET_FALLBACK","MODEL_FAILURE_FALLBACK").contains(month.path("resolution").asText())) return false;
