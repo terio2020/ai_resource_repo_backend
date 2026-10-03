@@ -6,11 +6,17 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -31,6 +37,31 @@ public class JwtProvider {
     private long refreshTokenExpiration;
 
     private final RedisTemplate<String, Object> redisTemplate;
+
+    private static final DefaultRedisScript<Long> ROTATE_REFRESH_SCRIPT = script("""
+        if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+        redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
+        redis.call('SET', KEYS[2], ARGV[4], 'PX', ARGV[5])
+        return 1
+        """);
+    private static final DefaultRedisScript<Long> REVOKE_REPLAY_SCRIPT = script("""
+        if redis.call('GET', KEYS[1]) ~= ARGV[1] or redis.call('GET', KEYS[2]) ~= ARGV[2] then return 0 end
+        redis.call('DEL', KEYS[1], KEYS[3], KEYS[4])
+        return 1
+        """);
+    private static final DefaultRedisScript<Long> ISSUE_REFRESH_ACCESS_SCRIPT = script("""
+        if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+        redis.call('SET', KEYS[2], ARGV[2], 'PX', ARGV[3])
+        redis.call('SET', KEYS[3], ARGV[4], 'PX', ARGV[3])
+        return 1
+        """);
+
+    private static DefaultRedisScript<Long> script(String source) {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setScriptText(source);
+        script.setResultType(Long.class);
+        return script;
+    }
 
     public JwtProvider(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -60,6 +91,12 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(Long userId, String username) {
+        String token = createAccessToken(userId, username);
+        storeToken(userId, token, JwtConstants.ACCESS_TOKEN_PREFIX, accessTokenExpiration);
+        return token;
+    }
+
+    private String createAccessToken(Long userId, String username) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
 
@@ -71,23 +108,91 @@ public class JwtProvider {
                 .signWith(getSigningKey())
                 .compact();
 
-        storeToken(userId, token, JwtConstants.ACCESS_TOKEN_PREFIX, accessTokenExpiration);
         return token;
     }
 
+    /** Prevent a replay-revoked or superseded refresh family from minting a new access token. */
+    public String generateAccessTokenForRefresh(Long userId, String username, String refreshToken) {
+        String token = createAccessToken(userId, username);
+        long expiresAt = System.currentTimeMillis() + accessTokenExpiration;
+        Long stored = redisTemplate.execute(ISSUE_REFRESH_ACCESS_SCRIPT,
+            List.of(JwtConstants.REFRESH_TOKEN_PREFIX + userId, JwtConstants.ACCESS_TOKEN_PREFIX + userId,
+                JwtConstants.EXPIRES_PREFIX + userId),
+            refreshToken, token, accessTokenExpiration, String.valueOf(expiresAt));
+        return Long.valueOf(1).equals(stored) ? token : null;
+    }
+
     public String generateRefreshToken(Long userId) {
+        String token = createRefreshToken(userId, UUID.randomUUID().toString());
+        storeToken(userId, token, JwtConstants.REFRESH_TOKEN_PREFIX, refreshTokenExpiration);
+        return token;
+    }
+
+    private String createRefreshToken(Long userId, String family) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + refreshTokenExpiration);
 
         String token = Jwts.builder()
                 .claim(JwtConstants.USER_ID_CLAIM, userId)
+                .claim(JwtConstants.REFRESH_FAMILY_CLAIM, family)
+                .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
 
-        storeToken(userId, token, JwtConstants.REFRESH_TOKEN_PREFIX, refreshTokenExpiration);
         return token;
+    }
+
+    /** Atomically consume the presented token; a replay revokes only its own active family. */
+    public String rotateRefreshToken(String oldToken) {
+        try {
+            Claims claims = parseRefreshClaims(oldToken);
+            Long userId = claims.get(JwtConstants.USER_ID_CLAIM, Long.class);
+            if (userId == null) return null;
+            String key = JwtConstants.REFRESH_TOKEN_PREFIX + userId;
+            String usedKey = usedRefreshKey(oldToken);
+            String family = claims.get(JwtConstants.REFRESH_FAMILY_CLAIM, String.class);
+            String current = (String) redisTemplate.opsForValue().get(key);
+            if (oldToken.equals(current)) {
+                if (family == null) family = UUID.randomUUID().toString(); // legacy token
+                String replacement = createRefreshToken(userId, family);
+                long remaining = claims.getExpiration().getTime() - System.currentTimeMillis();
+                if (remaining <= 0) return null;
+                Long rotated = redisTemplate.execute(ROTATE_REFRESH_SCRIPT, List.of(key, usedKey),
+                    oldToken, replacement, refreshTokenExpiration, family, remaining);
+                if (Long.valueOf(1).equals(rotated)) return replacement;
+            }
+
+            String usedFamily = (String) redisTemplate.opsForValue().get(usedKey);
+            if (usedFamily != null) {
+                String active = (String) redisTemplate.opsForValue().get(key);
+                if (active != null && usedFamily.equals(parseRefreshClaims(active)
+                        .get(JwtConstants.REFRESH_FAMILY_CLAIM, String.class))) {
+                    redisTemplate.execute(REVOKE_REPLAY_SCRIPT,
+                        List.of(key, usedKey, JwtConstants.ACCESS_TOKEN_PREFIX + userId,
+                            JwtConstants.EXPIRES_PREFIX + userId), active, usedFamily);
+                    log.warn("Refresh token replay detected; revoked active token family for user {}", userId);
+                }
+            }
+            return null;
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("Invalid refresh token: {}", e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private Claims parseRefreshClaims(String token) {
+        return Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(token).getPayload();
+    }
+
+    private String usedRefreshKey(String token) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
+            return JwtConstants.USED_REFRESH_TOKEN_PREFIX + HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     private void storeToken(Long userId, String token, String prefix, long expiration) {
@@ -145,6 +250,15 @@ public class JwtProvider {
             return null;
         } catch (JwtException e) {
             log.error("Invalid refresh token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Identify a signed, unexpired refresh token without accepting it for use. */
+    public Long getRefreshTokenUserId(String token) {
+        try {
+            return parseRefreshClaims(token).get(JwtConstants.USER_ID_CLAIM, Long.class);
+        } catch (JwtException | IllegalArgumentException e) {
             return null;
         }
     }

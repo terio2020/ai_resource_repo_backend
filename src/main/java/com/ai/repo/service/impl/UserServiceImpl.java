@@ -216,7 +216,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public TokenRefreshResponse refreshToken(String refreshToken) {
-        Long userId = jwtProvider.validateRefreshToken(refreshToken);
+        Long userId = jwtProvider.getRefreshTokenUserId(refreshToken);
         if (userId == null) {
             throw new BusinessException("Invalid refresh token");
         }
@@ -229,16 +229,24 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(401, "Account disabled");
         }
 
-        String newAccessToken = jwtProvider.generateAccessToken(userId, user.getUsername());
+        String newRefreshToken = jwtProvider.rotateRefreshToken(refreshToken);
+        if (newRefreshToken == null) {
+            throw new BusinessException("Invalid refresh token");
+        }
+        String newAccessToken = jwtProvider.generateAccessTokenForRefresh(userId, user.getUsername(), newRefreshToken);
+        if (newAccessToken == null) {
+            throw new BusinessException("Invalid refresh token");
+        }
         LocalDateTime tokenExpiresAt = LocalDateTime.now().plusMinutes(60);
 
         user.setAccessToken(newAccessToken);
+        user.setRefreshToken(newRefreshToken);
         user.setTokenExpiresAt(tokenExpiresAt);
         userMapper.update(user);
 
         TokenRefreshResponse response = new TokenRefreshResponse();
         response.setAccessToken(newAccessToken);
-        response.setRefreshToken(refreshToken);
+        response.setRefreshToken(newRefreshToken);
         response.setExpiresAt(tokenExpiresAt);
 
         return response;

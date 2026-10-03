@@ -801,9 +801,11 @@ class UserServiceImplTest {
         user.setId(1L);
         user.setUsername("testuser");
 
-        when(jwtProvider.validateRefreshToken(refreshToken)).thenReturn(1L);
+        when(jwtProvider.getRefreshTokenUserId(refreshToken)).thenReturn(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
-        when(jwtProvider.generateAccessToken(1L, "testuser")).thenReturn("newAccessToken");
+        when(jwtProvider.rotateRefreshToken(refreshToken)).thenReturn("newRefreshToken");
+        when(jwtProvider.generateAccessTokenForRefresh(1L, "testuser", "newRefreshToken"))
+            .thenReturn("newAccessToken");
         when(userMapper.update(any())).thenReturn(1);
 
         // When
@@ -812,13 +814,47 @@ class UserServiceImplTest {
         // Then
         assertNotNull(result);
         assertEquals("newAccessToken", result.getAccessToken());
+        assertEquals("newRefreshToken", result.getRefreshToken());
+        assertEquals("newRefreshToken", user.getRefreshToken());
+        verify(jwtProvider).rotateRefreshToken(refreshToken);
+    }
+
+    @Test
+    void refreshToken_shouldRejectTokenConsumedByConcurrentRefresh() {
+        String refreshToken = "validRefreshToken";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        when(jwtProvider.getRefreshTokenUserId(refreshToken)).thenReturn(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(jwtProvider.rotateRefreshToken(refreshToken)).thenReturn(null);
+
+        assertThrows(BusinessException.class, () -> userService.refreshToken(refreshToken));
+        verify(jwtProvider, never()).generateAccessTokenForRefresh(anyLong(), anyString(), anyString());
+        verify(userMapper, never()).update(any());
+    }
+
+    @Test
+    void refreshToken_shouldNotPersistTokensWhenFamilyWasRevokedBeforeAccessIssue() {
+        String refreshToken = "validRefreshToken";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        when(jwtProvider.getRefreshTokenUserId(refreshToken)).thenReturn(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(jwtProvider.rotateRefreshToken(refreshToken)).thenReturn("newRefreshToken");
+        when(jwtProvider.generateAccessTokenForRefresh(1L, "testuser", "newRefreshToken"))
+            .thenReturn(null);
+
+        assertThrows(BusinessException.class, () -> userService.refreshToken(refreshToken));
+        verify(userMapper, never()).update(any());
     }
 
     @Test
     void refreshToken_shouldThrowException_whenInvalidToken() {
         // Given
         String invalidToken = "invalidRefreshToken";
-        when(jwtProvider.validateRefreshToken(invalidToken)).thenReturn(null);
+        when(jwtProvider.getRefreshTokenUserId(invalidToken)).thenReturn(null);
 
         // When/Then
         BusinessException exception = assertThrows(BusinessException.class, () -> {
@@ -831,7 +867,7 @@ class UserServiceImplTest {
     void refreshToken_shouldThrowException_whenUserNotFound() {
         // Given
         String refreshToken = "validRefreshToken";
-        when(jwtProvider.validateRefreshToken(refreshToken)).thenReturn(999L);
+        when(jwtProvider.getRefreshTokenUserId(refreshToken)).thenReturn(999L);
         when(userMapper.selectById(999L)).thenReturn(null);
 
         // When/Then
@@ -850,7 +886,7 @@ class UserServiceImplTest {
         user.setUsername("testuser");
         user.setStatus("DISABLED");
 
-        when(jwtProvider.validateRefreshToken(refreshToken)).thenReturn(1L);
+        when(jwtProvider.getRefreshTokenUserId(refreshToken)).thenReturn(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
 
         // When/Then
@@ -870,12 +906,12 @@ class UserServiceImplTest {
         user.setUsername("testuser");
         user.setStatus("DISABLED");
 
-        when(jwtProvider.validateRefreshToken(refreshToken)).thenReturn(1L);
+        when(jwtProvider.getRefreshTokenUserId(refreshToken)).thenReturn(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
 
         // When/Then
         assertThrows(BusinessException.class, () -> userService.refreshToken(refreshToken));
-        verify(jwtProvider, never()).generateAccessToken(anyLong(), anyString());
+        verify(jwtProvider, never()).generateAccessTokenForRefresh(anyLong(), anyString(), anyString());
     }
 
     // ===== clearTokens() tests =====
