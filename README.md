@@ -134,6 +134,8 @@ V10 adds user-owned profile governance and explicit Agent namespace grants. Huma
 
 V9.7 and V9.8 are explicitly forward-only: V9.7 cannot know which columns existed before migration, and reversing V9.8 Unicode conversion could lose data. `deploy.sh --self-audit` accepts their documented markers in `src/main/resources/db/migration-forward-only/`; deployment refuses `--no-backup`. A rollback across either version requires an independently verified pre-release database backup paired with the previous application artifact. Run `bash scripts/test-forward-only-migration-policy.sh` after editing migration policy.
 
+Production SQL backups are root-only: `/opt/backups` mode 700 and each new compressed dump mode 600 before the first byte is written. The backup gate verifies non-empty size, permissions, and gzip integrity; never prune rollback points as part of deployment.
+
 See `sql.txt` for the full schema.
 
 ## API Endpoints

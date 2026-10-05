@@ -112,11 +112,14 @@ backup_db() {
   local ts; ts=$(date +%Y%m%d_%H%M%S)
   local backup_file="/opt/backups/pre-${ts}.sql"
   echo "[deploy.sh --backup-db] 备份 DB → ${backup_file}"
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 755 /opt/backups" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 700 /opt/backups" 2>/dev/null
+  # Create the destination with restrictive permissions before streaming any
+  # database bytes; tee otherwise inherits a potentially world-readable umask.
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo install -m 600 /dev/null '${backup_file}.gz'" 2>/dev/null
   # Use the container-local root credential so application-password rotation
   # cannot break the mandatory pre-deploy backup gate.
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysqldump -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --single-transaction logicoma_net' 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(stat -c%s '${backup_file}.gz') -gt 1024" || {
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(sudo stat -c%s '${backup_file}.gz') -gt 1024 && test \$(sudo stat -c%a '${backup_file}.gz') = 600 && sudo gzip -t '${backup_file}.gz'" || {
     echo "[deploy.sh --backup-db] FAIL: backup is empty or invalid"
     return 1
   }

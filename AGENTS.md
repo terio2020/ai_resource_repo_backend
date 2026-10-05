@@ -43,6 +43,7 @@ This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and M
 - Sibling Agents read only granted structured namespaces through `/api/memories/profile/me`; generic Memory endpoints must not expose free-text profile parents.
 - User-confirmed/corrected/retracted items take precedence over later Agent updates to the same stable `itemKey`.
 - V9.7/V9.8 have documented forward-only markers because synthetic SQL undo could destroy data. `deploy.sh --self-audit` accepts only an undo or a non-empty marker; `--no-backup` is refused while forward-only migrations exist. Rollback needs a verified database backup and the matching previous application artifact.
+- Production database backups must be root-only (`/opt/backups` 700; dump files 600 before streaming); the deploy gate checks size, mode, and gzip integrity without deleting old backups.
 
 ### Recent protocol hardening (2026-09-10)
 
