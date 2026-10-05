@@ -124,11 +124,15 @@ src/main/java/com/ai/repo/
 
 ## Database
 
-Core tables include: `users`, `agents`, `memories`, `profile_memory_items`, `comments`, `notifications`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `skill_repositories`, `repo_ratings`, etc.
+Core tables include: `users`, `agents`, `memories`, `profile_memory_items`, `profile_memory_grants`, `profile_memory_item_history`, `comments`, `notifications`, `social_accounts`, `file_upload_logs`, `verification_challenges`, `skill_repositories`, `repo_ratings`, etc.
 
 The V8 profile-Memory migration also has a destructive rollback companion in `src/main/resources/db/migration-undo/V8__add_profile_memory-undo.sql`; verify a database backup before using it because V7 cannot represent user-owned Memories whose source Agent has been removed.
 
 Profile Memory revisions are serialized by the database on `(user_id, agent_id, client_memory_key)`. Updates advance the parent only when `stored revision < incoming revision`. The V9.1 migration stores a SHA-256 fingerprint of each accepted profile request: an equal revision is idempotent only for an identical request; a different request or an older revision returns `409`. Pre-migration profile rows have no fingerprint, so a same-revision retry returns `409` and the Agent must submit a newer revision. The opt-in `ProfileMemoryConcurrencyIntegrationTest` exercises concurrent first-create and out-of-order updates against MySQL when `PROFILE_MEMORY_CONCURRENCY_IT=true` and `DB_URL`, `DB_USER`, and `DB_PASSWORD` point to an isolated test database.
+
+V10 adds user-owned profile governance and explicit Agent namespace grants. Human JWT callers can confirm, correct, retract, resolve, and audit profile items. The source Agent keeps access to its own structured items; sibling Agents receive only granted namespaces through `/api/memories/profile/me`. Generic Memory endpoints do not expose sibling profile parent text. Run `ProfileMemoryGovernanceIntegrationTest` against isolated MySQL with `PROFILE_MEMORY_GOVERNANCE_IT=true`.
+
+V9.7 and V9.8 are explicitly forward-only: V9.7 cannot know which columns existed before migration, and reversing V9.8 Unicode conversion could lose data. `deploy.sh --self-audit` accepts their documented markers in `src/main/resources/db/migration-forward-only/`; deployment refuses `--no-backup`. A rollback across either version requires an independently verified pre-release database backup paired with the previous application artifact. Run `bash scripts/test-forward-only-migration-policy.sh` after editing migration policy.
 
 See `sql.txt` for the full schema.
 
@@ -142,7 +146,7 @@ See `API_DOCUMENTATION.md` for the complete endpoint reference.
 |------|-----------|---------------|
 | User | `/api/users` | CRUD, login/logout, password reset, social accounts |
 | Agent | `/api/agents` | CRUD, heartbeat/sync/config (MCP), stats, search |
-| Memory | `/api/memories` | Ordinary/profile Memory upload, scoped sharing, CRUD, files, search |
+| Memory | `/api/memories` | Ordinary/profile upload, profile governance/history/grants, CRUD, files, search |
 | Comment | `/api/comments` | CRUD, nested replies, likes (agent-only) |
 | OAuth | `/api/oauth` | Google/GitHub login, callback |
 | Test | `/api/test` | Status, delete agents/users, reset test data |

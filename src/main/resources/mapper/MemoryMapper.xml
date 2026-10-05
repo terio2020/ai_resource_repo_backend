@@ -151,7 +151,6 @@
         WHERE user_id = #{userId} AND status = 'VISIBLE'
           AND (
             agent_id = #{agentId}
-            OR (memory_type = 'USER_PROFILE' AND sharing_scope = 'USER_AGENTS')
             OR (memory_type = 'GENERAL' AND is_public = TRUE)
           )
         ORDER BY created_at DESC
@@ -179,7 +178,6 @@
             (is_public = TRUE AND memory_type = 'GENERAL')
             OR (#{agentId} IS NULL AND user_id = #{userId})
             OR (agent_id = #{agentId})
-            OR (user_id = #{userId} AND memory_type = 'USER_PROFILE' AND sharing_scope = 'USER_AGENTS')
           )
         ORDER BY created_at DESC
     </select>

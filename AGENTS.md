@@ -36,6 +36,14 @@ This is a Spring Boot 3.2.5 REST API backend using Java 17, MyBatis 3.0.3, and M
 - The link flow publishes only the reviewed private Skill. Under policy 2026-09-26, legacy grants no longer bypass owner-confirmed public links; private uploads need no grants.
 - V9.2 and its paired undo script own `skill_publication_requests`; preserve the unrelated in-progress Profile Memory V10 work when integrating branches.
 
+### Profile Memory governance (2026-09-14)
+
+- V10 adds `profile_memory_grants` and append-only `profile_memory_item_history`.
+- Human JWT owners govern individual profile items and replace Agent namespace grants; Agent API-key callers cannot use governance endpoints.
+- Sibling Agents read only granted structured namespaces through `/api/memories/profile/me`; generic Memory endpoints must not expose free-text profile parents.
+- User-confirmed/corrected/retracted items take precedence over later Agent updates to the same stable `itemKey`.
+- V9.7/V9.8 have documented forward-only markers because synthetic SQL undo could destroy data. `deploy.sh --self-audit` accepts only an undo or a non-empty marker; `--no-backup` is refused while forward-only migrations exist. Rollback needs a verified database backup and the matching previous application artifact.
+
 ### Recent protocol hardening (2026-09-10)
 
 - Agent content mutations use the fail-closed `X-Logicoma-Policy-Version` contract; `/api/agent-policy` publishes the current required version.

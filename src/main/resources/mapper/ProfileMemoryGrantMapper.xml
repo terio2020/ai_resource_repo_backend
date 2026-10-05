@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.repo.mapper.ProfileMemoryGrantMapper">
+    <resultMap id="BaseResultMap" type="com.ai.repo.entity.ProfileMemoryGrant">
+        <id column="id" property="id"/>
+        <result column="uid" property="uid"/>
+        <result column="user_id" property="userId"/>
+        <result column="agent_id" property="agentId"/>
+        <result column="namespace" property="namespace"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT id, uid, user_id, agent_id, namespace, created_at, updated_at
+        FROM profile_memory_grants
+        WHERE user_id = #{userId}
+        ORDER BY agent_id, namespace
+    </select>
+
+    <delete id="deleteByUserAndAgent">
+        DELETE FROM profile_memory_grants
+        WHERE user_id = #{userId} AND agent_id = #{agentId}
+    </delete>
+
+    <insert id="insert" parameterType="com.ai.repo.entity.ProfileMemoryGrant">
+        INSERT INTO profile_memory_grants (uid, user_id, agent_id, namespace)
+        VALUES (#{uid}, #{userId}, #{agentId}, #{namespace})
+    </insert>
+
+</mapper>

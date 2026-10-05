@@ -62,6 +62,10 @@ if [ "$PREFLIGHT_ONLY" = true ]; then
   [ "$SKIP_BUILD" = false ] || { echo "Preflight requires a fresh build" >&2; exit 1; }
   [ "$NO_BACKUP" = false ] || { echo "Preflight cannot waive database backup" >&2; exit 1; }
 fi
+if [ "$NO_BACKUP" = true ] && [ -d "$(dirname "$0")/src/main/resources/db/migration-forward-only" ]; then
+  echo "Forward-only migrations require a verified database backup" >&2
+  exit 1
+fi
 
 # =============================================================================
 # --self-audit: 部署前自检 (设计 §3.9, v2-5/v3-8)
@@ -71,6 +75,7 @@ self_audit() {
   local fail=0
   local migration_dir="src/main/resources/db/migration"
   local undo_dir="src/main/resources/db/migration-undo"
+  local forward_dir="src/main/resources/db/migration-forward-only"
   local be_dir
   be_dir="$(cd "$(dirname "$0")" && pwd)"
   cd "$be_dir"
@@ -81,11 +86,15 @@ self_audit() {
   [ -n "$latest_v" ] && echo "V${latest_v} — PASS" || { echo "FAIL"; fail=1; }
   echo -n "  DB pre-flight ... "
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -e \"SELECT version FROM logicoma_net.flyway_schema_history ORDER BY installed_rank DESC LIMIT 1\"' 2>/dev/null" > /dev/null 2>&1 && echo "PASS" || echo "WARN"
-  echo -n "  UNDO 脚本完整性 ... "
+  echo -n "  UNDO / forward-only 策略 ... "
   local missing=0
   for vfile in "$migration_dir"/V*.sql; do
     local vname; vname=$(basename "$vfile" .sql)
-    [ ! -f "$undo_dir/${vname}-undo.sql" ] && { echo ""; echo "    MISSING: $undo_dir/${vname}-undo.sql"; missing=1; }
+    if [ ! -f "$undo_dir/${vname}-undo.sql" ] && [ ! -s "$forward_dir/${vname}.md" ]; then
+      echo ""
+      echo "    MISSING: undo script or documented forward-only marker for $vname"
+      missing=1
+    fi
   done
   [ "$missing" -eq 0 ] && echo "PASS" || { echo "FAIL"; fail=1; }
   echo -n "  Schema 预演 (mvn compile) ... "
