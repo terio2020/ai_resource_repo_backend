@@ -46,4 +46,27 @@ class V6MonthlyWindowTest {
         assertEquals(V6MonthlyWindow.Resolution.DEADLINE_FALLBACK,
                 disputed.expire(now.plusSeconds(901)).resolution());
     }
+    @Test void partnerCanExplainASecondCounterButTheExchangeStopsAfterTwoOffers() {
+        V6MonthlyWindow disputed=start().position(92,"plan-2","WAIT_RESTOCK",now)
+                .position(93,"plan-2","PAY_ALTERNATE",now);
+        V6MonthlyWindow first=disputed.counter(92,"plan-2","VERIFIED_REFURBISHED",
+                "PAY_ALTERNATE","WAIT_RESTOCK",now);
+        assertEquals(1,first.counterRounds());
+        assertThrows(IllegalArgumentException.class,()->first.counter(93,"plan-2","WAIT_RESTOCK",
+                "PAY_ALTERNATE","PAY_ALTERNATE",now));
+        V6MonthlyWindow reply=first.counter(93,"plan-2","WAIT_RESTOCK",
+                "VERIFIED_REFURBISHED","PAY_ALTERNATE",now);
+        assertEquals(V6MonthlyWindow.Phase.AWAIT_LAST_REPLY,reply.phase());
+        assertEquals(2,reply.counterRounds());
+        assertEquals("WAIT_RESTOCK",reply.latestOffer());
+        assertThrows(IllegalArgumentException.class,()->reply.counter(92,"plan-2","PAY_ALTERNATE",
+                "WAIT_RESTOCK","WAIT_RESTOCK",now));
+        assertThrows(IllegalArgumentException.class,()->reply.accept(93,"plan-2",now));
+        V6MonthlyWindow accepted=reply.accept(92,"plan-2",now);
+        assertEquals("WAIT_RESTOCK",accepted.effectiveChoice());
+        assertEquals(V6MonthlyWindow.Resolution.COUNTER_ACCEPTED,accepted.resolution());
+        assertNull(reply.decline(92,"plan-2",now).effectiveChoice());
+        assertEquals(V6MonthlyWindow.Resolution.BUDGET_FALLBACK,
+                reply.miss(V6MonthlyWindow.Resolution.BUDGET_FALLBACK).resolution());
+    }
 }

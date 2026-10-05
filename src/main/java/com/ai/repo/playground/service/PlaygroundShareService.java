@@ -21,6 +21,7 @@ import com.ai.repo.playground.entity.PlaygroundRows.Share;
 import com.ai.repo.playground.mapper.PlaygroundMapper;
 import com.ai.repo.playground.rules.V6FoundingContract;
 import com.ai.repo.playground.rules.V6ConflictRules;
+import com.ai.repo.playground.rules.V6MonthlyWindow;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -179,7 +180,7 @@ public class PlaygroundShareService {
         for (JsonNode month:business.path("months")) {
             if (!month.isObject() || !onlyFields(month,schema==4
                     ?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic",
-                            "firstPosition","secondPosition","counter")
+                            "firstPosition","secondPosition","counter","replyCounter","counterRounds")
                     :Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
             if (month.has("signal") && !Set.of("NORMAL","MARKET_SHIFT","MATERIAL_SURGE","RENT_RISE",
@@ -198,7 +199,7 @@ public class PlaygroundShareService {
                     if (!month.has("resolution") || tactic.equals("SIGNED_STRATEGY")==approved) return false;
                     if (!tactic.equals("SIGNED_STRATEGY") && kind.options().stream().noneMatch(
                             option->option.code().equals(tactic))) return false;
-                    for (String field:List.of("firstPosition","secondPosition","counter")) {
+                    for (String field:List.of("firstPosition","secondPosition","counter","replyCounter")) {
                         String position=month.path(field).asText();
                         if (month.has(field) && !position.equals("NONE") && kind.options().stream()
                                 .noneMatch(option->option.code().equals(position))) return false;
@@ -206,8 +207,15 @@ public class PlaygroundShareService {
                     if (month.path("resolution").asText().equals("INDEPENDENT_CONSENSUS")
                             && (!month.path("firstPosition").asText().equals(tactic)
                                 || !month.path("secondPosition").asText().equals(tactic))) return false;
+                    if (month.has("counterRounds") && (month.path("counterRounds").asInt(-1)<0
+                            || month.path("counterRounds").asInt()>V6MonthlyWindow.MAX_COUNTER_ROUNDS)) return false;
+                    if (month.has("replyCounter") && !month.path("replyCounter").asText().equals("NONE")
+                            && (!month.has("counter") || month.path("counter").asText().equals("NONE")
+                                || month.path("counterRounds").asInt()!=2)) return false;
                     if (month.path("resolution").asText().equals("COUNTER_ACCEPTED")
-                            && !month.path("counter").asText().equals(tactic)) return false;
+                            && !(month.path("replyCounter").asText("NONE").equals("NONE")
+                                    ?month.path("counter").asText().equals(tactic)
+                                    :month.path("replyCounter").asText().equals(tactic))) return false;
                 } catch (IllegalArgumentException error) { return false; }
             } else if (month.has("tactic")) return false;
         }
@@ -357,7 +365,9 @@ public class PlaygroundShareService {
                                     .put("tactic",event.path("facts").path("selectedOption").asText())
                                     .put("firstPosition",event.path("facts").path("firstPosition").asText("NONE"))
                                     .put("secondPosition",event.path("facts").path("secondPosition").asText("NONE"))
-                                    .put("counter",event.path("facts").path("counter").asText("NONE"));
+                                    .put("counter",event.path("facts").path("counter").asText("NONE"))
+                                    .put("replyCounter",event.path("facts").path("replyCounter").asText("NONE"))
+                                    .put("counterRounds",event.path("facts").path("counterRounds").asInt());
                     }
                 }
             }

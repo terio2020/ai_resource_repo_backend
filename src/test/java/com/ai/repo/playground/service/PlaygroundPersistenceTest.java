@@ -290,12 +290,26 @@ class PlaygroundPersistenceTest {
                 v6Counter(counterTask.path("visibleState").path("monthlyWindow"),selected,
                         hostPosition,guestPosition),UUID.randomUUID().toString()));
         ObjectNode finalTask=ready(1);
+        JsonNode finalWindow=finalTask.path("visibleState").path("monthlyWindow");
+        assertEquals(selected,finalWindow.path("latestOffer").asText());
+        assertEquals(1,finalWindow.path("counterRounds").asInt());
+        assertTrue(finalTask.path("visibleState").path("events").toString()
+                .contains("I keep your caution and concede my original speed."));
+        assertTrue(finalTask.path("allowedActions").toString().contains("COUNTER_MONTHLY"));
         service.submit(1,finalTask.path("taskId").asLong(),submission(finalTask,
-                v6MonthlyDecision("ACCEPT_MONTHLY",finalTask.path("visibleState").path("monthlyWindow")),
+                v6Counter(finalWindow,hostPosition,selected,hostPosition),
+                UUID.randomUUID().toString()));
+        ObjectNode lastTask=ready(2);
+        assertEquals(2,lastTask.path("visibleState").path("monthlyWindow").path("counterRounds").asInt());
+        assertTrue(lastTask.path("visibleState").path("events").toString()
+                .contains("I keep your caution and concede my original speed."));
+        assertFalse(lastTask.path("allowedActions").toString().contains("COUNTER_MONTHLY"));
+        service.submit(2,lastTask.path("taskId").asLong(),submission(lastTask,
+                v6MonthlyDecision("ACCEPT_MONTHLY",lastTask.path("visibleState").path("monthlyWindow")),
                 UUID.randomUUID().toString()));
         assertTrue(service.ownerEvents(1,id,0).stream().anyMatch(event ->
                 "V6_CONFLICT_RESOLUTION".equals(event.path("kind").asText())
-                && selected.equals(event.path("facts").path("selectedOption").asText())
+                && hostPosition.equals(event.path("facts").path("selectedOption").asText())
                 && "COUNTER_ACCEPTED".equals(event.path("facts").path("resolution").asText())));
         JsonNode summary=service.ownerActivity(1,id).path("summary");
         assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
@@ -306,10 +320,12 @@ class PlaygroundPersistenceTest {
         assertEquals(150,published.path("foundingAgreement").path("hostCapitalCoins").asInt());
         assertEquals(summary.path("ownerOneReturnedMinor").asLong(),
                 published.path("business").path("hostReturnedMinor").asLong());
-        assertEquals(selected,published.path("business").path("months").get(1).path("tactic").asText());
+        assertEquals(hostPosition,published.path("business").path("months").get(1).path("tactic").asText());
         assertEquals(guestPosition,published.path("business").path("months").get(1).path("firstPosition").asText());
         assertEquals(hostPosition,published.path("business").path("months").get(1).path("secondPosition").asText());
         assertEquals(selected,published.path("business").path("months").get(1).path("counter").asText());
+        assertEquals(hostPosition,published.path("business").path("months").get(1).path("replyCounter").asText());
+        assertEquals(2,published.path("business").path("months").get(1).path("counterRounds").asInt());
         assertFalse(published.toString().contains("private:cats"));
         assertFalse(published.toString().contains("private:dogs"));
     }
