@@ -1,13 +1,19 @@
 package com.ai.repo.service.impl;
 
 import com.ai.repo.dto.ProfileMemoryItemRequest;
+import com.ai.repo.dto.ProfileMemoryGovernRequest;
 import com.ai.repo.dto.ProfileMemoryPayload;
+import com.ai.repo.dto.ProfileMemoryQuery;
 import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.entity.ProfileMemoryGrant;
 import com.ai.repo.entity.ProfileMemoryItem;
+import com.ai.repo.entity.ProfileMemoryItemHistory;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.mapper.MemoryMapper;
+import com.ai.repo.mapper.ProfileMemoryGrantMapper;
 import com.ai.repo.mapper.ProfileMemoryItemMapper;
+import com.ai.repo.mapper.ProfileMemoryItemHistoryMapper;
 import com.ai.repo.service.ProfileMemoryService;
 import com.ai.repo.util.UuidUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -28,6 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.LinkedHashSet;
 import java.util.regex.Pattern;
 
 @Service
@@ -45,6 +52,10 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
     private MemoryMapper memoryMapper;
     @Resource
     private ProfileMemoryItemMapper profileMemoryItemMapper;
+    @Resource
+    private ProfileMemoryGrantMapper profileMemoryGrantMapper;
+    @Resource
+    private ProfileMemoryItemHistoryMapper profileMemoryItemHistoryMapper;
     @Resource
     private ObjectMapper objectMapper;
 
@@ -159,6 +170,175 @@ public class ProfileMemoryServiceImpl implements ProfileMemoryService {
         return new ProfileMemoryResponse(
                 memoryMapper.selectProfileByUserId(userId),
                 profileMemoryItemMapper.selectByUserId(userId));
+    }
+
+    @Override
+    public ProfileMemoryResponse findByUserIdVisibleToAgent(Long userId, Long agentId) {
+        return profileResponseFor(userId, profileMemoryItemMapper.selectByUserIdVisibleToAgent(userId, agentId));
+    }
+
+    @Override
+    public ProfileMemoryResponse findByUserIdVisibleToAgent(Long userId, Long agentId, ProfileMemoryQuery query) {
+        ProfileMemoryQuery safeQuery = normalizeQuery(query);
+        List<ProfileMemoryItem> items = profileMemoryItemMapper.selectByUserIdVisibleToAgentQuery(userId, agentId, safeQuery);
+        return profileResponseFor(userId, items);
+    }
+
+    private ProfileMemoryResponse profileResponseFor(Long userId, List<ProfileMemoryItem> items) {
+        Set<Long> visibleMemoryIds = new LinkedHashSet<>();
+        for (ProfileMemoryItem item : items) {
+            visibleMemoryIds.add(item.getMemoryId());
+        }
+        List<Memory> memories = memoryMapper.selectProfileByUserId(userId).stream()
+                .filter(memory -> visibleMemoryIds.contains(memory.getId()))
+                .map(this::redactProfileMemoryForAgent)
+                .toList();
+        return new ProfileMemoryResponse(memories, items);
+    }
+
+    private ProfileMemoryQuery normalizeQuery(ProfileMemoryQuery query) {
+        if (query == null) return ProfileMemoryQuery.empty();
+        Integer maxItems = query.getMaxItems();
+        if (maxItems != null && (maxItems < 1 || maxItems > 200)) {
+            throw new BusinessException(400, "maxItems must be between 1 and 200");
+        }
+        List<String> namespaces = query.getNamespaces() == null ? null : query.getNamespaces().stream()
+                .filter(value -> value != null && !value.trim().isEmpty())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        return new ProfileMemoryQuery(namespaces, maxItems);
+    }
+
+    /**
+     * Profile parent rows are an implementation envelope. An Agent receives
+     * structured items only; free-text parent fields could contain unrelated
+     * profile dimensions and would bypass namespace grants.
+     */
+    private Memory redactProfileMemoryForAgent(Memory source) {
+        Memory safe = new Memory();
+        safe.setId(source.getId());
+        safe.setUid(source.getUid());
+        safe.setUserId(source.getUserId());
+        safe.setAgentId(source.getAgentId());
+        safe.setMemoryType(source.getMemoryType());
+        safe.setSharingScope(source.getSharingScope());
+        safe.setOwnerType(source.getOwnerType());
+        safe.setSchemaVersion(source.getSchemaVersion());
+        safe.setRevision(source.getRevision());
+        safe.setVersion(source.getVersion());
+        safe.setStatus(source.getStatus());
+        safe.setCreatedAt(source.getCreatedAt());
+        safe.setUpdatedAt(source.getUpdatedAt());
+        return safe;
+    }
+
+    @Override
+    @Transactional
+    public ProfileMemoryItem governItem(Long userId, Long itemId, ProfileMemoryGovernRequest request) {
+        ProfileMemoryItem item = profileMemoryItemMapper.selectByIdForUpdate(userId, itemId);
+        if (item == null) {
+            throw new BusinessException(404, "Profile item not found");
+        }
+        String action = request.getAction().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("CONFIRM", "CORRECT", "RETRACT", "RESOLVE").contains(action)) {
+            throw new BusinessException(400, "Unsupported profile governance action");
+        }
+        if (containsSecret(request.getNote())) {
+            throw new BusinessException(400, "Profile governance notes must not contain credentials or secrets");
+        }
+
+        String previousValue = item.getValueJson();
+        String previousStatus = item.getStatus();
+        List<ProfileMemoryItem> competingItems = "RESOLVE".equals(action)
+                ? profileMemoryItemMapper.selectConflictsForUpdate(userId, item.getId(), item.getNamespace(),
+                        item.getFactKey(), item.getContextHash())
+                : List.of();
+        if ("CORRECT".equals(action)) {
+            if (request.getValue() == null) {
+                throw new BusinessException(400, "CORRECT requires a value");
+            }
+            validateValueType(item.getValueType(), request.getValue());
+            String correctedValue = serialize(request.getValue());
+            if (containsSecret(correctedValue)) {
+                throw new BusinessException(400, "Profile memories must not contain credentials or secrets");
+            }
+            item.setValueJson(correctedValue);
+            item.setValueHash(hash(correctedValue));
+            item.setStatus("CONFIRMED");
+        } else if ("RETRACT".equals(action)) {
+            item.setStatus("USER_RETRACTED");
+        } else {
+            item.setStatus("CONFIRMED");
+        }
+
+        if (profileMemoryItemMapper.updateGovernedItem(item) != 1) {
+            throw new IllegalStateException("Profile item governance update failed");
+        }
+        if ("RESOLVE".equals(action)) {
+            profileMemoryItemMapper.retractConflicts(userId, item.getId(), item.getNamespace(),
+                    item.getFactKey(), item.getContextHash());
+            for (ProfileMemoryItem competingItem : competingItems) {
+                appendHistory(userId, competingItem, "RESOLVE_RETRACTED", competingItem.getValueJson(),
+                        "USER_RETRACTED", request.getNote());
+            }
+        }
+        appendHistory(userId, item, action, previousValue, item.getStatus(), request.getNote(), previousStatus);
+
+        return profileMemoryItemMapper.selectByIdForUpdate(userId, itemId);
+    }
+
+    @Override
+    public List<ProfileMemoryItemHistory> findItemHistory(Long userId, Long itemId) {
+        return profileMemoryItemHistoryMapper.selectByItemId(userId, itemId);
+    }
+
+    @Override
+    public List<ProfileMemoryGrant> findGrants(Long userId) {
+        return profileMemoryGrantMapper.selectByUserId(userId);
+    }
+
+    @Override
+    @Transactional
+    public List<ProfileMemoryGrant> replaceGrants(Long userId, Long agentId, List<String> namespaces) {
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (String namespace : namespaces) {
+            if (namespace == null || namespace.trim().length() > 100 || (!"*".equals(namespace.trim())
+                    && !KEY_PATTERN.matcher(namespace.trim()).matches())) {
+                throw new BusinessException(400, "Profile grant namespace contains unsupported characters");
+            }
+            normalized.add(namespace.trim());
+        }
+        profileMemoryGrantMapper.deleteByUserAndAgent(userId, agentId);
+        for (String namespace : normalized) {
+            ProfileMemoryGrant grant = new ProfileMemoryGrant();
+            grant.setUid(UuidUtil.generate());
+            grant.setUserId(userId);
+            grant.setAgentId(agentId);
+            grant.setNamespace(namespace);
+            profileMemoryGrantMapper.insert(grant);
+        }
+        return profileMemoryGrantMapper.selectByUserId(userId);
+    }
+
+    private void appendHistory(Long userId, ProfileMemoryItem item, String action,
+                               String previousValue, String newStatus, String note) {
+        appendHistory(userId, item, action, previousValue, newStatus, note, item.getStatus());
+    }
+
+    private void appendHistory(Long userId, ProfileMemoryItem item, String action,
+                               String previousValue, String newStatus, String note, String previousStatus) {
+        ProfileMemoryItemHistory history = new ProfileMemoryItemHistory();
+        history.setUid(UuidUtil.generate());
+        history.setItemId(item.getId());
+        history.setUserId(userId);
+        history.setAction(action);
+        history.setPreviousValueJson(previousValue);
+        history.setNewValueJson(item.getValueJson());
+        history.setPreviousStatus(previousStatus);
+        history.setNewStatus(newStatus);
+        history.setNote(note);
+        profileMemoryItemHistoryMapper.insert(history);
     }
 
     private ProfileMemoryItem toEntity(Memory memory, ProfileMemoryItemRequest request) {

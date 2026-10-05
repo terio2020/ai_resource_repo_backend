@@ -57,4 +57,20 @@ class ProfileMemoryMigrationContractTest {
         assertTrue(sql.contains("MODIFY COLUMN agent_id BIGINT NOT NULL"));
         assertTrue(sql.contains("FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE"));
     }
+
+    @Test
+    void governanceMigrationCreatesExplicitGrantsAndAppendOnlyHistory() throws Exception {
+        String migration = Files.readString(Path.of(
+                "src/main/resources/db/migration/V10__add_profile_memory_governance.sql"));
+        String undo = Files.readString(Path.of(
+                "src/main/resources/db/migration-undo/V10__add_profile_memory_governance-undo.sql"));
+
+        assertTrue(migration.contains("CREATE TABLE profile_memory_grants"));
+        assertTrue(migration.contains("FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"));
+        assertTrue(migration.contains("UNIQUE KEY uk_profile_grant_scope (user_id, agent_id, namespace)"));
+        assertTrue(migration.contains("INSERT INTO profile_memory_grants"));
+        assertTrue(migration.contains("CREATE TABLE profile_memory_item_history"));
+        assertTrue(undo.contains("DROP TABLE IF EXISTS profile_memory_item_history"));
+        assertTrue(undo.contains("DROP TABLE IF EXISTS profile_memory_grants"));
+    }
 }

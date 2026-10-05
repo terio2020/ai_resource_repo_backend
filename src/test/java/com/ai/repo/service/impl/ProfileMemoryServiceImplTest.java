@@ -1,11 +1,16 @@
 package com.ai.repo.service.impl;
 
 import com.ai.repo.dto.ProfileMemoryItemRequest;
+import com.ai.repo.dto.ProfileMemoryGovernRequest;
 import com.ai.repo.dto.ProfileMemoryPayload;
+import com.ai.repo.dto.ProfileMemoryQuery;
 import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.entity.Memory;
 import com.ai.repo.exception.BusinessException;
+import com.ai.repo.entity.ProfileMemoryItem;
 import com.ai.repo.mapper.MemoryMapper;
+import com.ai.repo.mapper.ProfileMemoryGrantMapper;
+import com.ai.repo.mapper.ProfileMemoryItemHistoryMapper;
 import com.ai.repo.mapper.ProfileMemoryItemMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,8 +26,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +40,10 @@ class ProfileMemoryServiceImplTest {
     private MemoryMapper memoryMapper;
     @Mock
     private ProfileMemoryItemMapper itemMapper;
+    @Mock
+    private ProfileMemoryGrantMapper grantMapper;
+    @Mock
+    private ProfileMemoryItemHistoryMapper historyMapper;
 
     private ProfileMemoryServiceImpl service;
 
@@ -41,6 +52,8 @@ class ProfileMemoryServiceImplTest {
         service = new ProfileMemoryServiceImpl();
         inject("memoryMapper", memoryMapper);
         inject("profileMemoryItemMapper", itemMapper);
+        inject("profileMemoryGrantMapper", grantMapper);
+        inject("profileMemoryItemHistoryMapper", historyMapper);
         inject("objectMapper", new ObjectMapper());
     }
 
@@ -205,6 +218,112 @@ class ProfileMemoryServiceImplTest {
         ProfileMemoryResponse response = service.findByUserId(1L);
         assertEquals(1, response.getMemories().size());
         assertEquals(0, response.getItems().size());
+    }
+
+    @Test
+    void findByUserIdVisibleToAgent_shouldRedactProfileParentText() {
+        Memory parent = profileMemory();
+        ProfileMemoryItem item = profileItem();
+        item.setMemoryId(parent.getId());
+        when(itemMapper.selectByUserIdVisibleToAgent(1L, 6L)).thenReturn(List.of(item));
+        when(memoryMapper.selectProfileByUserId(1L)).thenReturn(List.of(parent));
+
+        ProfileMemoryResponse response = service.findByUserIdVisibleToAgent(1L, 6L);
+
+        assertEquals(1, response.getItems().size());
+        assertEquals(1, response.getMemories().size());
+        assertNull(response.getMemories().get(0).getContent());
+        assertNull(response.getMemories().get(0).getDescription());
+        assertEquals(parent.getRevision(), response.getMemories().get(0).getRevision());
+    }
+
+    @Test
+    void findByUserIdVisibleToAgent_shouldAcceptScopedQuery() {
+        Memory parent = profileMemory();
+        ProfileMemoryItem item = profileItem();
+        item.setMemoryId(parent.getId());
+        ProfileMemoryQuery query = new ProfileMemoryQuery(List.of("communication"), 20);
+        when(itemMapper.selectByUserIdVisibleToAgentQuery(1L, 6L, query)).thenReturn(List.of(item));
+        when(memoryMapper.selectProfileByUserId(1L)).thenReturn(List.of(parent));
+
+        ProfileMemoryResponse response = service.findByUserIdVisibleToAgent(1L, 6L, query);
+
+        assertEquals(1, response.getItems().size());
+        verify(itemMapper).selectByUserIdVisibleToAgentQuery(1L, 6L, query);
+    }
+
+    @Test
+    void findByUserIdVisibleToAgent_shouldRejectInvalidMaxItems() {
+        assertThrows(RuntimeException.class, () -> service.findByUserIdVisibleToAgent(
+                1L, 6L, new ProfileMemoryQuery(null, 201)));
+        verify(itemMapper, never()).selectByUserIdVisibleToAgentQuery(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void governItem_shouldCorrectValueAndWriteHistory() {
+        ProfileMemoryItem item = profileItem();
+        when(itemMapper.selectByIdForUpdate(1L, 7L)).thenReturn(item);
+        when(itemMapper.updateGovernedItem(item)).thenReturn(1);
+        ProfileMemoryGovernRequest request = new ProfileMemoryGovernRequest();
+        request.setAction("CORRECT");
+        request.setValue("English");
+
+        ProfileMemoryItem result = service.governItem(1L, 7L, request);
+
+        assertEquals("CONFIRMED", result.getStatus());
+        assertEquals("\"English\"", result.getValueJson());
+        verify(historyMapper).insert(org.mockito.ArgumentMatchers.argThat(history ->
+                "CORRECT".equals(history.getAction())
+                        && "\"zh-CN\"".equals(history.getPreviousValueJson())));
+    }
+
+    @Test
+    void governItem_shouldResolveCompetingValues() {
+        ProfileMemoryItem item = profileItem();
+        item.setStatus("CONFLICTED");
+        ProfileMemoryItem competing = profileItem();
+        competing.setId(8L);
+        competing.setStatus("CONFLICTED");
+        when(itemMapper.selectByIdForUpdate(1L, 7L)).thenReturn(item);
+        when(itemMapper.selectConflictsForUpdate(1L, 7L, "communication", "language.primary", "context-hash"))
+                .thenReturn(List.of(competing));
+        when(itemMapper.updateGovernedItem(item)).thenReturn(1);
+        ProfileMemoryGovernRequest request = new ProfileMemoryGovernRequest();
+        request.setAction("RESOLVE");
+
+        service.governItem(1L, 7L, request);
+
+        verify(itemMapper).retractConflicts(1L, 7L, "communication", "language.primary", "context-hash");
+        verify(historyMapper).insert(org.mockito.ArgumentMatchers.argThat(history ->
+                history.getItemId().equals(8L)
+                        && "RESOLVE_RETRACTED".equals(history.getAction())
+                        && "CONFLICTED".equals(history.getPreviousStatus())
+                        && "USER_RETRACTED".equals(history.getNewStatus())));
+        assertEquals("CONFIRMED", item.getStatus());
+    }
+
+    @Test
+    void replaceGrants_shouldAcceptWildcardAndDeduplicateNamespaces() {
+        service.replaceGrants(1L, 5L, List.of("*", "communication", "communication"));
+
+        verify(grantMapper).deleteByUserAndAgent(1L, 5L);
+        verify(grantMapper, org.mockito.Mockito.times(2)).insert(any());
+    }
+
+    private ProfileMemoryItem profileItem() {
+        ProfileMemoryItem item = new ProfileMemoryItem();
+        item.setId(7L);
+        item.setMemoryId(9L);
+        item.setUserId(1L);
+        item.setSourceAgentId(5L);
+        item.setNamespace("communication");
+        item.setFactKey("language.primary");
+        item.setContextHash("context-hash");
+        item.setValueType("string");
+        item.setValueJson("\"zh-CN\"");
+        item.setValueHash("value-hash");
+        item.setStatus("ACTIVE");
+        return item;
     }
 
     private Memory profileMemory() {

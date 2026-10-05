@@ -6,9 +6,15 @@ import com.ai.repo.dto.BatchDeleteRequest;
 import com.ai.repo.dto.FileUploadResponse;
 import com.ai.repo.dto.MemoryCreateRequest;
 import com.ai.repo.dto.MemoryUpdateRequest;
+import com.ai.repo.dto.ProfileMemoryGovernRequest;
+import com.ai.repo.dto.ProfileMemoryGrantRequest;
 import com.ai.repo.dto.ProfileMemoryResponse;
+import com.ai.repo.dto.ProfileMemoryQuery;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.entity.ProfileMemoryGrant;
+import com.ai.repo.entity.ProfileMemoryItem;
+import com.ai.repo.entity.ProfileMemoryItemHistory;
 import com.ai.repo.security.ApiKeyAuth;
 import com.ai.repo.security.RequireAuth;
 import com.ai.repo.security.RequireOwnership;
@@ -171,11 +177,10 @@ public class MemoryController {
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
         boolean isOwner = isMemoryOwner(memory, callerUserId, callerAgentId);
-        boolean isSharedProfile = isSharedProfile(memory, callerUserId, callerAgentId);
         if ("BANNED".equals(memory.getStatus()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
-        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner && !isSharedProfile) {
+        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
         return Result.ok(memory);
@@ -194,11 +199,10 @@ public class MemoryController {
         Long callerUserId = (Long) httpRequest.getAttribute("userId");
         Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
         boolean isOwner = isMemoryOwner(memory, callerUserId, callerAgentId);
-        boolean isSharedProfile = isSharedProfile(memory, callerUserId, callerAgentId);
         if ("BANNED".equals(memory.getStatus()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
-        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner && !isSharedProfile) {
+        if (!Boolean.TRUE.equals(memory.getIsPublic()) && !isOwner) {
             throw new com.ai.repo.exception.BusinessException(404, "Memory not found");
         }
         return Result.ok(memory);
@@ -313,9 +317,71 @@ public class MemoryController {
     @RequireAuth
     @Operation(summary = "Get current user's profile memories",
             description = "Returns Agent-authored USER_PROFILE memories and structured profile items for the authenticated user")
-    public ResponseEntity<Result<ProfileMemoryResponse>> getMyProfileMemories(HttpServletRequest httpRequest) {
+    public ResponseEntity<Result<ProfileMemoryResponse>> getMyProfileMemories(
+            @RequestParam(required = false) List<String> namespace,
+            @RequestParam(required = false) Integer maxItems,
+            HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
-        return Result.ok(profileMemoryService.findByUserId(userId));
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        if (agentId != null && namespace == null && maxItems == null) {
+            return Result.ok(profileMemoryService.findByUserIdVisibleToAgent(userId, agentId));
+        }
+        return Result.ok(agentId == null
+                ? profileMemoryService.findByUserId(userId)
+                : profileMemoryService.findByUserIdVisibleToAgent(userId, agentId,
+                new ProfileMemoryQuery(namespace, maxItems)));
+    }
+
+    @PatchMapping("/profile/items/{itemId}")
+    @RequireAuth
+    @Operation(summary = "Govern a profile item",
+            description = "Allows the human profile owner to confirm, correct, retract, or resolve an Agent-authored item")
+    public ResponseEntity<Result<ProfileMemoryItem>> governProfileItem(
+            @PathVariable @Min(1) Long itemId,
+            @Valid @RequestBody ProfileMemoryGovernRequest request,
+            HttpServletRequest httpRequest) {
+        requireHumanUser(httpRequest);
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        return Result.ok(profileMemoryService.governItem(userId, itemId, request));
+    }
+
+    @GetMapping("/profile/items/{itemId}/history")
+    @RequireAuth
+    @Operation(summary = "Get profile item history",
+            description = "Returns the human owner's governance history for one profile item")
+    public ResponseEntity<Result<List<ProfileMemoryItemHistory>>> getProfileItemHistory(
+            @PathVariable @Min(1) Long itemId,
+            HttpServletRequest httpRequest) {
+        requireHumanUser(httpRequest);
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        return Result.ok(profileMemoryService.findItemHistory(userId, itemId));
+    }
+
+    @GetMapping("/profile/grants")
+    @RequireAuth
+    @Operation(summary = "Get profile grants",
+            description = "Returns namespace grants for the current user's Agents")
+    public ResponseEntity<Result<List<ProfileMemoryGrant>>> getProfileGrants(HttpServletRequest httpRequest) {
+        requireHumanUser(httpRequest);
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        return Result.ok(profileMemoryService.findGrants(userId));
+    }
+
+    @PutMapping("/profile/grants/{agentId}")
+    @RequireAuth
+    @Operation(summary = "Replace an Agent's profile grants",
+            description = "Replaces all namespace grants for one Agent; an empty list revokes all cross-Agent access")
+    public ResponseEntity<Result<List<ProfileMemoryGrant>>> replaceProfileGrants(
+            @PathVariable @Min(1) Long agentId,
+            @Valid @RequestBody ProfileMemoryGrantRequest request,
+            HttpServletRequest httpRequest) {
+        requireHumanUser(httpRequest);
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        com.ai.repo.entity.Agent agent = agentService.findById(agentId);
+        if (agent == null || !userId.equals(agent.getUserId())) {
+            throw new com.ai.repo.exception.BusinessException(404, "Agent not found");
+        }
+        return Result.ok(profileMemoryService.replaceGrants(userId, agentId, request.getNamespaces()));
     }
 
     @GetMapping("/agent/{agentId}")
@@ -360,13 +426,11 @@ public class MemoryController {
         return callerUserId != null && callerUserId.equals(memory.getUserId());
     }
 
-    private boolean isSharedProfile(Memory memory, Long callerUserId, Long callerAgentId) {
-        return callerAgentId != null
-                && callerUserId != null
-                && callerUserId.equals(memory.getUserId())
-                && "USER_PROFILE".equals(memory.getMemoryType())
-                && "USER_AGENTS".equals(memory.getSharingScope())
-                && "VISIBLE".equals(memory.getStatus());
+    private void requireHumanUser(HttpServletRequest request) {
+        if (request.getAttribute("userId") == null || request.getAttribute("agentId") != null) {
+            throw new com.ai.repo.exception.BusinessException(403,
+                    "Only the human profile owner can manage profile memories");
+        }
     }
 
     @GetMapping("/public")
