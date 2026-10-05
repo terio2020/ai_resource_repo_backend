@@ -69,4 +69,13 @@ class V6MonthlyWindowTest {
         assertEquals(V6MonthlyWindow.Resolution.BUDGET_FALLBACK,
                 reply.miss(V6MonthlyWindow.Resolution.BUDGET_FALLBACK).resolution());
     }
+    @Test void agentCannotDeclineItsOwnUnchangedPosition() {
+        V6MonthlyWindow disputed=start().position(92,"plan-2","WAIT_RESTOCK",now)
+                .position(93,"plan-2","PAY_ALTERNATE",now);
+        V6MonthlyWindow offer=disputed.counter(92,"plan-2","PAY_ALTERNATE",
+                "PAY_ALTERNATE","WAIT_RESTOCK",now);
+        assertEquals("V6_DECLINE_OWN_POSITION",assertThrows(IllegalArgumentException.class,
+                ()->offer.decline(93,"plan-2",now)).getMessage());
+        assertEquals("PAY_ALTERNATE",offer.accept(93,"plan-2",now).effectiveChoice());
+    }
 }

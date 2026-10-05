@@ -95,6 +95,9 @@ public record V6MonthlyWindow(String triggerEventId,String planVersion,int month
         require(phase==Phase.AWAIT_COUNTER || phase==Phase.AWAIT_FINAL
                 || phase==Phase.AWAIT_LAST_REPLY,"V6_ACTION_NOT_ALLOWED");
         action(actor,version,now);
+        // A refusal of the actor's own still-current position is not a partner disagreement.
+        require(phase!=Phase.AWAIT_FINAL || !counter.equals(secondPosition),
+                "V6_DECLINE_OWN_POSITION");
         return copy(Phase.CLOSED,firstPosition,secondPosition,counter,replyCounter,null,Resolution.DECLINED);
     }
     public V6MonthlyWindow expire(Instant now) {
