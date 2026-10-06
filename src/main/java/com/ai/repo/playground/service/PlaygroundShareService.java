@@ -22,6 +22,7 @@ import com.ai.repo.playground.mapper.PlaygroundMapper;
 import com.ai.repo.playground.rules.V6FoundingContract;
 import com.ai.repo.playground.rules.V6ConflictRules;
 import com.ai.repo.playground.rules.V6MonthlyWindow;
+import com.ai.repo.playground.rules.V6MonthlyPlan;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -126,18 +127,18 @@ public class PlaygroundShareService {
 
     private boolean safeSnapshot(JsonNode payload) {
         int schema=payload.path("shareSchemaVersion").asInt();
-        if (!payload.isObject() || !Set.of(3,4).contains(schema) ||
+        if (!payload.isObject() || !Set.of(3,4,5).contains(schema) ||
                 !"ODD_SHOP".equals(payload.path("gameKey").asText())) return false;
         String outcome=payload.path("outcome").asText();
         if (!Set.of("OPERATED","UNOPENED").contains(outcome) ||
-                !onlyFields(payload,schema==4
+                !onlyFields(payload,schema>=4
                         ?Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business","foundingAgreement")
                         :Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business"))) return false;
-        if (schema==4 && outcome.equals("OPERATED")) {
+        if (schema>=4 && outcome.equals("OPERATED")) {
             try { V6FoundingContract.parse(payload.path("foundingAgreement")); }
             catch (IllegalArgumentException error) { return false; }
         }
-        if (schema==4 && outcome.equals("UNOPENED") && payload.has("foundingAgreement")) return false;
+        if (schema>=4 && outcome.equals("UNOPENED") && payload.has("foundingAgreement")) return false;
         JsonNode shop=payload.path("shop"),moves=payload.path("agentMoves");
         if (!shop.isObject() || !onlyFields(shop,Set.of("name","concept","audience","experience","marketing","strategy")) ||
                 !shop.path("name").isTextual() || shop.path("name").asText().length()>80 || !moves.isArray()) return false;
@@ -153,17 +154,21 @@ public class PlaygroundShareService {
         }
         for (JsonNode move:moves) if (!move.isObject() || !onlyFields(move,Set.of("role","move")) ||
                 !Set.of("HOST","GUEST").contains(move.path("role").asText()) ||
-                !Set.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
-                        "PROPOSE_MONTHLY","POSITION_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
+                !(Set.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
+                        "PROPOSE_MONTHLY","POSITION_MONTHLY","COUNTER_MONTHLY",
+                        "ACCEPT_MONTHLY","DECLINE_MONTHLY",
                         "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY",
-                        "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move.path("move").asText())) return false;
+                        "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE")
+                        .contains(move.path("move").asText())
+                    || schema==5 && Set.of("REPLY_MONTHLY","RETRACT_MONTHLY")
+                        .contains(move.path("move").asText()))) return false;
         if (outcome.equals("UNOPENED")) return !payload.has("business");
         JsonNode business=payload.path("business");
-        if (!business.isObject() || !onlyFields(business,schema==4
+        if (!business.isObject() || !onlyFields(business,schema>=4
                 ?Set.of("ending","operatedMonths","netProfitMinor","months","franchise","returnedCapitalMinor","hostReturnedMinor","guestReturnedMinor")
                 :Set.of("ending","operatedMonths","netProfitMinor","months","franchise")) ||
                 !business.path("months").isArray()) return false;
-        if (schema==4 && (business.path("returnedCapitalMinor").asLong(-1)<0
+        if (schema>=4 && (business.path("returnedCapitalMinor").asLong(-1)<0
                 || business.path("hostReturnedMinor").asLong(-1)<0
                 || business.path("guestReturnedMinor").asLong(-1)<0
                 || business.path("hostReturnedMinor").asLong()+business.path("guestReturnedMinor").asLong()
@@ -178,17 +183,36 @@ public class PlaygroundShareService {
                     .contains(franchise.path("supportOutcome").asText())) return false;
         }
         for (JsonNode month:business.path("months")) {
-            if (!month.isObject() || !onlyFields(month,schema==4
-                    ?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic",
+            if (!month.isObject() || !onlyFields(month,schema==5
+                    ?Set.of("month","profitMinor","events","signal","response","resolution","conflict",
+                            "effectivePlan","firstPlan","secondPlan","firstReply","secondReply")
+                    :schema==4?Set.of("month","profitMinor","events","signal","response","resolution","conflict","tactic",
                             "firstPosition","secondPosition","counter","replyCounter","counterRounds")
                     :Set.of("month","profitMinor","events","signal","response","resolution")) || !month.path("events").isArray()) return false;
             for (JsonNode event:month.path("events")) if (!event.isTextual() || !event.asText().matches("[A-Z0-9_]{1,48}")) return false;
             if (month.has("signal") && !Set.of("NORMAL","MARKET_SHIFT","MATERIAL_SURGE","RENT_RISE",
                     "PACKAGING_CHANGE","POWER_OUTAGE","COMPETITOR","SUPPLY_DELAY").contains(month.path("signal").asText())) return false;
             if (month.has("response") && !Set.of("KEEP_IDENTITY","PROMOTE","TEMPORARY_PIVOT").contains(month.path("response").asText())) return false;
-            if (month.has("resolution") && !Set.of("PARTNERS_APPROVED","DECLINED","DEADLINE_FALLBACK",
+            if (month.has("resolution") && !(Set.of("PARTNERS_APPROVED","DECLINED","DEADLINE_FALLBACK",
                     "BUDGET_FALLBACK","MODEL_FAILURE_FALLBACK","INDEPENDENT_CONSENSUS",
-                    "COUNTER_ACCEPTED").contains(month.path("resolution").asText())) return false;
+                    "COUNTER_ACCEPTED").contains(month.path("resolution").asText())
+                    || schema==5 && Set.of("CONFIRMED_MATCH","RETRACTED")
+                            .contains(month.path("resolution").asText()))) return false;
+            if (schema==5) {
+                if (month.has("conflict")) try { V6ConflictRules.Kind.valueOf(month.path("conflict").asText()); }
+                    catch (IllegalArgumentException error) { return false; }
+                for (String field:List.of("effectivePlan","firstPlan","secondPlan","firstReply","secondReply")) {
+                    if (!month.has(field)) continue;
+                    JsonNode value=month.path(field);
+                    if (field.equals("effectivePlan") && value.isTextual()
+                            && value.asText().equals("SIGNED_FALLBACK")) continue;
+                    if (!safeAnnualPlan(value,month.path("conflict").asText(null))) return false;
+                }
+                if (month.has("effectivePlan") && month.path("effectivePlan").isObject()
+                        !=Set.of("CONFIRMED_MATCH","COUNTER_ACCEPTED")
+                                .contains(month.path("resolution").asText())) return false;
+                continue;
+            }
             if (month.has("conflict")) {
                 if (schema!=4 || !month.has("tactic")) return false;
                 try {
@@ -220,6 +244,20 @@ public class PlaygroundShareService {
             } else if (month.has("tactic")) return false;
         }
         return true;
+    }
+    private boolean safeAnnualPlan(JsonNode value,String conflictCode) {
+        if (!value.isObject() || value.size()!=4 || !onlyFields(value,
+                Set.of("productionBand","marketingAction","serviceFocus","incidentResponse"))) return false;
+        try {
+            JsonNode incident=value.path("incidentResponse");
+            V6MonthlyPlan plan=new V6MonthlyPlan(
+                    V6MonthlyPlan.ProductionBand.valueOf(value.path("productionBand").asText()),
+                    V6MonthlyPlan.MarketingAction.valueOf(value.path("marketingAction").asText()),
+                    V6MonthlyPlan.ServiceFocus.valueOf(value.path("serviceFocus").asText()),
+                    incident.isNull()?null:incident.asText());
+            plan.validateFor(conflictCode==null?null:V6ConflictRules.Kind.valueOf(conflictCode));
+            return true;
+        } catch (IllegalArgumentException error) { return false; }
     }
     private boolean onlyFields(JsonNode value,Set<String> allowed) {
         var names=value.fieldNames();
@@ -276,8 +314,9 @@ public class PlaygroundShareService {
                 409,"ENDING_NOT_SHAREABLE");
         JsonNode plan=proposal.path("plan");
         List<String> privateText=privateTerms(activity);
-        boolean v6=view.path("ruleVersion").asText().equals("0.9");
-        ObjectNode result=json.createObjectNode().put("shareSchemaVersion",v6?4:3).put("gameKey","ODD_SHOP")
+        boolean annual=view.path("ruleVersion").asText().equals("1.0");
+        boolean v6=annual || view.path("ruleVersion").asText().equals("0.9");
+        ObjectNode result=json.createObjectNode().put("shareSchemaVersion",annual?5:v6?4:3).put("gameKey","ODD_SHOP")
                 .put("outcome",status.equals("SETTLED")?"OPERATED":"UNOPENED")
                 .put("horizonMonths",view.path("horizonMonths").asInt());
         if (v6 && status.equals("SETTLED")) {
@@ -303,10 +342,12 @@ public class PlaygroundShareService {
                     kind.equals("DECISION")?action.path("actionType").asText():
                     kind.equals("FINAL_NOTE")?"FINAL_NOTE":
                     kind.equals("MONTHLY_DECISION") || kind.equals("V6_POSITION")
-                            || kind.equals("V6_MONTHLY_DECISION") || kind.equals("FRANCHISE_DECISION")
+                            || kind.equals("V6_MONTHLY_DECISION") || kind.equals("V6_ANNUAL_DECISION")
+                            || kind.equals("FRANCHISE_DECISION")
                             || kind.equals("FRANCHISE_INVESTIGATION")?action.path("actionType").asText():"";
             if (!List.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","DECLINE_PLAN","FINAL_NOTE",
-                    "PROPOSE_MONTHLY","POSITION_MONTHLY","COUNTER_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY",
+                    "PROPOSE_MONTHLY","POSITION_MONTHLY","COUNTER_MONTHLY","REPLY_MONTHLY",
+                    "ACCEPT_MONTHLY","DECLINE_MONTHLY","RETRACT_MONTHLY",
                     "CHECK_FRANCHISE_TERMS","CHECK_FRANCHISE_STORES","CHECK_FRANCHISE_SUPPLY",
                     "PROPOSE_FRANCHISE","COUNTER_FRANCHISE","ACCEPT_FRANCHISE","DECLINE_FRANCHISE").contains(move)) continue;
             String actor=event.path("facts").path("actorId").asText().replace("agent:","");
@@ -352,7 +393,8 @@ public class PlaygroundShareService {
                     for (JsonNode event:events) {
                         if (event.path("virtualMonth").asInt()!=report.path("month").asInt()) continue;
                         if (event.path("kind").asText().equals("MONTHLY_SIGNAL")
-                                || event.path("kind").asText().equals("MONTHLY_CONTINUITY"))
+                                || event.path("kind").asText().equals("MONTHLY_CONTINUITY")
+                                || event.path("kind").asText().equals("V6_MONTHLY_BRIEF"))
                             month.put("signal",event.path("facts").path("signal").asText());
                         if (event.path("kind").asText().equals("MONTHLY_RESOLUTION")) {
                             month.put("response",event.path("facts").path("effectiveResponse").asText());
@@ -360,6 +402,24 @@ public class PlaygroundShareService {
                         }
                         if (event.path("kind").asText().equals("MONTHLY_CONTINUITY"))
                             month.put("response","KEEP_IDENTITY");
+                        if (annual && event.path("kind").asText().equals("V6_ANNUAL_RESOLUTION")) {
+                            JsonNode facts=event.path("facts");
+                            month.put("resolution",facts.path("resolution").asText());
+                            month.put("response",facts.path("effectiveResponse").asText());
+                            if (facts.path("effectivePlan").isObject())
+                                month.set("effectivePlan",facts.path("effectivePlan").deepCopy());
+                            else month.put("effectivePlan","SIGNED_FALLBACK");
+                            for (String field:List.of("firstPlan","secondPlan","firstReply","secondReply"))
+                                if (facts.path(field).isObject()) month.set(field,facts.path(field).deepCopy());
+                            if (events.stream().anyMatch(e->e.path("kind").asText().equals("V6_CONFLICT")
+                                    && e.path("facts").path("triggerEventId").asText()
+                                            .equals(facts.path("triggerEventId").asText())))
+                                month.put("conflict",events.stream()
+                                        .filter(e->e.path("kind").asText().equals("V6_CONFLICT")
+                                            && e.path("facts").path("triggerEventId").asText()
+                                                .equals(facts.path("triggerEventId").asText()))
+                                        .findFirst().orElseThrow().path("facts").path("kind").asText());
+                        }
                         if (v6 && event.path("kind").asText().equals("V6_CONFLICT_RESOLUTION"))
                             month.put("conflict",event.path("facts").path("kind").asText())
                                     .put("tactic",event.path("facts").path("selectedOption").asText())

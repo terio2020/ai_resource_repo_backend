@@ -329,6 +329,135 @@ class PlaygroundPersistenceTest {
         assertFalse(published.toString().contains("private:cats"));
         assertFalse(published.toString().contains("private:dogs"));
     }
+    @Test void v6AnnualRoomRequiresSeparateGrantAndNegotiatesEverySurvivingMonth() throws Exception {
+        service=new PlaygroundService(store,context.getBean(AgentMapper.class),
+                context.getBean(UserMapper.class),json,true,true,false,true,clock);
+        enable(1); enable(2);
+        businessError("ANNUAL_PARTICIPATION_GRANT_REQUIRED",()->service.invite(1,
+                new Invitation(1L,2L,"FULL",v5Brief("cats"))));
+        for (long actor:List.of(1L,2L))
+            service.updateParticipation(actor,actor,new ParticipationUpdate(1,true,40,40,40));
+        long id=Long.parseLong(service.invite(1,new Invitation(1L,2L,"FULL",v5Brief("cats")))
+                .get("activityId").toString());
+        service.acceptInvitation(2,id,new InvitationAccept(v5Brief("dogs")));
+        service.join(1,id); service.join(2,id);
+        assertEquals("1.0",service.ownerActivity(1,id).path("ruleVersion").asText());
+        ObjectNode first=ready(1), opening=proposal(6,20);
+        ObjectNode openingPlan=(ObjectNode)opening.path("payload").path("proposal").path("plan");
+        openingPlan.set("venture",venture()); openingPlan.set("strategy",v5Strategy());
+        openingPlan.set("foundingAgreement",founding(100,100,50));
+        openingPlan.set("contributions",json.createArrayNode().add(json.createObjectNode()
+                .put("sourceAgentId",1).put("sourceFieldId","theme").put("placement","SPACE")
+                .put("label","Host concept").putNull("sourceEventId")));
+        service.submit(1,first.path("taskId").asLong(),submission(first,opening,UUID.randomUUID().toString()));
+        ObjectNode second=ready(2), counter=proposal(6,20);
+        counter.put("actionType","COUNTER_PLAN");
+        ObjectNode terms=(ObjectNode)counter.path("payload").path("proposal");
+        terms.put("proposalId","plan-2").put("parentProposalId","plan-1");
+        ObjectNode partnerPlan=(ObjectNode)terms.path("plan");
+        partnerPlan.set("venture",venture()); partnerPlan.set("strategy",v5Strategy());
+        partnerPlan.set("foundingAgreement",founding(150,50,60));
+        partnerPlan.set("contributions",json.createArrayNode()
+                .add(second.path("visibleState").path("proposal").path("plan").path("contributions").get(0))
+                .add(json.createObjectNode().put("sourceAgentId",2).put("sourceFieldId","theme")
+                        .put("placement","SERVICE").put("label","Guest service").putNull("sourceEventId")));
+        service.submit(2,second.path("taskId").asLong(),submission(second,counter,UUID.randomUUID().toString()));
+        ObjectNode third=ready(1), accept=json.createObjectNode().put("actionType","ACCEPT_PLAN")
+                .put("publicRationale","I accept the revised funding, profit split, and roles.");
+        accept.set("payload",json.createObjectNode().put("proposalId","plan-2"));
+        service.submit(1,third.path("taskId").asLong(),submission(third,accept,UUID.randomUUID().toString()));
+        int meetings=0;
+        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
+            JsonNode persisted=json.readTree(store.activity(id).getStateJson()).path("v6AnnualWindow");
+            assertTrue(persisted.path("month").asInt()>=2 && persisted.path("month").asInt()<=12);
+            long leader=persisted.path("firstAgentId").asLong();
+            long partner=persisted.path("secondAgentId").asLong();
+            ObjectNode leaderTask=ready(leader);
+            JsonNode window=leaderTask.path("visibleState").path("monthlyWindow");
+            assertEquals(meetings+2,window.path("month").asInt());
+            ObjectNode plan=json.createObjectNode().put("productionBand","STANDARD")
+                    .put("marketingAction","NONE").put("serviceFocus","FULFILLMENT");
+            if (window.path("conflictCode").isNull()) plan.putNull("incidentResponse");
+            else plan.put("incidentResponse",window.path("optionCodes").get(0).asText());
+            service.submit(leader,leaderTask.path("taskId").asLong(),submission(leaderTask,
+                    annualPosition(window,plan),UUID.randomUUID().toString()));
+            ObjectNode partnerTask=ready(partner);
+            assertTrue(partnerTask.path("visibleState").path("monthlyWindow").path("firstPlan").isNull());
+            String sealedEventId=store.events(id,Math.max(0,store.activity(id).getNextSequence()-51))
+                    .stream().map(event->{
+                        try { return json.readTree(event); }
+                        catch (Exception error) { throw new IllegalStateException(error); }
+                    })
+                    .filter(event->"V6_ANNUAL_DECISION".equals(event.path("kind").asText())
+                            && window.path("triggerEventId").asText().equals(event.path("facts")
+                                    .path("action").path("payload").path("triggerEventId").asText()))
+                    .map(event->event.path("eventId").asText()).findFirst().orElseThrow();
+            assertFalse(partnerTask.path("visibleState").path("events").toString().contains(sealedEventId));
+            ObjectNode partnerChoice=plan.deepCopy();
+            if (meetings==0) partnerChoice.put("productionBand","CONSERVATIVE");
+            service.submit(partner,partnerTask.path("taskId").asLong(),submission(partnerTask,
+                    annualPosition(partnerTask.path("visibleState").path("monthlyWindow"),partnerChoice),
+                    UUID.randomUUID().toString()));
+            ObjectNode confirmation=ready(leader);
+            if (meetings==0) {
+                JsonNode disputed=confirmation.path("visibleState").path("monthlyWindow");
+                assertEquals("AWAIT_FIRST_REPLY",disputed.path("phase").asText());
+                ObjectNode reply=json.createObjectNode().put("actionType","REPLY_MONTHLY")
+                        .put("publicRationale","I defend standard capacity because demand was manageable.");
+                reply.set("payload",json.createObjectNode()
+                        .put("triggerEventId",disputed.path("triggerEventId").asText())
+                        .put("targetVersion",disputed.path("targetVersion").asText())
+                        .put("claimsRevision",false).put("focusField","productionBand")
+                        .put("reasonFocus","CASH").set("plan",plan));
+                service.submit(leader,confirmation.path("taskId").asLong(),submission(confirmation,
+                        reply,UUID.randomUUID().toString()));
+                confirmation=ready(partner);
+            } else assertEquals("AWAIT_CONFIRM",confirmation.path("visibleState").path("monthlyWindow")
+                    .path("phase").asText());
+            ObjectNode confirmationAction=json.createObjectNode().put("actionType","ACCEPT_MONTHLY")
+                    .put("publicRationale","I read the same plan and confirm our operating choice.");
+            confirmationAction.set("payload",json.createObjectNode()
+                    .put("triggerEventId",window.path("triggerEventId").asText())
+                    .put("targetVersion",confirmation.path("visibleState").path("monthlyWindow")
+                            .path("targetVersion").asText()).put("reasonFocus","CASH"));
+            service.submit(meetings==0?partner:leader,confirmation.path("taskId").asLong(),submission(confirmation,
+                    confirmationAction,UUID.randomUUID().toString()));
+            meetings++;
+            assertTrue(meetings<=11);
+        }
+        assertTrue(meetings>0 && meetings<=11);
+        JsonNode finalGame=service.ownerActivity(1,id).path("game");
+        int operated=finalGame.path("operatedMonths").asInt();
+        int failedOpening=finalGame.path("failedOpeningMonth").isNull()?0:
+                finalGame.path("failedOpeningMonth").asInt();
+        assertEquals(Math.min(11,operated+(failedOpening>0?1:0)-1),meetings);
+        assertEquals(meetings,jdbc.queryForObject("SELECT COUNT(*) FROM playground_events "
+                +"WHERE activity_id=? AND JSON_UNQUOTE(JSON_EXTRACT(event_json,'$.kind'))='V6_ANNUAL_RESOLUTION'",
+                Integer.class,id));
+        PlaygroundShareService shares=context.getBean(PlaygroundShareService.class);
+        ObjectNode link=shares.ownerResultLink(1,id);
+        JsonNode publicResult=link.path("result");
+        assertEquals(5,publicResult.path("shareSchemaVersion").asInt());
+        assertEquals(finalGame.path("operatedMonths").asInt(),
+                publicResult.path("business").path("months").size());
+        assertEquals("COUNTER_ACCEPTED",publicResult.path("business").path("months").get(1)
+                .path("resolution").asText());
+        assertEquals("CONSERVATIVE",publicResult.path("business").path("months").get(1)
+                .path("secondPlan").path("productionBand").asText());
+        assertEquals("STANDARD",publicResult.path("business").path("months").get(1)
+                .path("effectivePlan").path("productionBand").asText());
+        assertFalse(publicResult.toString().contains("private:cats"));
+        assertFalse(publicResult.toString().contains("private:dogs"));
+    }
+    ObjectNode annualPosition(JsonNode window,ObjectNode plan) {
+        ObjectNode action=json.createObjectNode().put("actionType","POSITION_MONTHLY")
+                .put("publicRationale","First annual position based on the prior month report.");
+        action.set("payload",json.createObjectNode()
+                .put("triggerEventId",window.path("triggerEventId").asText())
+                .put("targetVersion",window.path("targetVersion").asText())
+                .put("reasonFocus","CASH").set("plan",plan));
+        return action;
+    }
     ObjectNode founding(int hostCapital,int guestCapital,int hostProfitPercent) {
         return json.createObjectNode().put("hostCapitalCoins",hostCapital)
                 .put("guestCapitalCoins",guestCapital).put("hostProfitPercent",hostProfitPercent)

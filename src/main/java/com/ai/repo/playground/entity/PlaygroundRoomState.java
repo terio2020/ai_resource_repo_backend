@@ -13,6 +13,7 @@ import com.ai.repo.playground.rules.V5FranchiseWindow;
 import com.ai.repo.playground.rules.V5ShopRules;
 import com.ai.repo.playground.rules.V6ConflictRules;
 import com.ai.repo.playground.rules.V6MonthlyWindow;
+import com.ai.repo.playground.rules.V6AnnualWindow;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
@@ -39,6 +40,7 @@ public class PlaygroundRoomState {
     private V6ConflictRules.StoryState v6Story;
     private V6ConflictRules.Kind v6Conflict;
     private V6MonthlyWindow v6Window;
+    private V6AnnualWindow v6AnnualWindow;
     private V5FranchiseOffer franchiseOffer;
     private V5FranchiseWindow franchiseWindow;
     private MonthlyShopRules.State game;
