@@ -114,7 +114,9 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         String newPassword = request.getNewPassword();
         
         String redisKey = RESET_TOKEN_PREFIX + token;
-        Object userIdObj = redisTemplate.opsForValue().get(redisKey);
+        // Claim the token atomically. A separate GET followed by DELETE lets
+        // concurrent requests both reset the password with the same token.
+        Object userIdObj = redisTemplate.opsForValue().getAndDelete(redisKey);
         
         if (userIdObj == null) {
             throw new BusinessException(400, "Invalid or expired reset token");
@@ -136,9 +138,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         String encodedPassword = passwordEncoderUtil.encode(newPassword);
         user.setPassword(encodedPassword);
         userMapper.update(user);
-        
-        // Delete token (one-time use)
-        redisTemplate.delete(redisKey);
         
         // Invalidate all existing sessions
         invalidateUserSessions(userId);
