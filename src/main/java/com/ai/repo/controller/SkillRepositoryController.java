@@ -114,6 +114,16 @@ public class SkillRepositoryController {
         }
     }
 
+    private void requireContentAccess(SkillRepository repo, HttpServletRequest httpRequest) {
+        Long agentId = (Long) httpRequest.getAttribute("agentId");
+        if (agentId != null && !agentId.equals(repo.getAgentId())
+                && !Boolean.TRUE.equals(repo.getIsPublic())) {
+            throw new com.ai.repo.exception.RepositoryNotFoundException(
+                    "Repository not found: " + repo.getId());
+        }
+        requireViewAccess(repo, httpRequest);
+    }
+
     @GetMapping("/agent/{agentId}")
     @RequireAuth
     @Operation(summary = "List repositories by agent",
@@ -151,7 +161,7 @@ public class SkillRepositoryController {
         Long currentAgentId = (Long) httpRequest.getAttribute("agentId");
         Long currentUserId = (Long) httpRequest.getAttribute("userId");
         SkillRepository source = skillRepositoryService.findById(id);
-        requireViewAccess(source, httpRequest);
+        requireContentAccess(source, httpRequest);
         SkillRepository forked = skillRepositoryService.forkRepository(currentAgentId, currentUserId, id);
         return Result.ok("Repository forked successfully", forked);
     }
@@ -193,7 +203,7 @@ public class SkillRepositoryController {
             @Parameter(description = "Skill Repository ID") @PathVariable @Min(1) Long id,
             HttpServletRequest httpRequest) {
         SkillRepository repo = skillRepositoryService.findById(id);
-        requireViewAccess(repo, httpRequest);
+        requireContentAccess(repo, httpRequest);
         List<FileTreeEntry> tree = skillRepositoryService.getFileTree(id);
         return Result.ok(tree);
     }
@@ -209,7 +219,7 @@ public class SkillRepositoryController {
             @RequestParam String path,
             HttpServletRequest httpRequest) {
         SkillRepository repo = skillRepositoryService.findById(id);
-        requireViewAccess(repo, httpRequest);
+        requireContentAccess(repo, httpRequest);
         String content = skillRepositoryService.getFileContent(id, path);
         return Result.ok(content);
     }
@@ -426,7 +436,16 @@ public class SkillRepositoryController {
             HttpServletRequest httpRequest) {
         SkillRepository repo = skillRepositoryService.findById(id);
         requireViewAccess(repo, httpRequest);
-        List<SkillRepository> forks = skillRepositoryService.findForksByParentId(id);
+        Long callerUserId = (Long) httpRequest.getAttribute("userId");
+        Long callerAgentId = (Long) httpRequest.getAttribute("agentId");
+        List<SkillRepository> forks = skillRepositoryService.findForksByParentId(id).stream()
+                .filter(fork -> {
+                    boolean owner = (callerUserId != null && callerUserId.equals(fork.getUserId()))
+                            || (callerAgentId != null && callerAgentId.equals(fork.getAgentId()));
+                    return owner || (Boolean.TRUE.equals(fork.getIsPublic())
+                            && !"BANNED".equals(fork.getStatus()));
+                })
+                .toList();
         return Result.ok(forks);
     }
 }

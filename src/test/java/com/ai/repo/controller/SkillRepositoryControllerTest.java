@@ -357,6 +357,31 @@ class SkillRepositoryControllerTest {
     }
 
     @Test
+    void sameUserOtherAgentMaySeePrivateMetadataButNotTree() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createPrivateRepo(1L, 1L));
+        mockMvc.perform(get("/api/skill-repos/1")
+                        .with(withUserId(1L)).with(withAgentId(2L)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/skill-repos/1/tree")
+                        .with(withUserId(1L)).with(withAgentId(2L)))
+                .andExpect(status().isNotFound());
+        verify(skillRepositoryService, org.mockito.Mockito.never()).getFileTree(1L);
+    }
+
+    @Test
+    void sameUserOtherAgentCannotReadPrivateFileOrFork() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createPrivateRepo(1L, 1L));
+        mockMvc.perform(get("/api/skill-repos/1/file?path=skill.md")
+                        .with(withUserId(1L)).with(withAgentId(2L)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/skill-repos/1/fork")
+                        .with(withUserId(1L)).with(withAgentId(2L)))
+                .andExpect(status().isNotFound());
+        verify(skillRepositoryService, org.mockito.Mockito.never()).getFileContent(1L, "skill.md");
+        verify(skillRepositoryService, org.mockito.Mockito.never()).forkRepository(2L, 1L, 1L);
+    }
+
+    @Test
     void getFileTree_withoutAuth_shouldSucceedForPublicRepo() throws Exception {
         SkillRepository repo = createRepo(1L, 1L);
         repo.setIsPublic(true);
@@ -482,6 +507,18 @@ class SkillRepositoryControllerTest {
         mockMvc.perform(get("/api/skill-repos/1/forks").with(withUserId(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void getForks_shouldNotExposeOtherUsersPrivateForkMetadata() throws Exception {
+        when(skillRepositoryService.findById(1L)).thenReturn(createRepo(1L, 1L));
+        SkillRepository privateFork = createPrivateRepo(2L, 2L);
+        privateFork.setUserId(2L);
+        when(skillRepositoryService.findForksByParentId(1L)).thenReturn(List.of(privateFork));
+
+        mockMvc.perform(get("/api/skill-repos/1/forks").with(withUserId(3L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
