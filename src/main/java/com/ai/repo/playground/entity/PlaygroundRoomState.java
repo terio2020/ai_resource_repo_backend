@@ -41,6 +41,8 @@ public class PlaygroundRoomState {
     private V6ConflictRules.Kind v6Conflict;
     private V6MonthlyWindow v6Window;
     private V6AnnualWindow v6AnnualWindow;
+    private Long reviewPendingAgent;
+    private Map<Long, JsonNode> partnerReviews = new LinkedHashMap<>();
     private V5FranchiseOffer franchiseOffer;
     private V5FranchiseWindow franchiseWindow;
     private MonthlyShopRules.State game;

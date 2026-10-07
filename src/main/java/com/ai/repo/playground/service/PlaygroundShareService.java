@@ -131,9 +131,32 @@ public class PlaygroundShareService {
                 !"ODD_SHOP".equals(payload.path("gameKey").asText())) return false;
         String outcome=payload.path("outcome").asText();
         if (!Set.of("OPERATED","UNOPENED").contains(outcome) ||
-                !onlyFields(payload,schema>=4
+                !onlyFields(payload,schema==5
+                        ?Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business","foundingAgreement","partnerReviews")
+                        :schema>=4
                         ?Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business","foundingAgreement")
                         :Set.of("shareSchemaVersion","gameKey","outcome","horizonMonths","shop","agentMoves","business"))) return false;
+        if (payload.has("partnerReviews")) {
+            JsonNode reviews=payload.path("partnerReviews");
+            if (schema!=5 || !outcome.equals("OPERATED") || !reviews.isArray() || reviews.size()!=2
+                    || !reviews.get(0).path("role").asText().equals("HOST")
+                    || !reviews.get(1).path("role").asText().equals("GUEST")) return false;
+            for (JsonNode review:reviews) {
+                if (!review.isObject() || !onlyFields(review,Set.of("role","status","partnerStrength",
+                        "friction","futureCollaboration","publicRationale","evidenceMonth","evidenceMove"))) return false;
+                String status=review.path("status").asText();
+                if (status.equals("UNAVAILABLE")) { if (review.size()!=2) return false; continue; }
+                if (!status.equals("RECORDED") || review.size()!=8
+                        || !Set.of("YES","CONDITIONAL","NO").contains(review.path("futureCollaboration").asText())
+                        || review.path("evidenceMonth").asInt(-1)<0 || review.path("evidenceMonth").asInt()>12
+                        || !Set.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","POSITION_MONTHLY",
+                                "REPLY_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY","RETRACT_MONTHLY")
+                                .contains(review.path("evidenceMove").asText())) return false;
+                for (String field:List.of("partnerStrength","friction","publicRationale"))
+                    if (!review.path(field).isTextual() || review.path(field).asText().isBlank()
+                            || review.path(field).asText().length()>(field.equals("publicRationale")?300:160)) return false;
+            }
+        }
         if (schema>=4 && outcome.equals("OPERATED")) {
             try { V6FoundingContract.parse(payload.path("foundingAgreement")); }
             catch (IllegalArgumentException error) { return false; }
@@ -353,6 +376,27 @@ public class PlaygroundShareService {
             String actor=event.path("facts").path("actorId").asText().replace("agent:","");
             moves.addObject().put("role",actor.equals(view.path("hostAgentId").asText())?"HOST":"GUEST")
                     .put("move",move);
+        }
+        if (annual && status.equals("SETTLED")) {
+            ArrayNode reviews=result.putArray("partnerReviews");
+            for (String role:List.of("HOST","GUEST")) {
+                String actor=view.path(role.equals("HOST")?"hostAgentId":"guestAgentId").asText();
+                JsonNode review=view.path("partnerReviews").path(actor);
+                ObjectNode publicReview=reviews.addObject().put("role",role);
+                if (!review.isObject()) { publicReview.put("status","UNAVAILABLE"); continue; }
+                JsonNode action=review.path("payload");
+                String cited=action.path("evidenceEventId").asText();
+                JsonNode source=events.stream().filter(item -> item.path("eventId").asText().equals(cited))
+                        .findFirst().orElse(null);
+                require(source!=null,409,"ENDING_NOT_SHAREABLE");
+                publicReview.put("status","RECORDED")
+                        .put("partnerStrength",sanitize(action.path("partnerStrength").asText(),privateText,160))
+                        .put("friction",sanitize(action.path("friction").asText(),privateText,160))
+                        .put("futureCollaboration",action.path("futureCollaboration").asText())
+                        .put("publicRationale",sanitize(review.path("publicRationale").asText(),privateText,300))
+                        .put("evidenceMonth",source.path("virtualMonth").asInt())
+                        .put("evidenceMove",source.path("facts").path("action").path("actionType").asText());
+            }
         }
         if (status.equals("SETTLED")) {
             JsonNode summary=view.path("summary");

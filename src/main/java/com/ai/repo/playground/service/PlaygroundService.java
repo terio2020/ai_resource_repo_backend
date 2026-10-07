@@ -299,6 +299,7 @@ public class PlaygroundService {
         task.setStatus(retry?"RETRIED":"FAILED"); task.setLeaseHash(null); task.setLeaseExpiresAt(null); store.saveTask(task);
         boolean skipOpportunity=!retry && state.getContractVersion()==4 && state.isNpcWindowOpen();
         boolean skipClosing=!retry && state.getContractVersion()>=4 && state.isClosingReplyPending();
+        boolean skipReview=!retry && state.getReviewPendingAgent()!=null;
         boolean settleV5=!retry && openV5Window(state);
         boolean settleV6=!retry && openV6Window(state);
         boolean settleAnnual=!retry && openAnnualWindow(state);
@@ -306,10 +307,13 @@ public class PlaygroundService {
         Map<String,Object> failureFacts=new LinkedHashMap<>();
         failureFacts.put("reasonCode",request.reasonCode()); failureFacts.put("retryScheduled",retry);
         if (request.formatHint()!=null) failureFacts.put("formatHint",request.formatHint());
-        event(activity,"AGENT_FAILURE","ADAPTER",agentId,retry?"RETRYABLE":skipOpportunity || settleV5 || settleV6 || settleAnnual || skipFranchise?"EXECUTED":"INTERRUPTED",failureFacts);
+        event(activity,"AGENT_FAILURE","ADAPTER",agentId,retry?"RETRYABLE":skipOpportunity || skipReview || settleV5 || settleV6 || settleAnnual || skipFranchise?"EXECUTED":"INTERRUPTED",failureFacts);
         if (retry) issueTask(activity,state,agentId);
         else {
-            if (skipOpportunity) {
+            if (skipReview) {
+                skipPartnerReview(activity,state,agentId,"MODEL_FAILURE");
+                state.setReviewPendingAgent(null);
+            } else if (skipOpportunity) {
                 state.setNpcWindowOpen(false);
                 eventAtMonth(activity,"NPC_OPPORTUNITY_SKIPPED","SYSTEM",null,"EXECUTED",
                         Map.of("offerId",state.getNpcOrder().id(),"reason","MODEL_FAILURE"),1);
@@ -325,6 +329,7 @@ public class PlaygroundService {
             resumeV5AfterFallback(activity,state,V5MonthlyWindow.Resolution.MODEL_FAILURE_FALLBACK);
             resumeV6AfterFallback(activity,state,V6MonthlyWindow.Resolution.MODEL_FAILURE_FALLBACK);
             resumeAnnualAfterFallback(activity,state,V6AnnualWindow.Resolution.MODEL_FAILURE_FALLBACK);
+            if (skipReview) advancePartnerReviews(activity,state);
             if (Set.of("SETTLED","INTERRUPTED").contains(activity.getStatus())) store.releaseSeats(activity.getId());
         }
         save(activity,state);
@@ -360,7 +365,9 @@ public class PlaygroundService {
         task.setStatus("DONE"); store.saveTask(task); attempt.setStatus("SUBMITTED"); store.saveAttempt(attempt);
         if (task.getPhase().equals("FRANCHISE_DECISION") && state.getGame().operatedMonths()==0
                 && !openFranchiseWindow(state)) state.getWindowDecisions().clear();
-        if (activity.getStatus().equals("PLANNING") && openFranchiseWindow(state)) {
+        if (activity.getStatus().equals("PLANNING") && state.getReviewPendingAgent()!=null) {
+            // The review reducer has already issued the next independent review task.
+        } else if (activity.getStatus().equals("PLANNING") && openFranchiseWindow(state)) {
             long next=franchiseWindowActor(state.getFranchiseWindow());
             if (canOfferTask(activity,state,next)) issueTask(activity,state,next);
             else {
@@ -428,7 +435,11 @@ public class PlaygroundService {
                 .put("canAcceptInvitation",activity.getStatus().equals("INVITED") && agents.selectById(activity.getGuestAgentId()).getUserId().equals(userId));
         result.set("ownerBrief",json.valueToTree(state.getOwnerBriefs().get(own)));
         result.set("game",json.valueToTree(state.getGame()));
-        if (activity.getStatus().equals("SETTLED")) result.set("summary",json.valueToTree(summaryFor(state)));
+        if (activity.getStatus().equals("SETTLED")) {
+            result.set("summary",json.valueToTree(summaryFor(state)));
+            if (isAnnual(state)) result.set("partnerReviews",json.valueToTree(state.getPartnerReviews()));
+        } else if (isAnnual(state) && state.getReviewPendingAgent()!=null)
+            result.put("phase","PARTNER_REVIEW");
         return result;
     }
     public List<JsonNode> ownerEvents(long userId,long activityId,long after) {
@@ -440,8 +451,18 @@ public class PlaygroundService {
     public void leave(long userId,long activityId) {
         Activity activity=locked(activityId); lockRoomAgents(activity); ownerMember(userId,activity);
         require(!Set.of("SETTLED","INTERRUPTED").contains(activity.getStatus()),409,"ACTIVITY_ENDED");
+        PlaygroundRoomState state=state(activity);
+        if (state.getReviewPendingAgent()!=null) {
+            for (long actor:List.of(activity.getHostAgentId(),activity.getGuestAgentId()))
+                if (!state.getPartnerReviews().containsKey(actor)) skipPartnerReview(activity,state,actor,"OWNER_LEFT");
+            state.setReviewPendingAgent(null);
+            activity.setStatus("SETTLED");
+            store.cancelTasks(activityId); store.releaseSeats(activityId);
+            save(activity,state);
+            return;
+        }
         interrupt(activity,"OWNER_LEFT"); store.cancelTasks(activityId); store.releaseSeats(activityId);
-        save(activity,state(activity)); // Withdrawal during preparation is interruption, not business bankruptcy.
+        save(activity,state); // Withdrawal during preparation is interruption, not business bankruptcy.
     }
     public List<Long> expiredActivityIds() { available(); return store.expired(now()).stream().map(Activity::getId).toList(); }
     @Transactional
@@ -451,7 +472,12 @@ public class PlaygroundService {
         boolean expired=!now().isBefore(activity.getExpiresAt()) || store.expiredTaskCount(activityId,now())>0;
         if (!expired) return;
         PlaygroundRoomState state=state(activity);
-        if (state.getContractVersion()==4 && state.isNpcWindowOpen()) {
+        if (state.getReviewPendingAgent()!=null) {
+            for (long actor:List.of(activity.getHostAgentId(),activity.getGuestAgentId()))
+                if (!state.getPartnerReviews().containsKey(actor)) skipPartnerReview(activity,state,actor,"DEADLINE_EXPIRED");
+            state.setReviewPendingAgent(null);
+            activity.setStatus("SETTLED");
+        } else if (state.getContractVersion()==4 && state.isNpcWindowOpen()) {
             state.setNpcWindowOpen(false);
             eventAtMonth(activity,"NPC_OPPORTUNITY_SKIPPED","SYSTEM",null,"EXECUTED",
                     Map.of("offerId",state.getNpcOrder().id(),"reason","DEADLINE_EXPIRED"),1);
@@ -479,6 +505,24 @@ public class PlaygroundService {
         fields(action,Set.of("actionType","payload","publicRationale"));
         String type=text(action,"actionType",30); text(action,"publicRationale",300);
         require(allowed(state).contains(type),400,"ACTION_NOT_ALLOWED"); JsonNode payload=action.get("payload");
+        if (state.getReviewPendingAgent()!=null) {
+            require(actor==state.getReviewPendingAgent() && type.equals("REVIEW_PARTNER"),400,"ACTION_NOT_ALLOWED");
+            fields(payload,Set.of("partnerStrength","friction","futureCollaboration","evidenceEventId"));
+            String strength=text(payload,"partnerStrength",160),friction=text(payload,"friction",160);
+            require(!strength.isBlank() && !friction.isBlank(),400,"REVIEW_TEXT_REQUIRED");
+            require(Set.of("YES","CONDITIONAL","NO").contains(text(payload,"futureCollaboration",20)),
+                    400,"INVALID_REVIEW_CHOICE");
+            String evidence=identifier(payload,"evidenceEventId");
+            require(partnerReviewEvidence(activity,actor).stream().anyMatch(item ->
+                    item.path("eventId").asText().equals(evidence)),400,"REVIEW_EVIDENCE_REQUIRED");
+            require(!action.path("publicRationale").asText().isBlank(),400,"REVIEW_TEXT_REQUIRED");
+            state.getPartnerReviews().put(actor,action.deepCopy());
+            eventAtMonth(activity,"PARTNER_REVIEW","USER_AGENT",actor,"EXECUTED",
+                    Map.of("action",action),state.getGame().operatedMonths());
+            state.setReviewPendingAgent(null);
+            advancePartnerReviews(activity,state);
+            return;
+        }
         if (state.isNpcWindowOpen()) {
             reduceNpcOrder(activity,state,actor,type,payload,action);
             return;
@@ -511,6 +555,8 @@ public class PlaygroundService {
             return;
         }
         if (type.equals("PROPOSE_PLAN") || type.equals("COUNTER_PLAN")) {
+            if (isAnnual(state) && type.equals("COUNTER_PLAN"))
+                require(windowRemaining(state,actor)>1,400,"FINAL_PLANNING_TURN_REQUIRES_DECISION");
             fields(payload,Set.of("proposal")); JsonNode proposal=payload.get("proposal");
             fields(proposal,Set.of("proposalId","parentProposalId","plan"));
             String id=identifier(proposal,"proposalId");
@@ -1140,8 +1186,47 @@ public class PlaygroundService {
         return result;
     }
     private void settleV5(Activity activity,PlaygroundRoomState state) {
-        activity.setStatus("SETTLED");
         event(activity,"SETTLEMENT","SYSTEM",null,"EXECUTED",summaryFor(state));
+        if (isAnnual(state)) advancePartnerReviews(activity,state);
+        else activity.setStatus("SETTLED");
+    }
+    private void advancePartnerReviews(Activity activity,PlaygroundRoomState state) {
+        for (long actor:List.of(activity.getHostAgentId(),activity.getGuestAgentId())) {
+            if (state.getPartnerReviews().containsKey(actor)) continue;
+            state.setReviewPendingAgent(actor);
+            if (canOfferTask(activity,state,actor)) { issueTask(activity,state,actor); return; }
+            skipPartnerReview(activity,state,actor,"BUDGET_OR_DEADLINE");
+        }
+        state.setReviewPendingAgent(null);
+        activity.setStatus("SETTLED");
+    }
+    private void skipPartnerReview(Activity activity,PlaygroundRoomState state,long actor,String reason) {
+        state.getPartnerReviews().put(actor,json.nullNode());
+        eventAtMonth(activity,"PARTNER_REVIEW_SKIPPED","SYSTEM",actor,"EXECUTED",
+                Map.of("reason",reason),state.getGame().operatedMonths());
+    }
+    private List<ObjectNode> partnerReviewEvidence(Activity activity,long reviewer) {
+        long partner=reviewer==activity.getHostAgentId()?activity.getGuestAgentId():activity.getHostAgentId();
+        List<ObjectNode> evidence=new ArrayList<>();
+        long after=0;
+        while (true) {
+            List<String> page=store.events(activity.getId(),after);
+            if (page.isEmpty()) break;
+            for (String serialized:page) {
+                JsonNode item=read(serialized,JsonNode.class);
+                if (item.path("facts").path("actorId").asText().equals("agent:"+partner)) {
+                    String move=item.path("facts").path("action").path("actionType").asText();
+                    if (Set.of("PROPOSE_PLAN","COUNTER_PLAN","ACCEPT_PLAN","POSITION_MONTHLY",
+                            "REPLY_MONTHLY","ACCEPT_MONTHLY","DECLINE_MONTHLY","RETRACT_MONTHLY")
+                            .contains(move)) evidence.add(json.createObjectNode()
+                                    .put("eventId",item.path("eventId").asText())
+                                    .put("month",item.path("virtualMonth").asInt()).put("move",move));
+                }
+                after=item.path("sequence").asLong();
+            }
+            if (page.size()<50) break;
+        }
+        return evidence.subList(Math.max(0,evidence.size()-6),evidence.size());
     }
     private MonthlyShopRules.Summary summaryFor(PlaygroundRoomState state) {
         if (!isV6(state)) return rules.summary(state.getGame());
@@ -1264,7 +1349,11 @@ public class PlaygroundService {
                 .put("actorSource","USER_AGENT").put("permissionVersion",permission.getVersion())
                 .put("expiresAt",utc(min(task.getExpiresAt(),task.getLeaseExpiresAt()))).put("leaseToken",token);
         if (task.getAttemptId()==null) result.putNull("attemptId"); else result.put("attemptId",task.getAttemptId()+"");
-        result.set("allowedActions",json.valueToTree(allowed(state)));
+        List<String> taskActions=new ArrayList<>(allowed(state));
+        if (isAnnual(state) && task.getPhase().equals("PLANNING") && state.getProposal()!=null
+                && windowRemaining(state,task.getAgentId())==1)
+            taskActions.remove("COUNTER_PLAN");
+        result.set("allowedActions",json.valueToTree(taskActions));
         ObjectNode visible=json.createObjectNode().put("cashMinor",state.getGame().cashMinor()).put("virtualMonth",state.getGame().operatedMonths());
         visible.set("proposal",state.getProposal()==null?json.nullNode():state.getProposal());
         if (isV6(state) && state.getGame().operatedMonths()==0)
@@ -1301,6 +1390,8 @@ public class PlaygroundService {
         // The signed proposal, prior ledger and carryover state are projected separately.
         for (String serialized:store.events(activity.getId(),Math.max(0,activity.getNextSequence()-21))) {
             JsonNode source=read(serialized,JsonNode.class);
+            if (state.getReviewPendingAgent()!=null && Set.of("PARTNER_REVIEW","PARTNER_REVIEW_SKIPPED")
+                    .contains(source.path("kind").asText())) continue;
             JsonNode action=source.path("facts").path("action");
             if (openAnnualWindow(state) && state.getV6AnnualWindow().phase()==V6AnnualWindow.Phase.AWAIT_SECOND
                     && source.path("kind").asText().equals("V6_ANNUAL_DECISION")
@@ -1411,6 +1502,14 @@ public class PlaygroundService {
                 }
                 visible.set("monthlyWindow",monthly);
             } else visible.putNull("monthlyWindow");
+            if (state.getReviewPendingAgent()!=null) {
+                ObjectNode review=visible.putObject("partnerReview");
+                MonthlyShopRules.Summary ending=summaryFor(state);
+                review.putObject("outcome").put("ending",ending.ending().name())
+                        .put("operatedMonths",ending.operatedMonths())
+                        .put("netProfitMinor",ending.netProfitMinor());
+                review.set("partnerEvidence",json.valueToTree(partnerReviewEvidence(activity,task.getAgentId())));
+            }
             if (openFranchiseWindow(state)) {
                 V5FranchiseWindow window=state.getFranchiseWindow();
                 ObjectNode pitch=json.createObjectNode().put("offerId",window.offerId())
@@ -1433,6 +1532,7 @@ public class PlaygroundService {
         result.set("limits",limits); return result;
     }
     private List<String> allowed(PlaygroundRoomState state) {
+        if (state.getReviewPendingAgent()!=null) return List.of("REVIEW_PARTNER");
         if (state.isClosingReplyPending()) return List.of("FINAL_NOTE");
         if (state.isNpcWindowOpen()) return List.of("ACCEPT_ORDER","DECLINE_ORDER","LEAVE");
         if (openFranchiseWindow(state)) {
@@ -1477,7 +1577,8 @@ public class PlaygroundService {
     private void issueTask(Activity activity,PlaygroundRoomState state,long actor) {
         Task task=new Task(); task.setActivityId(activity.getId()); task.setAgentId(actor);
         task.setPermissionVersion(permit(actor).getVersion()); task.setStatus("PENDING");
-        task.setPhase(state.isClosingReplyPending()?"CLOSING":state.isNpcWindowOpen()?"OFFER_NEGOTIATION":
+        task.setPhase(state.getReviewPendingAgent()!=null?"PARTNER_REVIEW":
+                state.isClosingReplyPending()?"CLOSING":state.isNpcWindowOpen()?"OFFER_NEGOTIATION":
                 openFranchiseWindow(state)?"FRANCHISE_DECISION":
                 openAnnualWindow(state)?"MONTHLY_DEBATE":openV6Window(state)?"MONTHLY_DEBATE":
                 openV5Window(state)?"MONTHLY_DECISION":"PLANNING");
@@ -1520,13 +1621,17 @@ public class PlaygroundService {
                 && permission.getMaxDailyAttempts()>=40,403,"ANNUAL_PARTICIPATION_GRANT_REQUIRED");
     }
     private int windowRemaining(PlaygroundRoomState state,long actor) {
+        if (state.getReviewPendingAgent()!=null)
+            return state.getReviewPendingAgent()==actor && !state.getPartnerReviews().containsKey(actor)?1:0;
         if (state.isClosingReplyPending()) return Objects.equals(actor,state.getClosingInitiator())?0:1;
         if (openFranchiseWindow(state)) return Math.max(0,3-state.getWindowDecisions().getOrDefault(actor,0));
         if (openV6Window(state)) return Math.max(0,3-state.getWindowDecisions().getOrDefault(actor,0));
         if (openAnnualWindow(state)) return Math.max(0,3-state.getWindowDecisions().getOrDefault(actor,0));
+        if (isAnnual(state)) return Math.max(0,3-state.getWindowDecisions().getOrDefault(actor,0));
         return Math.max(0,2-state.getWindowDecisions().getOrDefault(actor,0));
     }
     private String decisionWindowKey(PlaygroundRoomState state) {
+        if (state.getReviewPendingAgent()!=null) return "REVIEW:"+state.getReviewPendingAgent();
         if (openAnnualWindow(state)) return "V6A:"+state.getV6AnnualWindow().triggerEventId();
         if (openV6Window(state)) return "V6:"+state.getV6Window().triggerEventId();
         if (openV5Window(state)) return "V5:"+state.getV5Window().triggerEventId();

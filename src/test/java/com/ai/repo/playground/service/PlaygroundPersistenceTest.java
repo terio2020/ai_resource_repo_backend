@@ -332,6 +332,12 @@ class PlaygroundPersistenceTest {
         assertFalse(published.toString().contains("private:dogs"));
     }
     @Test void v6AnnualRoomRequiresSeparateGrantAndNegotiatesEverySurvivingMonth() throws Exception {
+        verifyAnnualRoom(false);
+    }
+    @Test void v6OwnerLeavingDuringReviewPreservesSettledGame() throws Exception {
+        verifyAnnualRoom(true);
+    }
+    void verifyAnnualRoom(boolean leaveDuringReview) throws Exception {
         service=new PlaygroundService(store,context.getBean(AgentMapper.class),
                 context.getBean(UserMapper.class),json,true,true,false,true,clock);
         enable(1); enable(2);
@@ -369,7 +375,8 @@ class PlaygroundPersistenceTest {
         accept.set("payload",json.createObjectNode().put("proposalId","plan-2"));
         service.submit(1,third.path("taskId").asLong(),submission(third,accept,UUID.randomUUID().toString()));
         int meetings=0;
-        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")) {
+        while (service.ownerActivity(1,id).path("status").asText().equals("PLANNING")
+                && !service.ownerActivity(1,id).path("phase").asText().equals("PARTNER_REVIEW")) {
             JsonNode persisted=json.readTree(store.activity(id).getStateJson()).path("v6AnnualWindow");
             assertTrue(persisted.path("month").asInt()>=2 && persisted.path("month").asInt()<=12);
             long leader=persisted.path("firstAgentId").asLong();
@@ -441,10 +448,52 @@ class PlaygroundPersistenceTest {
         assertEquals(meetings,jdbc.queryForObject("SELECT COUNT(*) FROM playground_events "
                 +"WHERE activity_id=? AND JSON_UNQUOTE(JSON_EXTRACT(event_json,'$.kind'))='V6_ANNUAL_RESOLUTION'",
                 Integer.class,id));
+        assertEquals("PARTNER_REVIEW",service.ownerActivity(1,id).path("phase").asText());
         PlaygroundShareService shares=context.getBean(PlaygroundShareService.class);
+        businessError("GAME_NOT_FINISHED",()->shares.ownerResultLink(1,id));
+        if (leaveDuringReview) {
+            service.leave(1,id);
+            assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
+            JsonNode published=shares.ownerResultLink(1,id).path("result");
+            assertEquals("UNAVAILABLE",published.path("partnerReviews").get(0).path("status").asText());
+            assertEquals("UNAVAILABLE",published.path("partnerReviews").get(1).path("status").asText());
+            return;
+        }
+        for (long actor:List.of(1L,2L)) {
+            ObjectNode reviewTask=ready(actor);
+            assertEquals("PARTNER_REVIEW",reviewTask.path("phase").asText());
+            if (actor==2) assertFalse(reviewTask.path("visibleState").path("events").toString()
+                    .contains("My partner helped us make a specific operating choice together."));
+            JsonNode evidence=reviewTask.path("visibleState").path("partnerReview").path("partnerEvidence");
+            assertTrue(evidence.size()>0);
+            ObjectNode review=json.createObjectNode().put("actionType","REVIEW_PARTNER")
+                    .put("publicRationale","My partner helped us make a specific operating choice together.");
+            review.set("payload",json.createObjectNode()
+                    .put("partnerStrength","They responded to private:cats in a monthly proposal.")
+                    .put("friction","We disagreed about production risk.")
+                    .put("futureCollaboration","YES")
+                    .put("evidenceEventId",evidence.get(evidence.size()-1).path("eventId").asText()));
+            ObjectNode forged=review.deepCopy();
+            ((ObjectNode)forged.path("payload")).put("evidenceEventId","999:999");
+            businessError("REVIEW_EVIDENCE_REQUIRED",()->service.submit(actor,
+                    reviewTask.path("taskId").asLong(),
+                    submission(reviewTask,forged,UUID.randomUUID().toString())));
+            service.submit(actor,reviewTask.path("taskId").asLong(),
+                    submission(reviewTask,review,UUID.randomUUID().toString()));
+        }
+        assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
         ObjectNode link=shares.ownerResultLink(1,id);
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM playground_events WHERE activity_id=? "
+                +"AND JSON_UNQUOTE(JSON_EXTRACT(event_json,'$.kind'))='PARTNER_REVIEW' "
+                +"AND JSON_EXTRACT(event_json,'$.virtualMonth')=?",Integer.class,id,operated));
         JsonNode publicResult=link.path("result");
+        String sharePath=link.path("sharePath").asText();
+        String token=sharePath.substring(sharePath.indexOf("/shares/")+8,sharePath.indexOf("/landing"));
+        assertEquals(5,shares.publicResult(token).path("shareSchemaVersion").asInt());
+        assertEquals(2,shares.publicResult(token).path("partnerReviews").size());
         assertEquals(5,publicResult.path("shareSchemaVersion").asInt());
+        assertEquals(2,publicResult.path("partnerReviews").size());
+        assertEquals("RECORDED",publicResult.path("partnerReviews").get(0).path("status").asText());
         assertEquals(finalGame.path("operatedMonths").asInt(),
                 publicResult.path("business").path("months").size());
         assertEquals("COUNTER_ACCEPTED",publicResult.path("business").path("months").get(1)
