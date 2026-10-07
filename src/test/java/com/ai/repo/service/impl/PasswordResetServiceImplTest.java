@@ -242,11 +242,10 @@ class PasswordResetServiceImplTest {
 
         String redisKey = "password_reset:" + VALID_TOKEN;
 
-        when(valueOperations.get(redisKey)).thenReturn(USER_ID.toString());
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(USER_ID.toString());
         when(userMapper.selectById(USER_ID)).thenReturn(user);
         when(passwordEncoderUtil.encode(NEW_PASSWORD)).thenReturn(ENCODED_PASSWORD);
         when(userMapper.update(any())).thenReturn(1);
-        when(redisTemplate.delete(redisKey)).thenReturn(true);
         doNothing().when(userService).clearTokens(USER_ID);
 
         // When
@@ -255,7 +254,8 @@ class PasswordResetServiceImplTest {
         // Then
         verify(passwordEncoderUtil).encode(NEW_PASSWORD);
         verify(userMapper).update(argThat(u -> ENCODED_PASSWORD.equals(u.getPassword())));
-        verify(redisTemplate).delete(redisKey);
+        verify(valueOperations).getAndDelete(redisKey);
+        verify(redisTemplate, never()).delete(redisKey);
         verify(userService).clearTokens(USER_ID);
         verify(javaMailSender, atLeastOnce()).send(any(SimpleMailMessage.class));
     }
@@ -268,7 +268,7 @@ class PasswordResetServiceImplTest {
         request.setNewPassword(NEW_PASSWORD);
 
         String redisKey = "password_reset:" + INVALID_TOKEN;
-        when(valueOperations.get(redisKey)).thenReturn(null);
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(null);
 
         // When / Then
         BusinessException ex = assertThrows(BusinessException.class,
@@ -294,20 +294,67 @@ class PasswordResetServiceImplTest {
 
         String redisKey = "password_reset:" + VALID_TOKEN;
 
-        // First call: token exists
-        when(valueOperations.get(redisKey)).thenReturn(USER_ID.toString());
+        // First call claims the token; the second call cannot claim it again.
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(USER_ID.toString(), null);
         when(userMapper.selectById(USER_ID)).thenReturn(user);
         when(passwordEncoderUtil.encode(NEW_PASSWORD)).thenReturn(ENCODED_PASSWORD);
-        when(redisTemplate.delete(redisKey)).thenReturn(true);
 
         passwordResetService.confirmPasswordReset(request);
-
-        // Second call: token already deleted
-        when(valueOperations.get(redisKey)).thenReturn(null);
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> passwordResetService.confirmPasswordReset(request));
         assertEquals(400, ex.getCode());
+    }
+
+    @Test
+    void confirmPasswordReset_shouldConsumeTokenOnlyOnceUnderConcurrentRequests() throws Exception {
+        PasswordResetConfirmRequest request = new PasswordResetConfirmRequest();
+        request.setToken(VALID_TOKEN);
+        request.setNewPassword(NEW_PASSWORD);
+        String redisKey = "password_reset:" + VALID_TOKEN;
+
+        var bothRead = new java.util.concurrent.CountDownLatch(2);
+        lenient().when(valueOperations.get(redisKey)).thenAnswer(invocation -> {
+            bothRead.countDown();
+            if (!bothRead.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Both requests did not read the token");
+            }
+            return USER_ID.toString();
+        });
+        var token = new java.util.concurrent.atomic.AtomicReference<Object>(USER_ID.toString());
+        lenient().when(valueOperations.getAndDelete(redisKey))
+                .thenAnswer(invocation -> token.getAndSet(null));
+
+        User user = new User();
+        user.setId(USER_ID);
+        user.setEmail(VALID_EMAIL);
+        user.setUsername("testuser");
+        when(userMapper.selectById(USER_ID)).thenReturn(user);
+        when(passwordEncoderUtil.encode(NEW_PASSWORD)).thenReturn(ENCODED_PASSWORD);
+
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var calls = new java.util.ArrayList<java.util.concurrent.Future<Boolean>>();
+            for (int i = 0; i < 2; i++) {
+                calls.add(executor.submit(() -> {
+                    try {
+                        passwordResetService.confirmPasswordReset(request);
+                        return true;
+                    } catch (BusinessException error) {
+                        if (error.getCode() != 400) throw error;
+                        return false;
+                    }
+                }));
+            }
+            int successes = 0;
+            for (var call : calls) {
+                if (call.get(10, TimeUnit.SECONDS)) successes++;
+            }
+            assertEquals(1, successes, "A reset token must authorize only one password change");
+            verify(userMapper, times(1)).update(any(User.class));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -319,14 +366,14 @@ class PasswordResetServiceImplTest {
 
         String redisKey = "password_reset:" + VALID_TOKEN;
 
-        when(valueOperations.get(redisKey)).thenReturn(USER_ID.toString());
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(USER_ID.toString());
         when(userMapper.selectById(USER_ID)).thenReturn(null);
 
         // When / Then
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> passwordResetService.confirmPasswordReset(request));
         assertEquals(404, ex.getCode());
-        verify(redisTemplate, never()).delete(anyString());
+        verify(valueOperations).getAndDelete(redisKey);
         verify(userService, never()).clearTokens(any());
     }
 
@@ -339,7 +386,7 @@ class PasswordResetServiceImplTest {
 
         String redisKey = "password_reset:" + VALID_TOKEN;
         // Non-numeric user ID stored in Redis
-        when(valueOperations.get(redisKey)).thenReturn("not-a-number");
+        when(valueOperations.getAndDelete(redisKey)).thenReturn("not-a-number");
 
         // When / Then
         BusinessException ex = assertThrows(BusinessException.class,
