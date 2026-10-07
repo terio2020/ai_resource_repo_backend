@@ -332,12 +332,15 @@ class PlaygroundPersistenceTest {
         assertFalse(published.toString().contains("private:dogs"));
     }
     @Test void v6AnnualRoomRequiresSeparateGrantAndNegotiatesEverySurvivingMonth() throws Exception {
-        verifyAnnualRoom(false);
+        verifyAnnualRoom(false,false);
     }
     @Test void v6OwnerLeavingDuringReviewPreservesSettledGame() throws Exception {
-        verifyAnnualRoom(true);
+        verifyAnnualRoom(true,false);
     }
-    void verifyAnnualRoom(boolean leaveDuringReview) throws Exception {
+    @Test void v6RepeatedReviewModelFailureKeepsSettlementAndLetsPartnerFinish() throws Exception {
+        verifyAnnualRoom(false,true);
+    }
+    void verifyAnnualRoom(boolean leaveDuringReview,boolean failDuringReview) throws Exception {
         service=new PlaygroundService(store,context.getBean(AgentMapper.class),
                 context.getBean(UserMapper.class),json,true,true,false,true,clock);
         enable(1); enable(2);
@@ -459,7 +462,21 @@ class PlaygroundPersistenceTest {
             assertEquals("UNAVAILABLE",published.path("partnerReviews").get(1).path("status").asText());
             return;
         }
-        for (long actor:List.of(1L,2L)) {
+        if (failDuringReview) {
+            ObjectNode firstReview=ready(1);
+            assertEquals("PARTNER_REVIEW",firstReview.path("phase").asText());
+            AttemptFailure failure=new AttemptFailure(firstReview.path("leaseToken").asText(),
+                    firstReview.path("permissionVersion").asLong(),firstReview.path("attemptId").asText(),"MODEL_OUTPUT_INVALID");
+            assertEquals("RETRY_PENDING",service.reportAttemptFailure(1,firstReview.path("taskId").asLong(),failure)
+                    .path("status").asText());
+            ObjectNode retry=ready(1);
+            AttemptFailure exhausted=new AttemptFailure(retry.path("leaseToken").asText(),
+                    retry.path("permissionVersion").asLong(),retry.path("attemptId").asText(),"MODEL_OUTPUT_INVALID");
+            assertEquals("PLANNING",service.reportAttemptFailure(1,retry.path("taskId").asLong(),exhausted)
+                    .path("status").asText());
+            assertEquals("PARTNER_REVIEW",service.ownerActivity(1,id).path("phase").asText());
+        }
+        for (long actor:failDuringReview?List.of(2L):List.of(1L,2L)) {
             ObjectNode reviewTask=ready(actor);
             assertEquals("PARTNER_REVIEW",reviewTask.path("phase").asText());
             if (actor==2) assertFalse(reviewTask.path("visibleState").path("events").toString()
@@ -483,7 +500,7 @@ class PlaygroundPersistenceTest {
         }
         assertEquals("SETTLED",service.ownerActivity(1,id).path("status").asText());
         ObjectNode link=shares.ownerResultLink(1,id);
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM playground_events WHERE activity_id=? "
+        assertEquals(failDuringReview?1:2,jdbc.queryForObject("SELECT COUNT(*) FROM playground_events WHERE activity_id=? "
                 +"AND JSON_UNQUOTE(JSON_EXTRACT(event_json,'$.kind'))='PARTNER_REVIEW' "
                 +"AND JSON_EXTRACT(event_json,'$.virtualMonth')=?",Integer.class,id,operated));
         JsonNode publicResult=link.path("result");
@@ -493,7 +510,9 @@ class PlaygroundPersistenceTest {
         assertEquals(2,shares.publicResult(token).path("partnerReviews").size());
         assertEquals(5,publicResult.path("shareSchemaVersion").asInt());
         assertEquals(2,publicResult.path("partnerReviews").size());
-        assertEquals("RECORDED",publicResult.path("partnerReviews").get(0).path("status").asText());
+        assertEquals(failDuringReview?"UNAVAILABLE":"RECORDED",
+                publicResult.path("partnerReviews").get(0).path("status").asText());
+        assertEquals("RECORDED",publicResult.path("partnerReviews").get(1).path("status").asText());
         assertEquals(finalGame.path("operatedMonths").asInt(),
                 publicResult.path("business").path("months").size());
         assertEquals("COUNTER_ACCEPTED",publicResult.path("business").path("months").get(1)
