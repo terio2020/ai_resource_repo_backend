@@ -1346,6 +1346,13 @@ public class PlaygroundService {
                         .put("signal",state.getV5Signal().name());
                 monthly.set("priorReport",json.valueToTree(state.getGame().reports()
                         .get(state.getGame().reports().size()-1)));
+                List<MonthlyShopRules.MonthlyReport> reports=state.getGame().reports();
+                monthly.set("recentTrend",json.valueToTree(reports.stream()
+                        .skip(Math.max(0,reports.size()-3))
+                        .map(report -> Map.of("month",report.month(),"soldUnits",report.soldUnits(),
+                                "profitMinor",report.profitMinor(),"closingCashMinor",report.closingCashMinor(),
+                                "closingInventoryMinor",report.closingInventoryMinor()))
+                        .toList()));
                 monthly.set("carryover",json.valueToTree(Map.of(
                         "trust",state.getV6Story().trust(),"supply",state.getV6Story().supply(),
                         "rentSurchargeCoins",state.getV6Story().rentSurchargeCoins(),

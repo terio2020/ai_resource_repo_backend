@@ -377,6 +377,11 @@ class PlaygroundPersistenceTest {
             ObjectNode leaderTask=ready(leader);
             JsonNode window=leaderTask.path("visibleState").path("monthlyWindow");
             assertEquals(meetings+2,window.path("month").asInt());
+            JsonNode trend=window.path("recentTrend");
+            assertEquals(Math.min(3,meetings+1),trend.size());
+            assertEquals(meetings+1,trend.get(trend.size()-1).path("month").asInt());
+            assertEquals(window.path("priorReport").path("closingCashMinor").asLong(),
+                    trend.get(trend.size()-1).path("closingCashMinor").asLong());
             ObjectNode plan=json.createObjectNode().put("productionBand","STANDARD")
                     .put("marketingAction","NONE").put("serviceFocus","FULFILLMENT");
             if (window.path("conflictCode").isNull()) plan.putNull("incidentResponse");
