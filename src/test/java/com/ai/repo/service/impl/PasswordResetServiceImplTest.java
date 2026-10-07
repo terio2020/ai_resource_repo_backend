@@ -295,7 +295,7 @@ class PasswordResetServiceImplTest {
         String redisKey = "password_reset:" + VALID_TOKEN;
 
         // First call claims the token; the second call cannot claim it again.
-        when(valueOperations.getAndDelete(redisKey)).thenReturn(USER_ID.toString(), null);
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(USER_ID.toString(), (Object) null);
         when(userMapper.selectById(USER_ID)).thenReturn(user);
         when(passwordEncoderUtil.encode(NEW_PASSWORD)).thenReturn(ENCODED_PASSWORD);
 
