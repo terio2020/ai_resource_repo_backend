@@ -68,7 +68,8 @@ class PlaygroundPersistenceTest {
         @Bean PlaygroundMatchingService matchingService(PlaygroundMapper mapper,AgentMapper agents,PlaygroundService games) { return new PlaygroundMatchingService(mapper,agents,games,json,clock); }
         @Bean PlaygroundService playgroundService(PlaygroundMapper mapper,AgentMapper agents,UserMapper users) {
             return new PlaygroundService(mapper,agents,users,json,true,true,
-                    Boolean.parseBoolean(System.getenv("PLAYGROUND_FRANCHISE_TEST")),clock);
+                    Boolean.parseBoolean(System.getenv("PLAYGROUND_FRANCHISE_TEST")),
+                    Boolean.parseBoolean(System.getenv("PLAYGROUND_MODEL_TEST_ANNUAL")),clock);
         }
         @Bean PlaygroundShareService playgroundShareService(PlaygroundMapper mapper,PlaygroundService games) {
             return new PlaygroundShareService(mapper,games,json,true,clock);
@@ -76,11 +77,12 @@ class PlaygroundPersistenceTest {
     }
     static class MutableClock extends Clock {
         private Instant instant=Instant.parse("2026-09-27T00:00:00Z");
-        void reset() { instant=Instant.parse("2026-09-27T00:00:00Z"); }
+        private boolean live;
+        void reset() { instant=Instant.parse("2026-09-27T00:00:00Z"); live=false; }
         void advance(long seconds) { instant=instant.plusSeconds(seconds); }
         @Override public ZoneId getZone() { return ZoneOffset.UTC; }
         @Override public Clock withZone(ZoneId zone) { return this; }
-        @Override public Instant instant() { return instant; }
+        @Override public Instant instant() { return live?Instant.now():instant; }
     }
     @BeforeAll static void schema() throws Exception {
         settings=json.readTree(Files.readString(Path.of(System.getenv("PLAYGROUND_TEST_CONFIG"))));
@@ -1333,6 +1335,8 @@ class PlaygroundPersistenceTest {
         boolean browserFixture="true".equals(System.getenv("PLAYGROUND_BROWSER_FIXTURE_TEST"));
         boolean v5Model="5".equals(System.getenv("PLAYGROUND_MODEL_TEST_CONTRACT_VERSION"));
         boolean v5FullModel=v5Model&&"FULL".equals(System.getenv("PLAYGROUND_MODEL_TEST_MODE"));
+        boolean annualModel=v5FullModel&&"true".equals(System.getenv("PLAYGROUND_MODEL_TEST_ANNUAL"));
+        clock.live=annualModel; // Real model calls must not outlive a frozen 90-second lease.
         org.springframework.test.util.ReflectionTestUtils.setField(jwt,"accessTokenExpiration",v5FullModel?1200000L:browserObserve||browserFixture||v5Model?600000L:60000L); jwt.validateSecret();
         httpJwt=jwt;
         List<String> browserPasswords=browserFixture
@@ -1490,7 +1494,11 @@ class PlaygroundPersistenceTest {
                 if (recoveryMode) assertTrue(Set.of("PLANNING","SETTLED","INTERRUPTED").contains(owner.path("status").asText()));
                 else if (safetyMode) assertTrue(Set.of("SETTLED","INTERRUPTED").contains(owner.path("status").asText()));
                 else assertEquals("SETTLED",owner.path("status").asText());
-                if (owner.path("status").asText().equals("SETTLED")) assertEquals(v5FullModel?12:2,owner.path("summary").path("operatedMonths").asInt());
+                if (owner.path("status").asText().equals("SETTLED")) {
+                    int months=owner.path("summary").path("operatedMonths").asInt();
+                    if (annualModel) assertTrue(months>=1 && months<=12);
+                    else assertEquals(v5FullModel?12:2,months);
+                }
                 if (safetyMode && !closingScenario && owner.path("status").asText().equals("INTERRUPTED")) {
                     assertFalse(owner.has("summary"));
                     long failures=service.ownerEvents(1,id,0).stream().filter(e->e.path("kind").asText().equals("AGENT_FAILURE")).count();
@@ -1609,7 +1617,8 @@ class PlaygroundPersistenceTest {
     }
     int maxModelCalls() {
         return switch (System.getenv().getOrDefault("PLAYGROUND_MODEL_TEST_CONTRACT_VERSION","2")) {
-            case "5" -> "FULL".equals(System.getenv("PLAYGROUND_MODEL_TEST_MODE")) ? 18 : 9;
+            case "5" -> "true".equals(System.getenv("PLAYGROUND_MODEL_TEST_ANNUAL")) ? 100
+                    : "FULL".equals(System.getenv("PLAYGROUND_MODEL_TEST_MODE")) ? 18 : 9;
             case "4" -> 8;
             default -> 4;
         };
