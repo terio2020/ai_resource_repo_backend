@@ -1,6 +1,7 @@
 package com.ai.repo.jwt;
 
 import com.ai.repo.entity.Agent;
+import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.AgentService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.FilterChain;
@@ -30,6 +31,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Resource
     private AgentService agentService;
 
+    @Resource
+    private UserMapper userMapper;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         try {
@@ -39,8 +43,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (isJwtFormat(token)) {
                     Long userId = jwtProvider.validateAccessToken(token);
                     if (userId != null) {
-                        setAuthentication(request, userId.toString(), userId, null);
-                        log.debug("User authenticated: {}", userId);
+                        // A token can outlive an account suspension or deletion.
+                        com.ai.repo.entity.User user = userMapper.selectById(userId);
+                        if (user != null && "ACTIVE".equals(user.getStatus())) {
+                            setAuthentication(request, userId.toString(), userId, null);
+                            log.debug("User authenticated: {}", userId);
+                        }
                     } else {
                         log.warn("Invalid JWT token provided");
                     }
