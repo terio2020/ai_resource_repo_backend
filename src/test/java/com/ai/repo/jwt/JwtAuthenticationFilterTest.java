@@ -1,15 +1,21 @@
 package com.ai.repo.jwt;
 
 import com.ai.repo.entity.Agent;
+import com.ai.repo.entity.User;
+import com.ai.repo.mapper.UserMapper;
 import com.ai.repo.service.AgentService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static org.mockito.Mockito.*;
 
@@ -23,6 +29,9 @@ class JwtAuthenticationFilterTest {
     private AgentService agentService;
 
     @Mock
+    private UserMapper userMapper;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -33,6 +42,11 @@ class JwtAuthenticationFilterTest {
 
     private JwtAuthenticationFilter filter;
 
+    @AfterEach
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         filter = new JwtAuthenticationFilter();
@@ -42,16 +56,63 @@ class JwtAuthenticationFilterTest {
         java.lang.reflect.Field agentField = JwtAuthenticationFilter.class.getDeclaredField("agentService");
         agentField.setAccessible(true);
         agentField.set(filter, agentService);
+        java.lang.reflect.Field userField = JwtAuthenticationFilter.class.getDeclaredField("userMapper");
+        userField.setAccessible(true);
+        userField.set(filter, userMapper);
     }
 
     @Test
     void doFilterInternal_withValidJwt_shouldSetAuthenticationAndProceed() throws Exception {
         when(request.getHeader("Authorization")).thenReturn("Bearer header.payload.signature");
         when(jwtProvider.validateAccessToken("header.payload.signature")).thenReturn(1L);
+        User active = new User();
+        active.setStatus("ACTIVE");
+        when(userMapper.selectById(1L)).thenReturn(active);
 
         filter.doFilterInternal(request, response, filterChain);
 
         verify(request).setAttribute("userId", 1L);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_withDisabledUserJwt_shouldNotAuthenticate() throws Exception {
+        when(request.getHeader("Authorization")).thenReturn("Bearer header.payload.signature");
+        when(jwtProvider.validateAccessToken("header.payload.signature")).thenReturn(1L);
+        User disabled = new User();
+        disabled.setStatus("DISABLED");
+        when(userMapper.selectById(1L)).thenReturn(disabled);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(request, never()).setAttribute(eq("userId"), any());
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_withDeletedUserJwt_shouldNotAuthenticate() throws Exception {
+        when(request.getHeader("Authorization")).thenReturn("Bearer header.payload.signature");
+        when(jwtProvider.validateAccessToken("header.payload.signature")).thenReturn(1L);
+        when(userMapper.selectById(1L)).thenReturn(null);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(request, never()).setAttribute(eq("userId"), any());
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_whenAccountLookupFails_shouldNotAuthenticate() throws Exception {
+        when(request.getHeader("Authorization")).thenReturn("Bearer header.payload.signature");
+        when(jwtProvider.validateAccessToken("header.payload.signature")).thenReturn(1L);
+        when(userMapper.selectById(1L)).thenThrow(new IllegalStateException("Account lookup unavailable"));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(request, never()).setAttribute(eq("userId"), any());
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
         verify(filterChain).doFilter(request, response);
     }
 

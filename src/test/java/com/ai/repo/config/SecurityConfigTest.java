@@ -3,6 +3,8 @@ package com.ai.repo.config;
 import com.ai.repo.jwt.JwtAuthenticationFilter;
 import com.ai.repo.jwt.JwtProvider;
 import com.ai.repo.service.AgentService;
+import com.ai.repo.entity.User;
+import com.ai.repo.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -16,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.when;
 
 @WebMvcTest(controllers = SecurityConfigTest.ProbeController.class)
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
@@ -31,6 +34,24 @@ class SecurityConfigTest {
     private JwtProvider jwtProvider;
     @MockBean
     private AgentService agentService;
+    @MockBean
+    private UserMapper userMapper;
+
+    @Test
+    void existingJwtStopsAuthenticatingImmediatelyAfterAccountIsDisabled() throws Exception {
+        when(jwtProvider.validateAccessToken("header.payload.signature")).thenReturn(1L);
+        User user = new User();
+        user.setStatus("ACTIVE");
+        when(userMapper.selectById(1L)).thenReturn(user);
+
+        mockMvc.perform(get("/security-probe").header("Authorization", "Bearer header.payload.signature"))
+                .andExpect(status().isOk());
+
+        user.setStatus("DISABLED");
+        mockMvc.perform(get("/security-probe").header("Authorization", "Bearer header.payload.signature"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
 
     @Test
     void unauthenticatedRequestDoesNotCreateSessionCookie() throws Exception {
