@@ -12,13 +12,13 @@ mock_code='
   ssh_cmd() {
     case "$2" in
       *"sudo mkdir"*) return 0 ;;
+      *"sudo install -m 600"*) return 0 ;;
       *"mysqldump"*) head -c 4096 /dev/urandom; return "$MOCK_DUMP_EXIT" ;;
       *"sudo tee"*)
         bytes=$(wc -c)
         [ "$bytes" -gt 1024 ]
         ;;
       *"test "*) return 0 ;;
-      *"ls -t "*) return 0 ;;
       *) printf "Unexpected mock command: %s\n" "$2" >&2; return 99 ;;
     esac
   }
@@ -38,6 +38,18 @@ fi
 success_output=$(MOCK_DUMP_EXIT=0 bash -c "$backup_code"$'\n'"$mock_code" 2>&1)
 if [[ "$success_output" != *"完成:"* ]]; then
   printf 'FAIL: a successful dump did not complete\n%s\n' "$success_output" >&2
+  exit 1
+fi
+
+grep -Fq 'sudo chmod 700 /opt/backups' "$repo_dir/deploy.sh"
+grep -Fq 'sudo install -m 600 /dev/null' "$repo_dir/deploy.sh"
+grep -Fq 'sudo stat -c%a' "$repo_dir/deploy.sh"
+grep -Fq 'sudo gzip -t' "$repo_dir/deploy.sh"
+
+# Releases must preserve both database and JAR rollback points. Retention is
+# a separate, explicitly approved operation, never part of the deploy path.
+if grep -Eq 'xargs.*rm|find.*-delete|Cleaning old backups' "$repo_dir/deploy.sh"; then
+  printf 'FAIL: deploy path must not remove old backups\n' >&2
   exit 1
 fi
 

@@ -3,6 +3,7 @@ package com.ai.repo.controller;
 import com.ai.repo.entity.Agent;
 import com.ai.repo.entity.FileUploadLog;
 import com.ai.repo.entity.Memory;
+import com.ai.repo.entity.ProfileMemoryItem;
 import com.ai.repo.dto.ProfileMemoryResponse;
 import com.ai.repo.exception.BusinessException;
 import com.ai.repo.exception.GlobalExceptionHandler;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -294,14 +296,61 @@ class MemoryControllerTest {
 
     @Test
     void getMyProfileMemories_shouldUseAuthenticatedUser() throws Exception {
-        when(profileMemoryService.findByUserId(1L))
+        when(profileMemoryService.findByUserIdVisibleToAgent(1L, 5L))
                 .thenReturn(new ProfileMemoryResponse(List.of(), List.of()));
 
         mockMvc.perform(get("/api/memories/profile/me").with(withAgentId(5L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.memories").isArray())
                 .andExpect(jsonPath("$.data.items").isArray());
+        verify(profileMemoryService).findByUserIdVisibleToAgent(1L, 5L);
+    }
+
+    @Test
+    void getMyProfileMemories_shouldReturnAllItemsToHumanOwner() throws Exception {
+        when(profileMemoryService.findByUserId(1L))
+                .thenReturn(new ProfileMemoryResponse(List.of(), List.of()));
+
+        mockMvc.perform(get("/api/memories/profile/me").with(withUserIdOnly(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items").isArray());
+
         verify(profileMemoryService).findByUserId(1L);
+    }
+
+    @Test
+    void governProfileItem_shouldAllowHumanOwner() throws Exception {
+        ProfileMemoryItem item = new ProfileMemoryItem();
+        item.setId(7L);
+        item.setStatus("CONFIRMED");
+        when(profileMemoryService.governItem(eq(1L), eq(7L), any())).thenReturn(item);
+
+        mockMvc.perform(patch("/api/memories/profile/items/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"CONFIRM\"}")
+                        .with(withUserIdOnly(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+    }
+
+    @Test
+    void governProfileItem_shouldRejectAgentCaller() throws Exception {
+        mockMvc.perform(patch("/api/memories/profile/items/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"CONFIRM\"}")
+                        .with(withAgentId(5L)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void replaceProfileGrants_shouldRequireOwnedAgent() throws Exception {
+        when(agentService.findById(5L)).thenReturn(createAgent(5L, 2L));
+
+        mockMvc.perform(put("/api/memories/profile/grants/5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"namespaces\":[\"communication\"]}")
+                        .with(withUserIdOnly(1L)))
+                .andExpect(status().isNotFound());
     }
 
     // ==================== PUT /api/memories/{id} ====================
@@ -368,7 +417,7 @@ class MemoryControllerTest {
     }
 
     @Test
-    void getMemoryById_shouldShareProfileMemoryWithUsersOtherAgent() throws Exception {
+    void getMemoryById_shouldRequireStructuredProfileEndpointForSiblingAgent() throws Exception {
         Memory memory = createMemory(1L, 99L, false);
         memory.setMemoryType("USER_PROFILE");
         memory.setSharingScope("USER_AGENTS");
@@ -376,8 +425,7 @@ class MemoryControllerTest {
         when(memoryService.findById(1L)).thenReturn(memory);
 
         mockMvc.perform(get("/api/memories/1").with(withAgentId(5L)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.memoryType").value("USER_PROFILE"));
+                .andExpect(status().isNotFound());
     }
 
     @Test

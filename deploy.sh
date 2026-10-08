@@ -62,6 +62,10 @@ if [ "$PREFLIGHT_ONLY" = true ]; then
   [ "$SKIP_BUILD" = false ] || { echo "Preflight requires a fresh build" >&2; exit 1; }
   [ "$NO_BACKUP" = false ] || { echo "Preflight cannot waive database backup" >&2; exit 1; }
 fi
+if [ "$NO_BACKUP" = true ] && [ -d "$(dirname "$0")/src/main/resources/db/migration-forward-only" ]; then
+  echo "Forward-only migrations require a verified database backup" >&2
+  exit 1
+fi
 
 # =============================================================================
 # --self-audit: 部署前自检 (设计 §3.9, v2-5/v3-8)
@@ -71,6 +75,7 @@ self_audit() {
   local fail=0
   local migration_dir="src/main/resources/db/migration"
   local undo_dir="src/main/resources/db/migration-undo"
+  local forward_dir="src/main/resources/db/migration-forward-only"
   local be_dir
   be_dir="$(cd "$(dirname "$0")" && pwd)"
   cd "$be_dir"
@@ -81,11 +86,15 @@ self_audit() {
   [ -n "$latest_v" ] && echo "V${latest_v} — PASS" || { echo "FAIL"; fail=1; }
   echo -n "  DB pre-flight ... "
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -e \"SELECT version FROM logicoma_net.flyway_schema_history ORDER BY installed_rank DESC LIMIT 1\"' 2>/dev/null" > /dev/null 2>&1 && echo "PASS" || echo "WARN"
-  echo -n "  UNDO 脚本完整性 ... "
+  echo -n "  UNDO / forward-only 策略 ... "
   local missing=0
   for vfile in "$migration_dir"/V*.sql; do
     local vname; vname=$(basename "$vfile" .sql)
-    [ ! -f "$undo_dir/${vname}-undo.sql" ] && { echo ""; echo "    MISSING: $undo_dir/${vname}-undo.sql"; missing=1; }
+    if [ ! -f "$undo_dir/${vname}-undo.sql" ] && [ ! -s "$forward_dir/${vname}.md" ]; then
+      echo ""
+      echo "    MISSING: undo script or documented forward-only marker for $vname"
+      missing=1
+    fi
   done
   [ "$missing" -eq 0 ] && echo "PASS" || { echo "FAIL"; fail=1; }
   echo -n "  Schema 预演 (mvn compile) ... "
@@ -103,16 +112,18 @@ backup_db() {
   local ts; ts=$(date +%Y%m%d_%H%M%S)
   local backup_file="/opt/backups/pre-${ts}.sql"
   echo "[deploy.sh --backup-db] 备份 DB → ${backup_file}"
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 755 /opt/backups" 2>/dev/null
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo mkdir -p /opt/backups && sudo chmod 700 /opt/backups" 2>/dev/null
+  # Create the destination with restrictive permissions before streaming any
+  # database bytes; tee otherwise inherits a potentially world-readable umask.
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo install -m 600 /dev/null '${backup_file}.gz'" 2>/dev/null
   # Use the container-local root credential so application-password rotation
   # cannot break the mandatory pre-deploy backup gate.
   ssh_cmd "${SSH_USER}@${SERVER_IP}" "docker exec mysql sh -c 'exec mysqldump -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --single-transaction logicoma_net' 2>/dev/null" | gzip | ssh_cmd "${SSH_USER}@${SERVER_IP}" "sudo tee ${backup_file}.gz >/dev/null" 2>/dev/null
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(stat -c%s '${backup_file}.gz') -gt 1024" || {
+  ssh_cmd "${SSH_USER}@${SERVER_IP}" "test \$(sudo stat -c%s '${backup_file}.gz') -gt 1024 && test \$(sudo stat -c%a '${backup_file}.gz') = 600 && sudo gzip -t '${backup_file}.gz'" || {
     echo "[deploy.sh --backup-db] FAIL: backup is empty or invalid"
     return 1
   }
   echo "[deploy.sh --backup-db] 完成: ${backup_file}.gz"
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" "ls -t /opt/backups/pre-*.sql.gz 2>/dev/null | tail -n +4 | xargs -r sudo rm" 2>/dev/null
 }
 
 # =============================================================================
@@ -304,14 +315,6 @@ ssh_cmd "${SSH_USER}@${SERVER_IP}" << EOF
   echo "Container started"
 EOF
 ok "Deployment completed"
-
-# --- Cleanup old backups ---
-if [ "$NO_BACKUP" = false ]; then
-  step "Cleaning old backups (keeping last 3)..."
-  ssh_cmd "${SSH_USER}@${SERVER_IP}" \
-    "cd ${REMOTE_DIR} && ls -1t ${APP_JAR}.bak.* 2>/dev/null | tail -n +4 | xargs -I{} rm -f {} 2>/dev/null; echo 'Cleanup done'"
-  ok "Old backups cleaned"
-fi
 
 # --- Verify ---
 step "Verifying deployment..."
