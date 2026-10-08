@@ -16,6 +16,8 @@ BACKUP_DB=false
 ROLLBACK=""
 REUSE_REMOTE_ENV=false
 PREFLIGHT_ONLY=false
+RUNTIME_DOCKER_ARGS=""
+RUNTIME_JAVA_ARGS=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -49,6 +51,9 @@ select_server() {
       REMOTE_DIR="/opt/logicomanet-be"
       CONTAINER_NAME="logicomanet-be"
       ENV_FILE=".env.aws"
+      # Leave room for MySQL, Redis, monitoring and the OS on the 2 GiB host.
+      RUNTIME_DOCKER_ARGS="--memory=768m --memory-swap=1g"
+      RUNTIME_JAVA_ARGS="-Xms64m -Xmx320m -XX:ReservedCodeCacheSize=64m"
       ;;
     *)
       echo "Unknown target: $TARGET"
@@ -304,6 +309,9 @@ ssh_cmd "${SSH_USER}@${SERVER_IP}" << EOF
   docker run -d \
     --name ${CONTAINER_NAME} \
     --restart=always \
+    ${RUNTIME_DOCKER_ARGS} \
+    --log-opt max-size=10m \
+    --log-opt max-file=3 \
     --network=host \
     --env-file ${REMOTE_DIR}/.env \
     -v ${REMOTE_DIR}:${REMOTE_DIR} \
@@ -311,7 +319,7 @@ ssh_cmd "${SSH_USER}@${SERVER_IP}" << EOF
     -e FILE_STORAGE_PATH=${REMOTE_DIR} \
     -w ${REMOTE_DIR} \
     eclipse-temurin:17-jdk-alpine \
-    java -jar app.jar --spring.profiles.active=prod
+    java ${RUNTIME_JAVA_ARGS} -jar app.jar --spring.profiles.active=prod
   echo "Container started"
 EOF
 ok "Deployment completed"
