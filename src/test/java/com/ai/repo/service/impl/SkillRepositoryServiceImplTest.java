@@ -271,6 +271,7 @@ class SkillRepositoryServiceImplTest {
     @Test
     void forkRepository_shouldThrow_whenAlreadyForked() {
         SkillRepository source = createSampleRepo(1L, 10L, "weather");
+        source.setIsPublic(true);
         when(skillRepositoryMapper.selectById(1L)).thenReturn(source);
         SkillRepository existing = createSampleRepo(2L, 20L, "weather_fork");
         when(skillRepositoryMapper.selectByAgentIdAndSkillName(20L, "weather_fork")).thenReturn(existing);
@@ -291,6 +292,7 @@ class SkillRepositoryServiceImplTest {
         java.nio.file.Files.createFile(sourceDir.resolve("skill.md"));
 
         SkillRepository source = createSampleRepo(1L, 10L, "weather");
+        source.setIsPublic(true);
         source.setRepoPath(sourceDir.toAbsolutePath().toString());
         when(skillRepositoryMapper.selectById(1L)).thenReturn(source);
         when(skillRepositoryMapper.selectByAgentIdAndSkillName(20L, "weather_fork")).thenReturn(null);
@@ -316,6 +318,16 @@ class SkillRepositoryServiceImplTest {
         java.nio.file.Files.walk(tempRoot)
                 .sorted((a, b) -> b.compareTo(a))
                 .forEach(p -> { try { java.nio.file.Files.deleteIfExists(p); } catch (Exception ignored) {} });
+    }
+
+    @Test
+    void forkRepository_shouldRejectPrivateSourceOwnedByAnotherAgentOfSameUser() {
+        SkillRepository source = createSampleRepo(1L, 10L, "weather");
+        when(skillRepositoryMapper.selectById(1L)).thenReturn(source);
+
+        assertThrows(RepositoryNotFoundException.class,
+                () -> service.forkRepository(20L, 1L, 1L));
+        verify(skillRepositoryMapper, never()).insert(any());
     }
 
     // ==================== setVisibility ====================

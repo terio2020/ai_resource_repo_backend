@@ -237,6 +237,12 @@ public class SkillRepositoryServiceImpl implements SkillRepositoryService {
         if (source == null) {
             throw new RepositoryNotFoundException(sourceRepoId);
         }
+        // Recheck the content boundary at the service layer in case visibility
+        // changed after the controller loaded the repository.
+        if (!currentAgentId.equals(source.getAgentId())
+                && (!Boolean.TRUE.equals(source.getIsPublic()) || "BANNED".equals(source.getStatus()))) {
+            throw new RepositoryNotFoundException(sourceRepoId);
+        }
 
         String forkedSkillName = source.getSkillName() + "_fork";
 
