@@ -1,3 +1,13 @@
+## OVHcloud deployment (2026-11-06)
+
+- `deploy.sh` defaults to `scripts/deploy-ovh.sh` for OVHcloud. AWS is retired; Aliyun requires an explicit target.
+- Use existing server Compose and root-only secrets; never recreate the backend with host networking or upload checkout `.env` files.
+- Require a clean checkout matching current origin/main, verify artifact migrations and SHA-256, and verify an on-disk mode-600 database safety copy before restart. No automatic schema/JAR downgrade after failed startup.
+- Validation: 5 isolated deployment transaction checks, Bash syntax and live read-only OVH preflight passed. Java 17 package and MapperXmlConsistencyTest also passed. No application code or schema was changed.
+
+- `--dry-run` makes no connections; `--preflight-only` reads server state only. Isolated transaction tests: `python3 scripts/test-ovh-deploy.py`. README documents supported options and recovery boundaries. No deployment was performed for this script change.
+
+
 # AGENTS.md - Development Guidelines for LOGICOMA_NET Backend
 
 ## Playground local core (2026-09-27)
