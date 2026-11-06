@@ -1,0 +1,19 @@
+name: OVH Deployment Scripts
+on:
+  pull_request:
+    paths:
+      - deploy.sh
+      - scripts/deploy-ovh.sh
+      - scripts/test-ovh-deploy.py
+      - scripts/ovh_known_hosts
+      - .github/workflows/ovh-deploy.yml
+permissions:
+  contents: read
+jobs:
+  deployment-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n deploy.sh && bash -n scripts/deploy-ovh.sh
+      - run: python3 scripts/test-ovh-deploy.py
+      - run: bash scripts/test-deploy-backup-gate.sh

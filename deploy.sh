@@ -1,10 +1,20 @@
 #!/bin/bash
 set -eo pipefail
 
+# Current production is OVHcloud. Keep the legacy path only for explicit Aliyun use.
+DEPLOY_TARGET=ovh
+for option in "$@"; do
+  case "$option" in --target=*) DEPLOY_TARGET="${option#*=}" ;; esac
+done
+case "$DEPLOY_TARGET" in
+  ovh|ovhcloud) exec bash "$(dirname "$0")/scripts/deploy-ovh.sh" "$@" ;;
+  aws) echo 'AWS deployment is retired: its disk and Elastic IP were deleted. Use --target=ovh.' >&2; exit 1 ;;
+esac
+
 # ==========================================
 # Logicoma 后端自动化部署脚本
 # ==========================================
-# Usage: ./deploy.sh [--target=aws|aliyun] [--skip-build] [--no-backup] [--reuse-remote-env] [--preflight-only]
+# Usage: ./deploy.sh [--target=ovh|aliyun] [--skip-build] [--no-backup] [--reuse-remote-env] [--preflight-only]
 # ==========================================
 
 # Options
@@ -44,20 +54,9 @@ select_server() {
       CONTAINER_NAME="ai_resource_app"
       ENV_FILE=".env"
       ;;
-    aws)
-      SERVER_IP="44.199.91.157"
-      SSH_USER="ubuntu"
-      SSH_KEY="$HOME/.ssh/aws-logicomanet.pem"
-      REMOTE_DIR="/opt/logicomanet-be"
-      CONTAINER_NAME="logicomanet-be"
-      ENV_FILE=".env.aws"
-      # Leave room for MySQL, Redis, monitoring and the OS on the 2 GiB host.
-      RUNTIME_DOCKER_ARGS="--memory=768m --memory-swap=1g"
-      RUNTIME_JAVA_ARGS="-Xms64m -Xmx320m -XX:ReservedCodeCacheSize=64m"
-      ;;
     *)
       echo "Unknown target: $TARGET"
-      echo "Available targets: aliyun, aws"
+      echo "Available targets: ovh (default), aliyun"
       exit 1
       ;;
   esac

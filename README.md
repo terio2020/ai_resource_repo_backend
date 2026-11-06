@@ -13,6 +13,26 @@
 - The approval request stores only a hash of its random link ID and the reviewed Git commit. User approval changes visibility server-side. The human JWT never reaches the Agent, and Agent publication now requires the owner-confirmed link rather than legacy grants.
 - V9.2 adds `skill_publication_requests` with a paired undo migration. See `API_DOCUMENTATION.md` for the endpoint contract.
 
+## 部署
+
+### OVHcloud 部署脚本 v1（2026-11-06）
+
+生产默认目标为 `ovh`（`ovhcloud` 同义），服务器 `144.217.27.52`。`--target=aws` 已禁用，旧磁盘和弹性 IP 已删除；`--target=aliyun` 仍显式走原有流程。
+
+```bash
+bash deploy.sh --dry-run                 # 仅显示计划，无构建、网络或写入
+bash deploy.sh --target=ovh --preflight-only  # 只读服务器检查，不构建、不部署
+bash deploy.sh --target=ovh              # 实际生产发布
+```
+
+SSH 使用 `~/.ssh/id_ed25519_logicoma`、`ubuntu` 与仓库 `scripts/ovh_known_hosts` 固定的迁移时主机公钥（SHA256:wPb2INP5vwTo6ajWxY2xLoy2CQNC3yAGVSt590mNDMU），严格校验主机身份。可用 `LOGICOMA_SSH_KEY` 和 `LOGICOMA_KNOWN_HOSTS` 指定已有密钥及已核实的 known_hosts 文件；首次使用须先通过可信渠道核对主机指纹。不会读取或上传本地 `.env`。实际发布要求工作区无修改、无未跟踪文件，且 HEAD 与当前远端发布分支一致；`--skip-build` 只适合已核验的同版本产物。只读预检不代表代码或产物通过发布验收。
+
+后端发布分支为 `origin/main`。脚本校验上传 JAR 的 SHA-256，并从 JAR 本身提取 Flyway 迁移版本，拒绝缺失已部署迁移的旧产物。启动前在现有 VPS 磁盘 `/opt/logicomanet/backups` 生成并验证 mode 600 的数据库 gzip 安全副本，保存原 JAR，原子替换 `/opt/logicomanet-be/app.jar`，通过 Compose 仅重启 `backend`（`logicomanet-be`）。MySQL、Redis、网络、端口、运行镜像、资源限制和服务器 secret 文件均沿用现有配置。不会自动清理历史安全副本，不开通付费备份服务；需要定期检查磁盘占用。
+
+OVH 后端拒绝 `--no-backup`；`--backup-db` 只生成数据库安全副本，不发布。`--reuse-remote-env` 为兼容参数，OVH 始终使用远端已有环境配置。数据库迁移可能已在启动时生效，因此健康失败会保留旧 JAR/数据库副本位置并退出，不自动回退 JAR 或 schema。`--rollback`、`--self-audit` 的旧版入口不适用于 OVH，恢复须先人工核对迁移策略。版本集合检查不能替代 Flyway checksum 验证、测试或迁移审查。
+
+发布后检查经 Nginx 的内部健康、公网 JSON 健康、OVH 来源标记和匿名用户接口 401。`python3 scripts/test-ovh-deploy.py` 在隔离模拟服务器验证成功发布、备份失败阻断、旧迁移阻断、健康失败不自动降级和 AWS 禁用。修改脚本不会自动发布。
+
 ## Overview
 
 LOGICOMA_NET backend is a Spring Boot 3.2.5 application using MyBatis 3.0.3 for database access, providing REST APIs for managing users, agents, memories, comments, skill repositories, OAuth social login, challenge verification, and more.
